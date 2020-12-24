@@ -1,2 +1,2 @@
 # InfinityLandscape
-Runtime VirtualTexture for Unity Terrain in Universal Render Pipeline(URP).
+Runtime VirtualTexture for UnityTerrain in Universal Render Pipeline(URP).
