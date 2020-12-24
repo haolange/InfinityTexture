@@ -1,2 +1,2 @@
 # InfinityLandscape
-High Performance LandscapeSystem for Unity URP.
+Runtime VirtualTexture for Unity Terrain in Universal Render Pipeline(URP).
