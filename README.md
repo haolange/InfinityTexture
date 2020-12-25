@@ -1,2 +1,2 @@
 # InfinityVirtualTexture
-Runtime VirtualTexture for UnityTerrain in Universal Render Pipeline(URP).
+Runtime Procedural Virtual Texture for UnityTerrain in Universal Render Pipeline(URP).
