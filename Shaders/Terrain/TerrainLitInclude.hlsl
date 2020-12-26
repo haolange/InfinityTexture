@@ -349,6 +349,7 @@ half4 TextureSampleVirtual(Varyings IN)
     SplatmapFinalColor(color, inputData.fogCoord);
 
     //return float4(uv, 0, 1);
+    //return half4(albedo, 1);
     return half4(color.rgb, 1);
 }
 #endif

@@ -1,6 +1,7 @@
 ﻿#ifndef PageCommon
 #define PageCommon
 
+#include "StochasticSampling.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 
 
@@ -57,7 +58,8 @@ PixelOutput frag(const Varyings In)
 #endif
     
     float2 transUv = In.uv * _SurfaceTileOffset.xy + _SurfaceTileOffset.zw;
-    float4 Diffuse1 = _AlbedoTexture1.Sample(Global_trilinear_repeat_sampler, transUv);
+
+    /*float4 Diffuse1 = _AlbedoTexture1.Sample(Global_trilinear_repeat_sampler, transUv);
     float4 Normal1 = _NormalTexture1.Sample(Global_trilinear_repeat_sampler, transUv);
 
     float4 Diffuse2 = _AlbedoTexture2.Sample(Global_trilinear_repeat_sampler, transUv);
@@ -67,7 +69,47 @@ PixelOutput frag(const Varyings In)
     float4 Normal3 = _NormalTexture3.Sample(Global_trilinear_repeat_sampler, transUv);
 
     float4 Diffuse4 = _AlbedoTexture4.Sample(Global_trilinear_repeat_sampler, transUv);
-    float4 Normal4 = _NormalTexture4.Sample(Global_trilinear_repeat_sampler, transUv);
+    float4 Normal4 = _NormalTexture4.Sample(Global_trilinear_repeat_sampler, transUv);*/
+
+    half3 cw5 = 0;
+    float2 uv15 = 0;
+    float2 uv25 = 0;
+    float2 uv35 = 0;
+    float2 dx5 = 0;
+    float2 dy5 = 0;
+
+    half3 cw8 = 0;
+    float2 uv18 = 0;
+    float2 uv28 = 0;
+    float2 uv38 = 0;
+    float2 dx8 = 0;
+    float2 dy8 = 0;
+
+    float StochasticScale = 0.5;
+
+    float4 Diffuse1 = StochasticSample2DWeightsR(_AlbedoTexture1, Global_trilinear_repeat_sampler, transUv, cw5, uv15, uv25, uv35, dx5, dy5, StochasticScale, 0.15);
+    float4 Normal1 = StochasticSample2DWeightsLum(_NormalTexture1, Global_trilinear_repeat_sampler, transUv, cw8, uv18, uv28, uv38, dx8, dy8, StochasticScale, 0.15);
+
+    float4 Diffuse2 = StochasticSample2DWeightsR(_AlbedoTexture2, Global_trilinear_repeat_sampler, transUv, cw5, uv15, uv25, uv35, dx5, dy5, StochasticScale, 0.15);
+    float4 Normal2 = StochasticSample2DWeightsLum(_NormalTexture2, Global_trilinear_repeat_sampler, transUv, cw8, uv18, uv28, uv38, dx8, dy8, StochasticScale, 0.15);
+
+    float4 Diffuse3 = StochasticSample2DWeightsR(_AlbedoTexture3, Global_trilinear_repeat_sampler, transUv, cw5, uv15, uv25, uv35, dx5, dy5, StochasticScale, 0.15);
+    float4 Normal3 = StochasticSample2DWeightsLum(_NormalTexture3, Global_trilinear_repeat_sampler, transUv, cw8, uv18, uv28, uv38, dx8, dy8, StochasticScale, 0.15);
+
+    float4 Diffuse4 = StochasticSample2DWeightsR(_AlbedoTexture4, Global_trilinear_repeat_sampler, transUv, cw5, uv15, uv25, uv35, dx5, dy5, StochasticScale, 0.15);
+    float4 Normal4 = StochasticSample2DWeightsLum(_NormalTexture4, Global_trilinear_repeat_sampler, transUv, cw8, uv18, uv28, uv38, dx8, dy8, StochasticScale, 0.15);
+
+    /*float4 Diffuse1 = StochasticSample2D(_AlbedoTexture1, Global_trilinear_repeat_sampler, transUv);
+    float4 Normal1 = StochasticSample2D(_NormalTexture1, Global_trilinear_repeat_sampler, transUv);
+
+    float4 Diffuse2 = StochasticSample2D(_AlbedoTexture2, Global_trilinear_repeat_sampler, transUv);
+    float4 Normal2 = StochasticSample2D(_NormalTexture2, Global_trilinear_repeat_sampler, transUv);
+
+    float4 Diffuse3 = StochasticSample2D(_AlbedoTexture3, Global_trilinear_repeat_sampler, transUv);
+    float4 Normal3 = StochasticSample2D(_NormalTexture3, Global_trilinear_repeat_sampler, transUv);
+
+    float4 Diffuse4 = StochasticSample2D(_AlbedoTexture4, Global_trilinear_repeat_sampler, transUv);
+    float4 Normal4 = StochasticSample2D(_NormalTexture4, Global_trilinear_repeat_sampler, transUv);*/
 
     PixelOutput Output;
     Output.ColorBuffer = blend.r * Diffuse1 + blend.g * Diffuse2 + blend.b * Diffuse3 + blend.a * Diffuse4;

@@ -6,7 +6,7 @@ namespace Landscape.ProceduralVirtualTexture
 {
     public class FeedbackRenderer
 	{
-        public float MipmapBias = 0.5f;
+        public float MipmapBias = 0.0f;
 
         public Camera FeedbackCamera { get; set; }
 
