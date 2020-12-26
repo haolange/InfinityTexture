@@ -41,6 +41,7 @@ namespace Landscape.ProceduralVirtualTexture
         void OnEnable()
         {
             //VirtualTextureProfile.Initialize();
+            Shader.SetGlobalVector("_VTVolumeInfo", new Vector4(transform.position.x, transform.position.y, transform.position.z, VolumeSize));
             VirtualTextureSystem = GetComponent<RuntimeVirtualTextureSystem>();
         }
 

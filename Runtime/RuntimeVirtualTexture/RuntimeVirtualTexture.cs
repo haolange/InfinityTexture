@@ -16,8 +16,8 @@ namespace Landscape.ProceduralVirtualTexture
         [Range(1, 4)]
         public int TileBorder = 4;
 
-        //[Range(128, 512)]
-        [HideInInspector]
+        //[HideInInspector]
+        [Range(256, 1024)]
         public int PageSize = 256;
 
         public int MaxMipLevel { get { return (int)Mathf.Log(PageSize, 2); } }
@@ -53,44 +53,41 @@ namespace Landscape.ProceduralVirtualTexture
 
         public void Initialize()
         {
-            if (PhyscisTextureA == null && PhyscisTextureB == null && PageTableTexture == null)
-            {
-                PagePool = new PagePool();
-                PagePool.Init(TileNum * TileNum);
+            PagePool = new PagePool();
+            PagePool.Init(TileNum * TileNum);
 
-                RenderTextureDescriptor TextureADesc = new RenderTextureDescriptor { width = TextureSize, height = TextureSize, volumeDepth = 1, dimension = TextureDimension.Tex2D, graphicsFormat = GraphicsFormat.R8G8B8A8_UNorm, depthBufferBits = 0, mipCount = -1, useMipMap = false, autoGenerateMips = false, bindMS = false, msaaSamples = 1 };
-                PhyscisTextureA = new RenderTexture(TextureADesc);
-                PhyscisTextureA.name = "PhyscisTextureA";
-                PhyscisTextureA.filterMode = FilterMode.Bilinear;
-                PhyscisTextureA.wrapMode = TextureWrapMode.Clamp;
+            RenderTextureDescriptor TextureADesc = new RenderTextureDescriptor { width = TextureSize, height = TextureSize, volumeDepth = 1, dimension = TextureDimension.Tex2D, graphicsFormat = GraphicsFormat.R8G8B8A8_UNorm, depthBufferBits = 0, mipCount = -1, useMipMap = false, autoGenerateMips = false, bindMS = false, msaaSamples = 1 };
+            PhyscisTextureA = new RenderTexture(TextureADesc);
+            PhyscisTextureA.name = "PhyscisTextureA";
+            PhyscisTextureA.filterMode = FilterMode.Bilinear;
+            PhyscisTextureA.wrapMode = TextureWrapMode.Clamp;
 
-                RenderTextureDescriptor TextureBDesc = new RenderTextureDescriptor { width = TextureSize, height = TextureSize, volumeDepth = 1, dimension = TextureDimension.Tex2D, graphicsFormat = GraphicsFormat.R8G8B8A8_UNorm, depthBufferBits = 0, mipCount = -1, useMipMap = false, autoGenerateMips = false, bindMS = false, msaaSamples = 1 };
-                PhyscisTextureB = new RenderTexture(TextureBDesc);
-                PhyscisTextureB.name = "PhyscisTextureB";
-                PhyscisTextureB.filterMode = FilterMode.Bilinear;
-                PhyscisTextureB.wrapMode = TextureWrapMode.Clamp;
+            RenderTextureDescriptor TextureBDesc = new RenderTextureDescriptor { width = TextureSize, height = TextureSize, volumeDepth = 1, dimension = TextureDimension.Tex2D, graphicsFormat = GraphicsFormat.R8G8B8A8_UNorm, depthBufferBits = 0, mipCount = -1, useMipMap = false, autoGenerateMips = false, bindMS = false, msaaSamples = 1 };
+            PhyscisTextureB = new RenderTexture(TextureBDesc);
+            PhyscisTextureB.name = "PhyscisTextureB";
+            PhyscisTextureB.filterMode = FilterMode.Bilinear;
+            PhyscisTextureB.wrapMode = TextureWrapMode.Clamp;
 
-                PageTableTexture = new RenderTexture(PageSize, PageSize, 0, GraphicsFormat.R8G8B8A8_UNorm);
-                PageTableTexture.name = "PageTableTexture";
-                PageTableTexture.filterMode = FilterMode.Point;
-                PageTableTexture.wrapMode = TextureWrapMode.Clamp;
+            PageTableTexture = new RenderTexture(PageSize, PageSize, 0, GraphicsFormat.R8G8B8A8_UNorm);
+            PageTableTexture.name = "PageTableTexture";
+            PageTableTexture.filterMode = FilterMode.Point;
+            PageTableTexture.wrapMode = TextureWrapMode.Clamp;
 
-                DepthBuffer = new RenderTargetIdentifier(PhyscisTextureA);
-                ColorBuffer = new RenderTargetIdentifier[2];
-                ColorBuffer[0] = new RenderTargetIdentifier(PhyscisTextureA);
-                ColorBuffer[1] = new RenderTargetIdentifier(PhyscisTextureB);
+            DepthBuffer = new RenderTargetIdentifier(PhyscisTextureA);
+            ColorBuffer = new RenderTargetIdentifier[2];
+            ColorBuffer[0] = new RenderTargetIdentifier(PhyscisTextureA);
+            ColorBuffer[1] = new RenderTargetIdentifier(PhyscisTextureB);
 
-                // 设置Shader参数
-                // x: padding偏移量
-                // y: tile有效区域的尺寸
-                // zw: 1/区域尺寸
-                Shader.SetGlobalTexture("_PhyscisAlbedo", PhyscisTextureA);
-                Shader.SetGlobalTexture("_PhyscisNormal", PhyscisTextureB);
-                Shader.SetGlobalVector("_VTPageTileParams", new Vector4((float)TileBorder, (float)TileSize, TextureSize, TextureSize));
+            // 设置Shader参数
+            // x: padding偏移量
+            // y: tile有效区域的尺寸
+            // zw: 1/区域尺寸
+            Shader.SetGlobalTexture("_PhyscisAlbedo", PhyscisTextureA);
+            Shader.SetGlobalTexture("_PhyscisNormal", PhyscisTextureB);
+            Shader.SetGlobalVector("_VTPageTileParams", new Vector4((float)TileBorder, (float)TileSize, TextureSize, TextureSize));
 
-                Shader.SetGlobalTexture("_PageTableTexture", PageTableTexture);
-                Shader.SetGlobalVector("_VTPageTableParams", new Vector4(PageSize, 1 / PageSize, MaxMipLevel, 0));
-            }
+            Shader.SetGlobalTexture("_PageTableTexture", PageTableTexture);
+            Shader.SetGlobalVector("_VTPageTableParams", new Vector4(PageSize, 1 / PageSize, MaxMipLevel, 0));
         }
 
         public void Reset()
@@ -101,12 +98,9 @@ namespace Landscape.ProceduralVirtualTexture
 
         public void Release()
         {
-            if (PhyscisTextureA != null && PhyscisTextureB != null)
-            {
-                PhyscisTextureA.Release();
-                PhyscisTextureB.Release();
-                PageTableTexture.Release();
-            }
+            PhyscisTextureA.Release();
+            PhyscisTextureB.Release();
+            PageTableTexture.Release();
         }
 
         public Vector2Int RequestTile()
