@@ -65,7 +65,7 @@ namespace Landscape.ProceduralVirtualTexture
                 ActivatePage(Feedback.r, Feedback.g, Feedback.b);
             }
             
-            UpdateLookup();
+            DrawPageTable();
         }
 
         private struct DrawPageInfo
@@ -75,7 +75,7 @@ namespace Landscape.ProceduralVirtualTexture
             public Vector2 drawPos;
         }
 
-        private void UpdateLookup()
+        private void DrawPageTable()
         {
             // 将页表数据写入页表贴图
             var currentFrame = (byte)Time.frameCount;
