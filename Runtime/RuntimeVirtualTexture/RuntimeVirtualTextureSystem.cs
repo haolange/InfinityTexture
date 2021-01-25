@@ -202,7 +202,7 @@ namespace Landscape.ProceduralVirtualTexture
 
         private bool CheckRunSystem()
         {
-            if (TerrainList.Length == 0 && PlayerCamera == null && FeedbackCamera == null && VirtualTextureProfile == null) { return true; }
+            if (PlayerCamera == null || FeedbackCamera == null || VirtualTextureProfile == null) { return true; }
 
             return false;
         }

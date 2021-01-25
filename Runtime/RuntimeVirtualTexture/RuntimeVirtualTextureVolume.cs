@@ -48,7 +48,11 @@ namespace Landscape.ProceduralVirtualTexture
         void Update()
         {
             transform.localScale = new Vector3(VolumeSize, transform.localScale.y, VolumeSize);
-            VirtualTextureSystem.VolumeSize = VolumeSize;
+
+            if(VirtualTextureSystem)
+            {
+                VirtualTextureSystem.VolumeSize = VolumeSize;
+            }
         }
 
 #if UNITY_EDITOR
