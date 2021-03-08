@@ -2,16 +2,16 @@
 {
     public class PagePool
     {
-        public class NodeInfo
+        public struct NodeInfo
         {
-            public int id = 0;
-            public NodeInfo Next { get; set; }
-            public NodeInfo Prev { get; set; }
+            public int id;
+            public int Next;
+            public int Prev;
         }
 
-        private NodeInfo [] allNodes;
-        private NodeInfo head = null;
-        private NodeInfo tail = null;
+        private NodeInfo head;
+        private NodeInfo tail;
+        private NodeInfo[] allNodes;
 
         public int First { get { return head.id; } }
 
@@ -27,8 +27,8 @@
             }
             for (int i = 0; i < count; i++)
             {
-                allNodes[i].Next = (i + 1 < count) ? allNodes[i + 1] : null;
-                allNodes[i].Prev = (i != 0) ? allNodes[i - 1] : null;
+                allNodes[i].Prev = (i != 0) ? allNodes[i - 1].id : 0;
+                allNodes[i].Next = (i + 1 < count) ? allNodes[i + 1].id : count - 1;
             }
             head = allNodes[0];
             tail = allNodes[count - 1];
@@ -39,35 +39,45 @@
             if (id < 0 || id >= allNodes.Length)
                 return false;
 
-            var node = allNodes[id];
-            if(node == tail)
+            ref NodeInfo node = ref allNodes[id];
+            if(node.id == tail.id)
             {
                 return true;
             }
 
-            Remove(node);
-            AddLast(node);
+            Remove(ref node);
+            AddLast(ref node);
             return true;
         }
 
-        private void AddLast(NodeInfo node)
+        private void AddLast(ref NodeInfo node)
         {
-            var lastTail = tail;
-            lastTail.Next = node;
+            ref NodeInfo lastTail = ref allNodes[tail.id];
             tail = node;
-            node.Prev = lastTail;
+
+            lastTail.Next = node.id;
+            //allNodes[lastTail.id].Next = node.id;
+            allNodes[lastTail.Next] = node;
+
+            node.Prev = lastTail.id;
+            //allNodes[node.id].Prev = lastTail.id;
+            allNodes[node.Prev] = lastTail;
         }
 
-        private void Remove(NodeInfo node)
+        private void Remove(ref NodeInfo node)
         {
-            if (head == node)
+            if (head.id == node.id)
             {
-                head = node.Next;
-            }
-            else
-            {
-                node.Prev.Next = node.Next;
-                node.Next.Prev = node.Prev;
+                head = allNodes[node.Next];
+            } else {
+                ref NodeInfo Prev = ref allNodes[node.Prev];
+                ref NodeInfo Next = ref allNodes[node.Next];
+
+                Prev.Next = node.Next;
+                Next.Prev = node.Prev;
+
+                allNodes[Prev.Next] = Next;
+                allNodes[Next.Prev] = Prev;
             }
         }
     }
