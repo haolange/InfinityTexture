@@ -17,8 +17,8 @@ namespace Landscape.ProceduralVirtualTexture
         public int TileBorder = 4;
 
         //[HideInInspector]
-        [Range(256, 1024)]
-        public int PageSize = 256;
+        [Range(128, 1024)]
+        public int PageSize = 1024;
 
         public int MaxMipLevel { get { return (int)Mathf.Log(PageSize, 2); } }
 

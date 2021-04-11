@@ -19,11 +19,11 @@ namespace Landscape.ProceduralVirtualTexture
             }
         }
 
-        private float PageSize
+        private float CellSize
         {
             get
             {
-                return 2 * VolumeRadius / 256;
+                return VolumeSize / VirtualTextureProfile.PageSize;
             }
         }
 
@@ -62,7 +62,7 @@ namespace Landscape.ProceduralVirtualTexture
             }
 
             Vector2Int fixedCenter = GetFixedCenter(GetFixedPos(transform.position));
-            VTVolumeParams = new Rect(fixedCenter.x - VolumeRadius, fixedCenter.y - VolumeRadius, 2 * VolumeRadius, 2 * VolumeRadius);
+            VTVolumeParams = new Rect(fixedCenter.x - VolumeRadius, fixedCenter.y - VolumeRadius, VolumeSize, VolumeSize);
             Shader.SetGlobalVector("_VTVolumeParams", new Vector4(VTVolumeParams.xMin, VTVolumeParams.yMin, VTVolumeParams.width, VTVolumeParams.height));
 
             BuildQuadMesh();
@@ -215,8 +215,8 @@ namespace Landscape.ProceduralVirtualTexture
 
         private Vector2Int GetFixedPos(Vector3 pos)
         {
-            return new Vector2Int((int)Mathf.Floor(pos.x / PageSize + 0.5f) * (int)PageSize,
-                                  (int)Mathf.Floor(pos.z / PageSize + 0.5f) * (int)PageSize);
+            return new Vector2Int((int)Mathf.Floor(pos.x / CellSize + 0.5f) * (int)CellSize,
+                                  (int)Mathf.Floor(pos.z / CellSize + 0.5f) * (int)CellSize);
         }
         
         private void BuildQuadMesh()

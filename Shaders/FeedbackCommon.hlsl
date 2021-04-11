@@ -52,6 +52,7 @@ feed_v2f VTVertFeedback(feed_attr v)
     
     o.pos = Attributes.positionCS;
     float2 posWS = Attributes.positionWS.xz;
+    //o.uv = (posWS + 512) * rcp(1024);
     o.uv = (posWS - _VTVolumeParams.xy) * rcp(_VTVolumeParams.zw);
     
     return o;
@@ -71,8 +72,11 @@ float4 VTFragFeedback(feed_v2f i) : SV_Target
 	float2 PageUV = floor(i.uv * _VTFeedbackParam.x);
     float ComputedLevel = MipLevel(i.uv * _VTFeedbackParam.y) + _VTFeedbackParam.w /*+ 1 * 0.5 - 0.25*/;
     //ComputedLevel = clamp(ComputedLevel, 0, 7);
+	return float4(PageUV / (255.0), floor(ComputedLevel) / 255.0, 1);
+    //return float4(i.uv, floor(ComputedLevel) / 255.0, 1);
 
-	return float4(PageUV / 255.0, floor(ComputedLevel) / 255.0, 1);
+	//float ComputedLevel = min(6, MipLevel(i.uv * 2176)) /* 0.5 - 0.25*/;
+	//return float4(i.uv, floor(ComputedLevel) / 255.0f, 1);
 }
 
 #endif

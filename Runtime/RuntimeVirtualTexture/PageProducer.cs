@@ -32,7 +32,7 @@ namespace Landscape.ProceduralVirtualTexture
             pageRenderer = InPageRenderer;
 
             PageTable = new PageTable[pageTexture.MaxMipLevel + 1];
-            for (int i = 0; i <= pageTexture.MaxMipLevel; i++)
+            for (int i = 0; i <= pageTexture.MaxMipLevel; ++i)
             {
                 PageTable[i] = new PageTable(i, pageTexture.PageSize);
             }
