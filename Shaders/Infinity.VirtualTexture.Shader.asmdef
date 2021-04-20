@@ -1,5 +1,6 @@
 {
-    "name": "HG.VirtualTexture.Shader",
+    "name": "Infinity.VirtualTexture.Shader",
+    "rootNamespace": "",
     "references": [
         "GUID:c5fe2eb9d5ef64b4f892cb2e1428b4cc",
         "GUID:46a67ded66a63de48b9329c593fc08de"
@@ -11,12 +12,6 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [
-        {
-            "name": "com.hg.virtual-texture",
-            "expression": "0.0.0",
-            "define": "HGVirtualTexture-Shaders"
-        }
-    ],
+    "versionDefines": [],
     "noEngineReferences": false
 }

@@ -8,5 +8,6 @@
   "dependencies": {
     "com.unity.burst": "1.4.1",
     "com.unity.mathematics": "1.2.1"
-  }
+  },
+  "type": "library"
 }

@@ -1,11 +1,13 @@
 {
-    "name": "HG.VirtualTexture.Runtime",
+    "name": "Infinity.VirtualTexture.Runtime",
+    "rootNamespace": "",
     "references": [
         "Unity.Jobs",
         "Unity.Burst",
         "Unity.Collections",
         "Unity.Mathematics",
-        "Unity.RenderPipelines.Core.Runtime"
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Universal.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -14,12 +16,6 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [
-        {
-            "name": "com.hg.virtual-texture",
-            "expression": "0.0.0",
-            "define": "HGVirtualTexture-Runtime"
-        }
-    ],
+    "versionDefines": [],
     "noEngineReferences": false
 }
