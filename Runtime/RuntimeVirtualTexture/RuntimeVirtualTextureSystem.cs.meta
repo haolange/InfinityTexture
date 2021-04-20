@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 8a6b7895b4876434aa05edc7c337e905
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - TerrainMaterial: {fileID: 2100000, guid: 3a2c150cfa00c9140826163693691a0f, type: 2}
+  - PlayerCamera: {instanceID: 0}
+  - FeedbackCamera: {instanceID: 0}
+  - VirtualTextureProfile: {instanceID: 0}
+  executionOrder: 100
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
