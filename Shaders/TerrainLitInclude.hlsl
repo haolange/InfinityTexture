@@ -318,9 +318,9 @@ void ComputeMasks(out half4 masks[4], half4 hasMask, Varyings IN)
 // Used in Standard Terrain shader
 half4 SplatmapFragment(Varyings IN) : SV_TARGET
 {
-#ifdef _RVT
+/*#ifdef _RVT
     return TextureSampleVirtual(IN);
-#endif
+#endif*/
     
 #ifdef _ALPHATEST_ON
     ClipHoles(IN.uvMainAndLM.xy);

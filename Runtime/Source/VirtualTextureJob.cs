@@ -2,6 +2,7 @@ using Unity.Jobs;
 using Unity.Burst;
 using UnityEngine;
 using Unity.Collections;
+using Unity.Mathematics;
 
 namespace Landscape.RuntimeVirtualTexture
 {
@@ -32,6 +33,37 @@ namespace Landscape.RuntimeVirtualTexture
                 Color32 readbackData = readbackDatas[i];
                 FVirtualTextureUtility.ActivatePage(readbackData.r, readbackData.g, readbackData.b, maxMip, Time.frameCount, pageSize, tileNum, lruCache, pageTables, pageRequests);
             }
+        }
+    }
+
+    [BurstCompile]
+    internal struct FPageDrawInfoSortJob : IJob
+    {
+        internal NativeList<FPageDrawInfo> drawInfos;
+
+        public void Execute()
+        {
+            drawInfos.Sort();
+        }
+    }
+
+    [BurstCompile]
+    internal struct FPageTableInfoBuildJob : IJobParallelFor
+    {
+        internal int pageSize;
+
+        [ReadOnly]
+        internal NativeList<FPageDrawInfo> drawInfos;
+
+        [WriteOnly]
+        internal NativeArray<FPageTableInfo> pageTableInfos;
+
+        public void Execute(int i)
+        {
+            FPageTableInfo pageInfo;
+            pageInfo.pageData = new float4(drawInfos[i].drawPos.x, drawInfos[i].drawPos.y, drawInfos[i].mip / 255f, 0);
+            pageInfo.matrix_M = float4x4.TRS(new float3(drawInfos[i].rect.x / pageSize, drawInfos[i].rect.y / pageSize, 0), quaternion.identity, drawInfos[i].rect.width / pageSize);
+            pageTableInfos[i] = pageInfo;
         }
     }
 }

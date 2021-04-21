@@ -17,6 +17,7 @@ namespace Landscape.RuntimeVirtualTexture
     internal enum EVirtualTexturePass
     {
         DrawFeedback,
+        DrawPageTable,
     }
 
     internal static class VirtualTextureShaderID
@@ -24,6 +25,7 @@ namespace Landscape.RuntimeVirtualTexture
         public static int FeedbackTexture = Shader.PropertyToID("_FeedbackTexture");
         public static int VTFeedbackParams = Shader.PropertyToID("_VTFeedbackParams");
         public static int VTFeedbackFactor = Shader.PropertyToID("_VTFeedbackFactor");
+        public static int PageTableBuffer = Shader.PropertyToID("_PageTableBuffer");
         public static int CameraColorTexture = Shader.PropertyToID("_CameraColorTexture");
     }
 
@@ -60,6 +62,8 @@ namespace Landscape.RuntimeVirtualTexture
 
         public override void Execute(ScriptableRenderContext renderContext, ref RenderingData renderingData)
         {
+            if(!Application.isPlaying) { return; }
+
             CommandBuffer cmdBuffer = CommandBufferPool.Get();
             Camera camera = renderingData.cameraData.camera;
 
