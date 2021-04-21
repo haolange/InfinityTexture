@@ -5,12 +5,12 @@ namespace Landscape.RuntimeVirtualTexture
 {
     internal class FVirtualTextureRenderer : IDisposable
     {
-        private int m_limit;
+        private int m_Limit;
         private NativeList<FPageRequestInfo> m_PageRequests;
 
         internal FVirtualTextureRenderer(in int limit = 8)
         {
-            this.m_limit = limit;
+            this.m_Limit = limit;
             this.m_PageRequests = new NativeList<FPageRequestInfo>(256, Allocator.Persistent);
         }
 
