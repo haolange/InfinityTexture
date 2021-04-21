@@ -148,28 +148,27 @@ namespace Landscape.ProceduralVirtualTexture
             var currentFrame = (byte)Time.frameCount;
             drawList.Clear();
 
-            foreach (var kv in ActivePages)
+            foreach (var pageCoord in ActivePages)
             {
-                PageTable pageTable = PageTable[kv.Value.z];
-                ref FPage page = ref pageTable.GetPage(kv.Value.x, kv.Value.y);
+                PageTable pageTable = PageTable[pageCoord.Value.z];
+                ref FPage page = ref pageTable.GetPage(pageCoord.Value.x, pageCoord.Value.y);
 
                 // 只写入当前帧活跃的页表
                 if (page.Payload.ActiveFrame != Time.frameCount)
                     continue;
 
-                var table = PageTable[page.MipLevel];
-                var lb = new Vector2Int(page.Rect.xMin, page.Rect.yMin);
-                while (lb.x < 0)
+                var rectXY = new Vector2Int(page.Rect.xMin, page.Rect.yMin);
+                while (rectXY.x < 0)
                 {
-                    lb.x += pageTexture.PageSize;
+                    rectXY.x += pageTexture.PageSize;
                 }
-                while (lb.y < 0)
+                while (rectXY.y < 0)
                 {
-                    lb.y += pageTexture.PageSize;
+                    rectXY.y += pageTexture.PageSize;
                 }
 
                 drawList.Add(new DrawPageInfo() {
-                    rect = new Rect(lb.x, lb.y, page.Rect.width, page.Rect.height),
+                    rect = new Rect(rectXY.x, rectXY.y, page.Rect.width, page.Rect.height),
                     mip = page.MipLevel,
                     drawPos = new Vector2((float)page.Payload.TileIndex.x / 255,
                     (float)page.Payload.TileIndex.y / 255),
@@ -177,6 +176,7 @@ namespace Landscape.ProceduralVirtualTexture
             }
 
             if (drawList.Length == 0) { return; }
+            Debug.Log(drawList.Length);
             drawList.Sort();
 
             NativeArray<Vector4> PageInfos = new NativeArray<Vector4>(drawList.Length, Allocator.TempJob);

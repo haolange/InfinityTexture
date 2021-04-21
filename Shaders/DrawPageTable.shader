@@ -23,7 +23,7 @@
 
 				UNITY_VERTEX_INPUT_INSTANCE_ID
 			};
-//
+
 			struct Varyings
 			{
 				float4 color           : TEXCOORD0;
