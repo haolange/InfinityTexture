@@ -28,69 +28,24 @@ namespace Landscape.ProceduralVirtualTexture
             m_PageRequests.Add(pageRequest);
         }
 
-        public void UpdatePage(RuntimeVirtualTextureSystem PageSystem, FPageProducer InPageProducer, RuntimeVirtualTexture InPageTexture)
+        public void DrawPageColor(RuntimeVirtualTextureSystem PageSystem, FPageProducer pageProducer, ref FLruCache lruCache, in int tileNum, in int tileSize)
         {
             if (m_PageRequests.Count <= 0) { return; }
 
-            // 优先处理mipmap等级高的请求
             m_PageRequests.Sort();
 
             int count = m_Limit;
             while (count > 0 && m_PageRequests.Count > 0)
             {
                 count--;
-                // 将第一个请求从等待队列移到运行队列
                 FPageRequestInfo PageRequestInfo = m_PageRequests[m_PageRequests.Count - 1];
                 m_PageRequests.RemoveAt(m_PageRequests.Count - 1);
 
-                // 开始渲染
-                RenderPage(PageSystem, InPageProducer, InPageTexture, PageRequestInfo);
-            }
-        }
-
-        private void RenderPage(RuntimeVirtualTextureSystem PageSystem, FPageProducer InPageProducer, RuntimeVirtualTexture InPageTexture, in FPageRequestInfo PageRequestInfo)
-        {
-            // 找到对应页表
-            int3 pageUV = new int3(PageRequestInfo.PageX, PageRequestInfo.PageY, PageRequestInfo.MipLevel);
-            PageTable pageTable = InPageProducer.PageTable[pageUV.z];
-            ref FPage page = ref pageTable.GetPage(pageUV.x, pageUV.y);
-
-            if (page.bNull == true || page.Payload.pageRequestInfo.NotEquals(PageRequestInfo)) { return; }
-            page.Payload.pageRequestInfo.bNull = true;
-
-            Vector2Int PageCoord = new Vector2Int(InPageTexture.PagePool.First % InPageTexture.TileNum, InPageTexture.PagePool.First / InPageTexture.TileNum);
-            if (InPageTexture.SetActive(PageCoord.y * InPageTexture.TileNum + PageCoord.x))
-            {
-                InPageProducer.InvalidatePage(PageCoord);
-                PageSystem.DrawMesh(new RectInt(PageCoord.x * InPageTexture.TileSizePadding, PageCoord.y * InPageTexture.TileSizePadding, InPageTexture.TileSizePadding, InPageTexture.TileSizePadding), PageRequestInfo);
-            }
-
-            page.Payload.TileIndex = PageCoord;
-            InPageProducer.ActivePages.Add(PageCoord, pageUV);
-            Debug.Log(InPageTexture.PagePool.First);
-        }
-
-        public void DrawPageColor(RuntimeVirtualTextureSystem PageSystem, FPageProducer pageProducer, in FLruCache lruCache, in int tileNum, in int tileSize)
-        {
-            if (m_PageRequests.Count <= 0) { return; }
-
-            // 优先处理mipmap等级高的请求
-            m_PageRequests.Sort();
-
-            int count = m_Limit;
-            while (count > 0 && m_PageRequests.Count > 0)
-            {
-                count--;
-                // 将第一个请求从等待队列移到运行队列
-                FPageRequestInfo PageRequestInfo = m_PageRequests[m_PageRequests.Count - 1];
-                m_PageRequests.RemoveAt(m_PageRequests.Count - 1);
-
-                // 开始渲染
                 int3 pageUV = new int3(PageRequestInfo.PageX, PageRequestInfo.PageY, PageRequestInfo.MipLevel);
                 PageTable pageTable = pageProducer.PageTable[pageUV.z];
                 ref FPage page = ref pageTable.GetPage(pageUV.x, pageUV.y);
 
-                if (page.bNull == true || page.Payload.pageRequestInfo.NotEquals(PageRequestInfo)) { return; }
+                if (page.bNull == true || page.Payload.pageRequestInfo.NotEquals(PageRequestInfo)) { continue; }
                 page.Payload.pageRequestInfo.bNull = true;
 
                 Vector2Int PageCoord = new Vector2Int(lruCache.First % tileNum, lruCache.First / tileNum);
@@ -102,7 +57,7 @@ namespace Landscape.ProceduralVirtualTexture
 
                 page.Payload.TileIndex = PageCoord;
                 pageProducer.ActivePages.Add(PageCoord, pageUV);
-                Debug.Log(lruCache.First);
+                //Debug.Log(lruCache.First);
             }
         }
     }

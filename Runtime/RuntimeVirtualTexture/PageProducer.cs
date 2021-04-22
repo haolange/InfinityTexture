@@ -7,6 +7,18 @@ using System.Collections.Generic;
 
 namespace Landscape.ProceduralVirtualTexture
 {
+    internal struct DrawPageInfo : IComparable<DrawPageInfo>
+    {
+        public int mip;
+        public Rect rect;
+        public Vector2 drawPos;
+
+        public int CompareTo(DrawPageInfo target)
+        {
+            return -(mip.CompareTo(target.mip));
+        }
+    }
+
     public unsafe class FPageProducer
 	{
         public PageTable[] PageTable;
@@ -126,23 +138,9 @@ namespace Landscape.ProceduralVirtualTexture
                 Color32 Feedback = FeedbackData[i];
                 ActivatePage(Feedback.r, Feedback.g, Feedback.b);
             }
-
-            DrawPageTable();
         }
 
-        private struct DrawPageInfo : IComparable<DrawPageInfo>
-        {
-            public int mip;
-            public Rect rect;
-            public Vector2 drawPos;
-
-            public int CompareTo(DrawPageInfo target)
-            {
-                return -(mip.CompareTo(target.mip));
-            }
-        }
-
-        private void DrawPageTable()
+        public void DrawPageTable()
         {
             // 将页表数据写入页表贴图
             var currentFrame = (byte)Time.frameCount;

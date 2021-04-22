@@ -25,6 +25,7 @@ namespace Landscape.ProceduralVirtualTexture
 			if(m_ReadbackRequest.done && !m_ReadbackRequest.hasError)
 			{
                 InPageProducer.ProcessFeedback(m_ReadbackRequest.GetData<Color32>());
+                InPageProducer.DrawPageTable();
             }
 		}
     }

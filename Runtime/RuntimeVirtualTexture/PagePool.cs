@@ -46,7 +46,7 @@ namespace Landscape.ProceduralVirtualTexture
             UnsafeUtility.Free((void*)m_NodeInfoList, Allocator.Persistent);
         }
 
-        public bool SetActive(int id)
+        public bool SetActive(in int id)
         {
             if (id < 0 || id >= m_Length)
                 return false;
