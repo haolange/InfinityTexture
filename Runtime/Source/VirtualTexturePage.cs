@@ -11,28 +11,28 @@ namespace Landscape.RuntimeVirtualTexture
 {
     internal struct FPage
     {
-        internal RectInt rect;
+        internal FRectInt rect;
         internal int mipLevel;
         internal bool isNull;
         internal FPagePayload payload;
 
         public FPage(int x, int y, int width, int height, int mipLevel, bool isNull = false)
         {
-            this.rect = new RectInt(x, y, width, height);
+            this.rect = new FRectInt(x, y, width, height);
             this.mipLevel = mipLevel;
             this.isNull = isNull;
             this.payload = new FPagePayload();
-            this.payload.tileIndex = new int2(-1, -1);
+            this.payload.pageCoord = new int2(-1, -1);
             this.payload.pageRequestInfo = new FPageRequestInfo(0, 0, 0, true);
         }
 
         public static void BuildPage(ref FPage page, int x, int y, int width, int height, int mipLevel, bool isNull = false)
         {
-            page.rect = new RectInt(x, y, width, height);
+            page.rect = new FRectInt(x, y, width, height);
             page.mipLevel = mipLevel;
             page.isNull = isNull;
             page.payload = new FPagePayload();
-            page.payload.tileIndex = new int2(-1, -1);
+            page.payload.pageCoord = new int2(-1, -1);
             page.payload.pageRequestInfo = new FPageRequestInfo(0, 0, 0, true);
         }
 
@@ -54,20 +54,20 @@ namespace Landscape.RuntimeVirtualTexture
 
     internal struct FPagePayload
     {
-        internal int2 tileIndex;
+        internal int2 pageCoord;
         internal int activeFrame;
         internal FPageRequestInfo pageRequestInfo;
         private static readonly int2 s_InvalidTileIndex = new int2(-1, -1);
-        internal bool isReady { get { return (!tileIndex.Equals(s_InvalidTileIndex)); } }
+        internal bool isReady { get { return (!pageCoord.Equals(s_InvalidTileIndex)); } }
 
         public void ResetTileIndex()
         {
-            tileIndex = s_InvalidTileIndex;
+            pageCoord = s_InvalidTileIndex;
         }
 
         public bool Equals(in FPagePayload target)
         {
-            return isReady.Equals(target.isReady) && activeFrame.Equals(target.activeFrame) && tileIndex.Equals(target.tileIndex) && pageRequestInfo.Equals(target.pageRequestInfo);
+            return isReady.Equals(target.isReady) && activeFrame.Equals(target.activeFrame) && pageCoord.Equals(target.pageCoord) && pageRequestInfo.Equals(target.pageRequestInfo);
         }
 
         public override bool Equals(object target)
@@ -77,7 +77,7 @@ namespace Landscape.RuntimeVirtualTexture
 
         public override int GetHashCode()
         {
-            return tileIndex.GetHashCode() + activeFrame.GetHashCode() + pageRequestInfo.GetHashCode() + (isReady ? 0 : 1);
+            return pageCoord.GetHashCode() + activeFrame.GetHashCode() + pageRequestInfo.GetHashCode() + (isReady ? 0 : 1);
         }
     }
 
@@ -177,6 +177,7 @@ namespace Landscape.RuntimeVirtualTexture
         internal int mipLevel;
         internal int cellSize;
         internal int cellCount;
+        [NativeDisableUnsafePtrRestriction]
         internal FPage* pageBuffer;
 
         internal FPageTable(in int mipLevel, in int tableSize)

@@ -1,12 +1,15 @@
 using UnityEngine;
 using Unity.Mathematics;
+using Unity.Collections;
 using UnityEngine.Rendering;
+using System.Runtime.InteropServices;
+using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine.Experimental.Rendering;
 
 namespace Landscape.RuntimeVirtualTexture
 {
     [CreateAssetMenu(menuName = "Landscape/VirtualTextureAsset", order = 256)]
-    public class VirtualTextureAsset : ScriptableObject
+    public unsafe class VirtualTextureAsset : ScriptableObject
     {
         [Header("Size")]
         [Range(8, 16)]
@@ -41,9 +44,7 @@ namespace Landscape.RuntimeVirtualTexture
         [HideInInspector]
         public RenderTexture pageTableTexture;
         [HideInInspector]
-        public RenderTargetIdentifier depthBuffer;
-        [HideInInspector]
-        public RenderTargetIdentifier[] colorBuffer;
+        public RenderTargetIdentifier[] colorBuffers;
 
         [HideInInspector]
         internal FLruCache lruCache;
@@ -132,10 +133,9 @@ namespace Landscape.RuntimeVirtualTexture
             pageTableTexture.filterMode = FilterMode.Point;
             pageTableTexture.wrapMode = TextureWrapMode.Clamp;
 
-            colorBuffer = new RenderTargetIdentifier[2];
-            depthBuffer = default;
-            colorBuffer[0] = new RenderTargetIdentifier(renderTextureA);
-            colorBuffer[1] = new RenderTargetIdentifier(renderTextureB);
+            colorBuffers = new RenderTargetIdentifier[2];
+            colorBuffers[0] = new RenderTargetIdentifier(renderTextureA);
+            colorBuffers[1] = new RenderTargetIdentifier(renderTextureB);
         }
 
         public void Release()

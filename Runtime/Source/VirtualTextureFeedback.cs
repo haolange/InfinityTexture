@@ -29,7 +29,6 @@ namespace Landscape.RuntimeVirtualTexture
             {
                 isReady = true;
                 readbackDatas = request.GetData<Color32>();
-                //Debug.Log(readbackDatas[0]);
             }
         }
     }

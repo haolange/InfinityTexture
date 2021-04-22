@@ -18,6 +18,9 @@ namespace Landscape.RuntimeVirtualTexture
     {
         DrawFeedback,
         DrawPageTable,
+        DrawPageColor,
+        CompressPage,
+        CopyPageToPhyscis
     }
 
     internal static class VirtualTextureShaderID
@@ -38,7 +41,7 @@ namespace Landscape.RuntimeVirtualTexture
         ProfilingSampler m_FeedbackSampler;
         RenderTexture m_FeedbackTexture;
         RenderTargetIdentifier m_FeedbackTextureID;
-        FVirtualTextureFeedback virtualTextureFeedback;
+        FVirtualTextureFeedback m_Feedbacker;
 
         public FeedbackRenderPass(in LayerMask layerMask, in EFeedbackScale feedbackScale)
         {
@@ -47,8 +50,7 @@ namespace Landscape.RuntimeVirtualTexture
             m_ShaderPassID = new ShaderTagId("VTFeedback");
             m_FilterSetting = new FilteringSettings(RenderQueueRange.opaque, m_LayerMask);
             m_FeedbackSampler = ProfilingSampler.Get(EVirtualTexturePass.DrawFeedback);
-
-            virtualTextureFeedback = new FVirtualTextureFeedback(true);
+            m_Feedbacker = new FVirtualTextureFeedback(true);
         }
 
         public override void OnCameraSetup(CommandBuffer cmdBuffer, ref RenderingData renderingData)
@@ -83,10 +85,22 @@ namespace Landscape.RuntimeVirtualTexture
             RenderTexture.ReleaseTemporary(m_FeedbackTexture);
         }
 
-        public void ProcessFeedback(ScriptableRenderContext renderContext, CommandBuffer cmdBuffer, Camera camera, in RenderingData renderingData)
+        public unsafe void ProcessFeedback(ScriptableRenderContext renderContext, CommandBuffer cmdBuffer, Camera camera, in RenderingData renderingData)
         {
-            if (virtualTextureFeedback.isReady)
+            FPageProducer pageProducer = VirtualTextureVolume.s_VirtualTextureVolume.pageProducer;
+            FPageRenderer pageRenderer = VirtualTextureVolume.s_VirtualTextureVolume.pageRenderer;
+            VirtualTextureAsset virtualTexture = VirtualTextureVolume.s_VirtualTextureVolume.virtualTexture;
+
+            if (m_Feedbacker.isReady)
             {
+                //draw pageTable
+                if (m_Feedbacker.readbackDatas.IsCreated)
+                {
+                    //Debug.Log(m_Feedbacker.readbackDatas[0]);
+                    pageProducer.ProcessFeedback(m_Feedbacker.readbackDatas, virtualTexture.MaxMipLevel, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, pageRenderer.pageRequests);
+                    pageRenderer.DrawPageTable(renderContext, cmdBuffer, virtualTexture.pageTableTexture, pageProducer);
+                }
+
                 //draw feedback
                 DrawingSettings drawSetting = new DrawingSettings(m_ShaderPassID, new SortingSettings(camera) { criteria = SortingCriteria.QuantizedFrontToBack })
                 {
@@ -97,8 +111,10 @@ namespace Landscape.RuntimeVirtualTexture
                 renderContext.DrawRenderers(renderingData.cullResults, ref drawSetting, ref m_FilterSetting);
 
                 //request readBack
-                virtualTextureFeedback.RequestReadback(cmdBuffer, m_FeedbackTexture);
+                m_Feedbacker.RequestReadback(cmdBuffer, m_FeedbackTexture);
             }
+
+            pageRenderer.DrawPageColor(renderContext, cmdBuffer, virtualTexture.colorBuffers, pageProducer, virtualTexture.lruCache, virtualTexture.tileNum, virtualTexture.tileSize);
         }
     }
 

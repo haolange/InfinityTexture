@@ -12,11 +12,8 @@ namespace Landscape.RuntimeVirtualTexture
         X4096 = 4096,
     }
 
-    [ExecuteAlways]
     public class VirtualTextureVolume : MonoBehaviour
     {
-        FPageProducer m_PageProducer;
-
         public VirtualTextureAsset virtualTexture;
         public EVirtualTextureVolumeSize volumeSize = EVirtualTextureVolumeSize.X1024;
 
@@ -31,19 +28,19 @@ namespace Landscape.RuntimeVirtualTexture
                 return (int)volumeSize;
             }
         }
+        
+        internal FPageProducer pageProducer;
+        internal FPageRenderer pageRenderer;
+        internal static VirtualTextureVolume s_VirtualTextureVolume;
+
 
         void OnEnable()
         {
-            if (Application.isPlaying)
-            {
-                BeginPlay();
-            }
-        }
-
-        void BeginPlay()
-        {
             virtualTexture?.Initialize();
-            m_PageProducer = new FPageProducer(virtualTexture.pageSize, virtualTexture.MaxMipLevel);
+            pageRenderer = new FPageRenderer(virtualTexture.pageSize);
+            pageProducer = new FPageProducer(virtualTexture.pageSize, virtualTexture.MaxMipLevel);
+
+            s_VirtualTextureVolume = this;
 
             Terrain[] terrainList = Object.FindObjectsOfType<Terrain>();
             foreach(Terrain terrain in terrainList)
@@ -57,18 +54,11 @@ namespace Landscape.RuntimeVirtualTexture
             transform.localScale = new Vector3(VolumeSize, transform.localScale.y, VolumeSize);
         }
 
-        void EndPlay()
-        {
-            m_PageProducer.Dispose();
-            virtualTexture?.Release();
-        }
-
         void OnDisable()
         {
-            if (Application.isPlaying)
-            {
-                EndPlay();
-            }
+            pageProducer.Dispose();
+            pageRenderer.Dispose();
+            virtualTexture?.Release();
         }
 
 #if UNITY_EDITOR

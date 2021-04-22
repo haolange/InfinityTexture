@@ -69,6 +69,7 @@ namespace Landscape.RuntimeVirtualTexture
         internal int m_Length;
         internal FNodeInfo m_HeadNodeInfo;
         internal FNodeInfo m_TailNodeInfo;
+        [NativeDisableUnsafePtrRestriction]
         internal FNodeInfo* m_NodeInfoList;
         public int First { get { return m_HeadNodeInfo.id; } }
 

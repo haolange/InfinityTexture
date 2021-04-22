@@ -18,7 +18,7 @@ namespace Landscape.RuntimeVirtualTexture
     internal struct FPageDrawInfo : IComparable<FPageDrawInfo>
     {
         public int mip;
-        public Rect rect;
+        public FRect rect;
         public float2 drawPos;
 
         public int CompareTo(FPageDrawInfo target)
@@ -27,56 +27,40 @@ namespace Landscape.RuntimeVirtualTexture
         }
     }
 
-    internal class FVirtualTextureRenderer : IDisposable
+    internal class FPageRenderer : IDisposable
     {
         private int m_Limit;
         private int m_PageSize;
-        private NativeList<FPageDrawInfo> m_DrawInfos;
-        private NativeList<FPageRequestInfo> m_PageRequests;
-
         private Mesh m_DrawPageMesh;
         private Material m_DrawPageMaterial;
-
         private ComputeBuffer m_PageTableBuffer;
-        private MaterialPropertyBlock m_PageTableProperty;
+        private MaterialPropertyBlock m_Property;
+        private NativeList<FPageDrawInfo> m_DrawInfos;
+        internal NativeList<FPageRequestInfo> pageRequests;
 
-        public FVirtualTextureRenderer(in int pageSize, in int limit = 8)
+        public FPageRenderer(in int pageSize, in int limit = 12)
         {
             this.m_Limit = limit;
             this.m_PageSize = pageSize;
+            this.m_Property = new MaterialPropertyBlock();
             this.m_DrawInfos = new NativeList<FPageDrawInfo>(256, Allocator.Persistent);
-            this.m_PageRequests = new NativeList<FPageRequestInfo>(256, Allocator.Persistent);
-            this.m_PageTableBuffer = new ComputeBuffer(pageSize, Marshal.SizeOf(typeof(FPageTableInfo)));
-            this.m_PageTableProperty = new MaterialPropertyBlock();
+            this.pageRequests = new NativeList<FPageRequestInfo>(256, Allocator.Persistent);
+            this.m_PageTableBuffer = new ComputeBuffer(pageSize / 2, Marshal.SizeOf(typeof(FPageTableInfo)));
         }
 
         public void DrawPageTable(ScriptableRenderContext renderContext, CommandBuffer cmdBuffer, RenderTexture pageTableTexture, FPageProducer pageProducer)
         {
+            m_Property.Clear();
             m_DrawInfos.Clear();
-            m_PageTableProperty.Clear();
 
-            foreach (var pageCoord in pageProducer.activePageMap)
-            {
-                FPageTable pageTable = pageProducer.pageTables[pageCoord.Value.z];
-                ref FPage page = ref pageTable.GetPage(pageCoord.Value.x, pageCoord.Value.y);
-                if (page.payload.activeFrame != Time.frameCount) { continue; }
-
-                var rectXY = new Vector2Int(page.rect.xMin, page.rect.yMin);
-                while (rectXY.x < 0)
-                {
-                    rectXY.x += m_PageSize;
-                }
-                while (rectXY.y < 0)
-                {
-                    rectXY.y += m_PageSize;
-                }
-
-                FPageDrawInfo drawInfo;
-                drawInfo.mip = page.mipLevel;
-                drawInfo.rect = new Rect(rectXY.x, rectXY.y, page.rect.width, page.rect.height);
-                drawInfo.drawPos = new float2((float)page.payload.tileIndex.x / 255, (float)page.payload.tileIndex.y / 255);
-                m_DrawInfos.Add(drawInfo);
-            }
+            //Build PageDrawInfo
+            FPageDrawInfoBuildJob pageDrawInfoBuildJob;
+            pageDrawInfoBuildJob.pageSize = m_PageSize;
+            pageDrawInfoBuildJob.frameTime = Time.frameCount;
+            pageDrawInfoBuildJob.drawInfos = m_DrawInfos;
+            pageDrawInfoBuildJob.pageTables = pageProducer.pageTables;
+            pageDrawInfoBuildJob.pageEnumerator = pageProducer.activePageMap.GetEnumerator();
+            pageDrawInfoBuildJob.Run();
 
             //Sort PageDrawInfo
             if (m_DrawInfos.Length == 0) { return; }
@@ -86,27 +70,65 @@ namespace Landscape.RuntimeVirtualTexture
 
             //Build PageTableInfo
             NativeArray<FPageTableInfo> pageTableInfos = new NativeArray<FPageTableInfo>(m_DrawInfos.Length, Allocator.TempJob);
+
             FPageTableInfoBuildJob pageTableInfoBuildJob;
             pageTableInfoBuildJob.pageSize = m_PageSize;
             pageTableInfoBuildJob.drawInfos = m_DrawInfos;
             pageTableInfoBuildJob.pageTableInfos = pageTableInfos;
             pageTableInfoBuildJob.Schedule(m_DrawInfos.Length, 32).Complete();
 
-            m_PageTableBuffer.SetData<FPageTableInfo>(pageTableInfos, 0, 0, pageTableInfos.Length);
-            m_PageTableProperty.SetBuffer(VirtualTextureShaderID.PageTableBuffer, m_PageTableBuffer);
+            //Set PageTableBuffer
+            /*m_PageTableBuffer.SetData<FPageTableInfo>(pageTableInfos, 0, 0, pageTableInfos.Length);
+            m_Property.SetBuffer(VirtualTextureShaderID.PageTableBuffer, m_PageTableBuffer);
 
+            //Draw PageTable
             cmdBuffer.SetRenderTarget(pageTableTexture);
-            cmdBuffer.DrawMeshInstancedProcedural(m_DrawPageMesh, 0, m_DrawPageMaterial, 0, pageTableInfos.Length, m_PageTableProperty);
+            cmdBuffer.DrawMeshInstancedProcedural(m_DrawPageMesh, 0, m_DrawPageMaterial, 0, pageTableInfos.Length, m_Property);
             renderContext.ExecuteCommandBuffer(cmdBuffer);
-            cmdBuffer.Clear();
+            cmdBuffer.Clear();*/
 
+            //Release
             pageTableInfos.Dispose();
+        }
+
+        public void DrawPageColor(ScriptableRenderContext renderContext, CommandBuffer cmdBuffer, RenderTargetIdentifier[] pageColorBuffers, FPageProducer pageProducer, in FLruCache lruCache, in int tileNum, in int tileSize)
+        {
+            if (pageRequests.Length <= 0) { return; }
+            FPageRequestInfoSortJob pageRequestInfoSortJob;
+            pageRequestInfoSortJob.pageRequests = pageRequests;
+            pageRequestInfoSortJob.Run();
+
+            int count = m_Limit;
+            while (count > 0 && pageRequests.Length > 0)
+            {
+                count--;
+                FPageRequestInfo pageRequestInfo = pageRequests[pageRequests.Length - 1];
+                pageRequests.RemoveAt(pageRequests.Length - 1);
+
+                int3 pageUV = new int3(pageRequestInfo.pageX, pageRequestInfo.pageY, pageRequestInfo.mipLevel);
+                FPageTable pageTable = pageProducer.pageTables[pageUV.z];
+                ref FPage page = ref pageTable.GetPage(pageUV.x, pageUV.y);
+
+                if (page.isNull == true || page.payload.pageRequestInfo.NotEquals(pageRequestInfo)) { return; }
+                page.payload.pageRequestInfo.isNull = true;
+
+                int2 pageCoord = new int2(lruCache.First % tileNum, lruCache.First / tileNum);
+                if (lruCache.SetActive(pageCoord.y * tileNum + pageCoord.x))
+                {
+                    pageProducer.InvalidatePage(pageCoord);
+                    //PageSystem.DrawMesh(new RectInt(pageCoord.x * tileSize, pageCoord.y * tileSize, tileSize, tileSize), pageRequestInfo);
+                }
+
+                page.payload.pageCoord = pageCoord;
+                pageProducer.activePageMap.Add(pageCoord, pageUV);
+                Debug.Log(lruCache.First);
+            }
         }
 
         public void Dispose()
         {
             m_DrawInfos.Dispose();
-            m_PageRequests.Dispose();
+            pageRequests.Dispose();
             m_PageTableBuffer.Dispose();
             Object.DestroyImmediate(m_DrawPageMesh);
             Object.DestroyImmediate(m_DrawPageMaterial);
