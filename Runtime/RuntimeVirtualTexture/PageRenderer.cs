@@ -7,7 +7,7 @@ namespace Landscape.ProceduralVirtualTexture
 	public class FPageRenderer 
 	{
         [SerializeField]
-		private int m_Limit = 5;
+		private int m_Limit = 12;
 
 		private List<FPageRequestInfo> m_PageRequests = new List<FPageRequestInfo>();
 
@@ -30,8 +30,7 @@ namespace Landscape.ProceduralVirtualTexture
 
         public void UpdatePage(RuntimeVirtualTextureSystem PageSystem, FPageProducer InPageProducer, RuntimeVirtualTexture InPageTexture)
         {
-            if (m_PageRequests.Count <= 0)
-                return;
+            if (m_PageRequests.Count <= 0) { return; }
 
             // 优先处理mipmap等级高的请求
             m_PageRequests.Sort();
@@ -52,24 +51,59 @@ namespace Landscape.ProceduralVirtualTexture
         private void RenderPage(RuntimeVirtualTextureSystem PageSystem, FPageProducer InPageProducer, RuntimeVirtualTexture InPageTexture, in FPageRequestInfo PageRequestInfo)
         {
             // 找到对应页表
-            int3 UVW = new int3(PageRequestInfo.PageX, PageRequestInfo.PageY, PageRequestInfo.MipLevel);
-            PageTable pageTable = InPageProducer.PageTable[UVW.z];
-            ref FPage page = ref pageTable.GetPage(UVW.x, UVW.y);
+            int3 pageUV = new int3(PageRequestInfo.PageX, PageRequestInfo.PageY, PageRequestInfo.MipLevel);
+            PageTable pageTable = InPageProducer.PageTable[pageUV.z];
+            ref FPage page = ref pageTable.GetPage(pageUV.x, pageUV.y);
 
-            if (page.bNull == true || page.Payload.pageRequestInfo.NotEquals(PageRequestInfo))
-                return;
-
+            if (page.bNull == true || page.Payload.pageRequestInfo.NotEquals(PageRequestInfo)) { return; }
             page.Payload.pageRequestInfo.bNull = true;
 
-            Vector2Int PageCoord = InPageTexture.RequestTile();
-            if (InPageTexture.SetActive(PageCoord))
+            Vector2Int PageCoord = new Vector2Int(InPageTexture.PagePool.First % InPageTexture.TileNum, InPageTexture.PagePool.First / InPageTexture.TileNum);
+            if (InPageTexture.SetActive(PageCoord.y * InPageTexture.TileNum + PageCoord.x))
             {
                 InPageProducer.InvalidatePage(PageCoord);
                 PageSystem.DrawMesh(new RectInt(PageCoord.x * InPageTexture.TileSizePadding, PageCoord.y * InPageTexture.TileSizePadding, InPageTexture.TileSizePadding, InPageTexture.TileSizePadding), PageRequestInfo);
             }
 
             page.Payload.TileIndex = PageCoord;
-            InPageProducer.ActivePages.Add(PageCoord, UVW);
+            InPageProducer.ActivePages.Add(PageCoord, pageUV);
+            Debug.Log(InPageTexture.PagePool.First);
+        }
+
+        public void DrawPageColor(RuntimeVirtualTextureSystem PageSystem, FPageProducer pageProducer, in FLruCache lruCache, in int tileNum, in int tileSize)
+        {
+            if (m_PageRequests.Count <= 0) { return; }
+
+            // 优先处理mipmap等级高的请求
+            m_PageRequests.Sort();
+
+            int count = m_Limit;
+            while (count > 0 && m_PageRequests.Count > 0)
+            {
+                count--;
+                // 将第一个请求从等待队列移到运行队列
+                FPageRequestInfo PageRequestInfo = m_PageRequests[m_PageRequests.Count - 1];
+                m_PageRequests.RemoveAt(m_PageRequests.Count - 1);
+
+                // 开始渲染
+                int3 pageUV = new int3(PageRequestInfo.PageX, PageRequestInfo.PageY, PageRequestInfo.MipLevel);
+                PageTable pageTable = pageProducer.PageTable[pageUV.z];
+                ref FPage page = ref pageTable.GetPage(pageUV.x, pageUV.y);
+
+                if (page.bNull == true || page.Payload.pageRequestInfo.NotEquals(PageRequestInfo)) { return; }
+                page.Payload.pageRequestInfo.bNull = true;
+
+                Vector2Int PageCoord = new Vector2Int(lruCache.First % tileNum, lruCache.First / tileNum);
+                if (lruCache.SetActive(PageCoord.y * tileNum + PageCoord.x))
+                {
+                    pageProducer.InvalidatePage(PageCoord);
+                    PageSystem.DrawMesh(new RectInt(PageCoord.x * tileSize, PageCoord.y * tileSize, tileSize, tileSize), PageRequestInfo);
+                }
+
+                page.Payload.TileIndex = PageCoord;
+                pageProducer.ActivePages.Add(PageCoord, pageUV);
+                Debug.Log(lruCache.First);
+            }
         }
     }
 }

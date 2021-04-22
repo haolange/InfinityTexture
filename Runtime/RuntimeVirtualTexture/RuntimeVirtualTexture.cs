@@ -43,7 +43,7 @@ namespace Landscape.ProceduralVirtualTexture
         public RenderTargetIdentifier DepthBuffer;
         public RenderTargetIdentifier[] ColorBuffer;
 
-        private FLruCache PagePool;
+        public FLruCache PagePool;
 
 
         public RuntimeVirtualTexture()
@@ -107,22 +107,12 @@ namespace Landscape.ProceduralVirtualTexture
 
         public Vector2Int RequestTile()
         {
-            return IdToPos(PagePool.First);
+            return new Vector2Int(PagePool.First % TileNum, PagePool.First / TileNum);
         }
 
-        public bool SetActive(in Vector2Int tile)
+        public bool SetActive(in int index)
         {
-            return PagePool.SetActive(PosToId(tile));
-        }
-
-        private Vector2Int IdToPos(in int id)
-        {
-            return new Vector2Int(id % TileNum, id / TileNum);
-        }
-
-        private int PosToId(in Vector2Int tile)
-        {
-            return (tile.y * TileNum + tile.x);
+            return PagePool.SetActive(index);
         }
     }
 }

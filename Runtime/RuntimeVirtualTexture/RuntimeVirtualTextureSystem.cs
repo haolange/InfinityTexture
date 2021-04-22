@@ -91,8 +91,9 @@ namespace Landscape.ProceduralVirtualTexture
             }
 
             pageRenderer.UpdatePage(this, pageProducer, VirtualTextureProfile);
+            //pageRenderer.DrawPageColor(this, pageProducer, VirtualTextureProfile.PagePool, VirtualTextureProfile.TileNum, VirtualTextureProfile.TileSizePadding);
         }
-        
+
         public void DrawMesh(RectInt DrawPageRect, FPageRequestInfo DrawRequestInfo)
         {
             int x = DrawRequestInfo.PageX;

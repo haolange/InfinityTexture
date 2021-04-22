@@ -110,7 +110,7 @@ namespace Landscape.ProceduralVirtualTexture
             {
                 // 激活对应的平铺贴图块
                 Page.Payload.ActiveFrame = Time.frameCount;
-                pageTexture.SetActive(Page.Payload.TileIndex);
+                pageTexture.SetActive(Page.Payload.TileIndex.y * pageTexture.TileNum + Page.Payload.TileIndex.x);
                 return;
             }
 
@@ -176,7 +176,6 @@ namespace Landscape.ProceduralVirtualTexture
             }
 
             if (drawList.Length == 0) { return; }
-            Debug.Log(drawList.Length);
             drawList.Sort();
 
             NativeArray<Vector4> PageInfos = new NativeArray<Vector4>(drawList.Length, Allocator.TempJob);
@@ -192,7 +191,6 @@ namespace Landscape.ProceduralVirtualTexture
             DrawPageTableBlock.Clear();
             DrawPageTableBlock.SetVectorArray("_PageInfo", PageInfos.ToArray());
             DrawPageTableBlock.SetMatrixArray("_Matrix_MVP", Materix_MVP.ToArray());
-
 
             CommandBuffer CmdBuffer = CommandBufferPool.Get("DrawPageTable");
             CmdBuffer.SetRenderTarget(pageTexture.PageTableTexture);

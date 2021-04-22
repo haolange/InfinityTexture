@@ -25,8 +25,6 @@ struct feed_attr
 {
     float4 vertex : POSITION;
     float2 texcoord : TEXCOORD0;
-    
-    
     UNITY_VERTEX_INPUT_INSTANCE_ID
 };
 
@@ -52,6 +50,7 @@ feed_v2f VTVertFeedback(feed_attr v)
     
     o.pos = Attributes.positionCS;
     float2 posWS = Attributes.positionWS.xz;
+    //o.uv = (posWS + 256) * rcp(256);
     o.uv = (posWS - _VTVolumeParams.xy) * rcp(_VTVolumeParams.zw);
     
     return o;
@@ -66,12 +65,20 @@ float MipLevel(float2 UV)
     return max(0, MipLevel);
 }
 
+float BoxMask(float2 A, float2 B, float2 Size)
+{
+    return 1 - saturate(ceil(length(max(0, abs(A - B) - (Size * 0.5)))));
+}
+
 float4 VTFragFeedback(feed_v2f i) : SV_Target
 {
-	float2 PageUV = floor(i.uv * _VTFeedbackParam.x);
-    float ComputedLevel = MipLevel(i.uv * _VTFeedbackParam.y) + _VTFeedbackParam.w /*+ 1 * 0.5 - 0.25*/;
-    ComputedLevel = clamp(ComputedLevel, 0, 7);
+    /*float ComputedLevel = MipLevel(i.uv * 4224) + 0;
+    ComputedLevel = clamp(ComputedLevel, 0, 8);
+    return float4(i.uv, floor(ComputedLevel) / 255, 1) * BoxMask(i.uv, 0.5, 1);*/
 
+	float2 PageUV = floor(i.uv * _VTFeedbackParam.x);
+    float ComputedLevel = MipLevel(i.uv * _VTFeedbackParam.y) + _VTFeedbackParam.w;
+    ComputedLevel = clamp(ComputedLevel, 0, 7);
 	return float4(PageUV / 255.0, floor(ComputedLevel) / 255, 1);
 }
 
