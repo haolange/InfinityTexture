@@ -45,7 +45,7 @@ namespace Landscape.RuntimeVirtualTexture
             this.m_Property = new MaterialPropertyBlock();
             this.m_DrawInfos = new NativeList<FPageDrawInfo>(256, Allocator.Persistent);
             this.pageRequests = new NativeList<FPageRequestInfo>(256, Allocator.Persistent);
-            this.m_PageTableBuffer = new ComputeBuffer(pageSize / 2, Marshal.SizeOf(typeof(FPageTableInfo)));
+            this.m_PageTableBuffer = new ComputeBuffer(pageSize / 2, Marshal.SizeOf(typeof(FPageTableInfo)), ComputeBufferType.Constant);
         }
 
         public void DrawPageTable(ScriptableRenderContext renderContext, CommandBuffer cmdBuffer, RenderTexture pageTableTexture, FPageProducer pageProducer)
@@ -75,14 +75,14 @@ namespace Landscape.RuntimeVirtualTexture
             pageTableInfoBuildJob.pageSize = m_PageSize;
             pageTableInfoBuildJob.drawInfos = m_DrawInfos;
             pageTableInfoBuildJob.pageTableInfos = pageTableInfos;
-            pageTableInfoBuildJob.Schedule(m_DrawInfos.Length, 32).Complete();
+            pageTableInfoBuildJob.Schedule(m_DrawInfos.Length, 16).Complete();
 
             //Set PageTableBuffer
-            /*m_PageTableBuffer.SetData<FPageTableInfo>(pageTableInfos, 0, 0, pageTableInfos.Length);
+            m_PageTableBuffer.SetData<FPageTableInfo>(pageTableInfos, 0, 0, pageTableInfos.Length);
             m_Property.SetBuffer(VirtualTextureShaderID.PageTableBuffer, m_PageTableBuffer);
 
             //Draw PageTable
-            cmdBuffer.SetRenderTarget(pageTableTexture);
+            /*cmdBuffer.SetRenderTarget(pageTableTexture);
             cmdBuffer.DrawMeshInstancedProcedural(m_DrawPageMesh, 0, m_DrawPageMaterial, 0, pageTableInfos.Length, m_Property);
             renderContext.ExecuteCommandBuffer(cmdBuffer);
             cmdBuffer.Clear();*/
@@ -91,7 +91,7 @@ namespace Landscape.RuntimeVirtualTexture
             pageTableInfos.Dispose();
         }
 
-        public void DrawPageColor(ScriptableRenderContext renderContext, CommandBuffer cmdBuffer, RenderTargetIdentifier[] pageColorBuffers, FPageProducer pageProducer, in FLruCache lruCache, in int tileNum, in int tileSize)
+        public void DrawPageColor(ScriptableRenderContext renderContext, CommandBuffer cmdBuffer, RenderTargetIdentifier[] pageColorBuffers, FPageProducer pageProducer, ref FLruCache lruCache, in int tileNum, in int tileSize)
         {
             if (pageRequests.Length <= 0) { return; }
             FPageRequestInfoSortJob pageRequestInfoSortJob;
@@ -121,7 +121,7 @@ namespace Landscape.RuntimeVirtualTexture
 
                 page.payload.pageCoord = pageCoord;
                 pageProducer.activePageMap.Add(pageCoord, pageUV);
-                Debug.Log(lruCache.First);
+                //Debug.Log(lruCache.First);
             }
         }
 

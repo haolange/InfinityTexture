@@ -437,7 +437,7 @@ namespace Landscape.RuntimeVirtualTexture
             AllocateRquestInfo(x, y, page.mipLevel, ref page.payload.pageRequestInfo, pageRequests);
         }
 
-        public static void ActivatePage(in int x, in int y, in int mip, in int maxMip, in int frameCount, in int pageSize, in int tileNum, in FLruCache lruCache, in NativeArray<FPageTable> pageTables, in NativeList<FPageRequestInfo> pageRequests)
+        public static void ActivatePage(in int x, in int y, in int mip, in int maxMip, in int frameCount, in int pageSize, in int tileNum, ref FLruCache lruCache, in NativeArray<FPageTable> pageTables, in NativeList<FPageRequestInfo> pageRequests)
         {
             if (mip > maxMip || mip < 0 || x < 0 || y < 0 || x >= pageSize || y >= pageSize) { return; }
 

@@ -97,7 +97,7 @@ namespace Landscape.RuntimeVirtualTexture
                 if (m_Feedbacker.readbackDatas.IsCreated)
                 {
                     //Debug.Log(m_Feedbacker.readbackDatas[0]);
-                    pageProducer.ProcessFeedback(m_Feedbacker.readbackDatas, virtualTexture.MaxMipLevel, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, pageRenderer.pageRequests);
+                    pageProducer.ProcessFeedback(m_Feedbacker.readbackDatas, virtualTexture.MaxMipLevel, virtualTexture.tileNum, virtualTexture.pageSize, ref virtualTexture.lruCache, pageRenderer.pageRequests);
                     pageRenderer.DrawPageTable(renderContext, cmdBuffer, virtualTexture.pageTableTexture, pageProducer);
                 }
 
@@ -114,7 +114,7 @@ namespace Landscape.RuntimeVirtualTexture
                 m_Feedbacker.RequestReadback(cmdBuffer, m_FeedbackTexture);
             }
 
-            pageRenderer.DrawPageColor(renderContext, cmdBuffer, virtualTexture.colorBuffers, pageProducer, virtualTexture.lruCache, virtualTexture.tileNum, virtualTexture.tileSize);
+            pageRenderer.DrawPageColor(renderContext, cmdBuffer, virtualTexture.colorBuffers, pageProducer, ref virtualTexture.lruCache, virtualTexture.tileNum, virtualTexture.tileSize);
         }
     }
 

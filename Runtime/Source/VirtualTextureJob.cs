@@ -34,12 +34,12 @@ namespace Landscape.RuntimeVirtualTexture
             for (int i = 0; i < readbackDatas.Length; ++i)
             {
                 Color32 readbackData = readbackDatas[i];
-                FVirtualTextureUtility.ActivatePage(readbackData.r, readbackData.g, readbackData.b, maxMip, frameCount, pageSize, tileNum, lruCache, pageTables, pageRequests);
+                FVirtualTextureUtility.ActivatePage(readbackData.r, readbackData.g, readbackData.b, maxMip, frameCount, pageSize, tileNum, ref lruCache, pageTables, pageRequests);
             }
         }
     }
 
-    //[BurstCompile]
+    [BurstCompile]
     internal struct FPageDrawInfoBuildJob : IJob
     {
         internal int pageSize;

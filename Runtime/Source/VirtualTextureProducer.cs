@@ -22,7 +22,7 @@ namespace Landscape.RuntimeVirtualTexture
             }
         }
 
-        public void ProcessFeedback(in NativeArray<Color32> readbackDatas, in int maxMip, in int tileNum, in int pageSize, in FLruCache lruCache, in NativeList<FPageRequestInfo> pageRequests)
+        public void ProcessFeedback(in NativeArray<Color32> readbackDatas, in int maxMip, in int tileNum, in int pageSize, ref FLruCache lruCache, in NativeList<FPageRequestInfo> pageRequests)
         {
             FProcessFeedbackJob processFeedbackJob;
             processFeedbackJob.maxMip = maxMip;

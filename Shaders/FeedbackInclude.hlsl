@@ -83,7 +83,7 @@ float BoxMask(float2 A, float2 B, float2 Size)
 
 float4 FeedbackFrag(Varyings input) : SV_Target
 {
-    float ComputedLevel = floor(MipLevel(input.uv0 * 4096) /* 0.5 - 0.25*/);
+    float ComputedLevel = floor(MipLevel(input.uv0 * 4096));
     ComputedLevel = clamp(ComputedLevel, 0, 8);
     ComputedLevel /= 255;
 
