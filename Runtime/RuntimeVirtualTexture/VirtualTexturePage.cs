@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Unity.Collections.LowLevel.Unsafe;
 
-namespace Landscape.ProceduralVirtualTexture
+namespace Landscape.RuntimeVirtualTexture
 {
     internal struct FPage
     {

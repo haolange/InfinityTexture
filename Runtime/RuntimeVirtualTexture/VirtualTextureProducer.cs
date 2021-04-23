@@ -1,21 +1,20 @@
 ﻿using System;
+using Unity.Jobs;
 using UnityEngine;
 using Unity.Mathematics;
 using Unity.Collections;
-using UnityEngine.Rendering;
-using System.Collections.Generic;
 
-namespace Landscape.ProceduralVirtualTexture
+namespace Landscape.RuntimeVirtualTexture
 {
-    internal unsafe class FPageProducer
-	{
+    internal unsafe class FPageProducer : IDisposable
+    {
         public NativeArray<FPageTable> pageTables;
-        public Dictionary<int2, int3> activePageMap = new Dictionary<int2, int3>();
+        public NativeHashMap<int2, int3> activePageMap;
 
         public FPageProducer(in int pageSize, in int maxMipLevel)
         {
             pageTables = new NativeArray<FPageTable>(maxMipLevel, Allocator.Persistent);
-            //activePageMap = new NativeHashMap<int2, int3>(256, Allocator.Persistent);
+            activePageMap = new NativeHashMap<int2, int3>(256, Allocator.Persistent);
 
             for (int i = 0; i < maxMipLevel; ++i)
             {
@@ -27,6 +26,17 @@ namespace Landscape.ProceduralVirtualTexture
 
         public void ProcessFeedback(in NativeArray<Color32> readbackDatas, in int maxMip, in int tileNum, in int pageSize, ref FLruCache lruCache, in NativeList<FPageRequestInfo> pageRequests)
         {
+            /*FProcessFeedbackJob processFeedbackJob;
+            processFeedbackJob.maxMip = maxMip - 1;
+            processFeedbackJob.tileNum = tileNum;
+            processFeedbackJob.pageSize = pageSize;
+            processFeedbackJob.lruCache = lruCache;
+            processFeedbackJob.pageTables = pageTables;
+            processFeedbackJob.pageRequests = pageRequests;
+            processFeedbackJob.frameCount = Time.frameCount;
+            processFeedbackJob.readbackDatas = readbackDatas;
+            processFeedbackJob.Run();*/
+
             for (int i = 0; i < readbackDatas.Length; ++i)
             {
                 Color32 readbackData = readbackDatas[i];
@@ -72,7 +82,7 @@ namespace Landscape.ProceduralVirtualTexture
                 pageTable.Dispose();
             }
             pageTables.Dispose();
-            //activePageMap.Dispose();
+            activePageMap.Dispose();
         }
     }
 }

@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Landscape.ProceduralVirtualTexture
+namespace Landscape.RuntimeVirtualTexture
 {
     internal class FeedbackReader
 	{

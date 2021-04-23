@@ -7,7 +7,7 @@ using UnityEngine.Rendering;
 using Object = UnityEngine.Object;
 using System.Runtime.InteropServices;
 
-namespace Landscape.ProceduralVirtualTexture
+namespace Landscape.RuntimeVirtualTexture
 {
     internal struct FPageTableInfo
     {
@@ -60,12 +60,20 @@ namespace Landscape.ProceduralVirtualTexture
             m_DrawInfos.Clear();
 
             //Build PageDrawInfo
-            foreach (var pageCoord in pageProducer.activePageMap)
-            {
-                FPageTable pageTable = pageProducer.pageTables[pageCoord.Value.z];
-                ref FPage page = ref pageTable.GetPage(pageCoord.Value.x, pageCoord.Value.y);
+            FPageDrawInfoBuildJob pageDrawInfoBuildJob;
+            pageDrawInfoBuildJob.pageSize = m_PageSize;
+            pageDrawInfoBuildJob.frameTime = Time.frameCount;
+            pageDrawInfoBuildJob.drawInfos = m_DrawInfos;
+            pageDrawInfoBuildJob.pageTables = pageProducer.pageTables;
+            pageDrawInfoBuildJob.pageEnumerator = pageProducer.activePageMap.GetEnumerator();
+            pageDrawInfoBuildJob.Run();
 
-                // 只写入当前帧活跃的页表
+            /*var pageEnumerator = pageProducer.activePageMap.GetEnumerator();
+            while (pageEnumerator.MoveNext())
+            {
+                var pageCoord = pageEnumerator.Current.Value;
+                FPageTable pageTable = pageProducer.pageTables[pageCoord.z];
+                ref FPage page = ref pageTable.GetPage(pageCoord.x, pageCoord.y);
                 if (page.payload.activeFrame != Time.frameCount) { continue; }
 
                 int2 rectXY = new int2(page.rect.xMin, page.rect.yMin);
@@ -83,11 +91,14 @@ namespace Landscape.ProceduralVirtualTexture
                 drawInfo.rect = new FRect(rectXY.x, rectXY.y, page.rect.width, page.rect.height);
                 drawInfo.drawPos = new float2((float)page.payload.pageCoord.x / 255, (float)page.payload.pageCoord.y / 255);
                 m_DrawInfos.Add(drawInfo);
-            }
+            }*/
 
             //Sort PageDrawInfo
             if (m_DrawInfos.Length == 0) { return; }
-            m_DrawInfos.Sort();
+            FPageDrawInfoSortJob pageDrawInfoSortJob;
+            pageDrawInfoSortJob.drawInfos = m_DrawInfos;
+            pageDrawInfoSortJob.Run();
+            //m_DrawInfos.Sort();
 
             //Build PageTableInfo
             NativeArray<Vector4> PageInfos = new NativeArray<Vector4>(m_DrawInfos.Length, Allocator.TempJob);
@@ -108,18 +119,20 @@ namespace Landscape.ProceduralVirtualTexture
             CommandBuffer CmdBuffer = CommandBufferPool.Get("DrawPageTable");
             CmdBuffer.SetRenderTarget(pageTableTexture);
             CmdBuffer.DrawMeshInstanced(m_DrawPageMesh, 0, m_DrawPageMaterial, 0, Materix_MVP.ToArray(), Materix_MVP.Length, m_Property);
+            Graphics.ExecuteCommandBuffer(CmdBuffer);
 
             //Release
             PageInfos.Dispose();
             Materix_MVP.Dispose();
-            Graphics.ExecuteCommandBuffer(CmdBuffer);
         }
 
         public void DrawPageColor(RuntimeVirtualTextureSystem PageSystem, FPageProducer pageProducer, ref FLruCache lruCache, in int tileNum, in int tileSize)
         {
             if (pageRequests.Length <= 0) { return; }
-
-            pageRequests.Sort();
+            FPageRequestInfoSortJob pageRequestInfoSortJob;
+            pageRequestInfoSortJob.pageRequests = pageRequests;
+            pageRequestInfoSortJob.Run();
+            //pageRequests.Sort();
 
             int count = m_Limit;
             while (count > 0 && pageRequests.Length > 0)

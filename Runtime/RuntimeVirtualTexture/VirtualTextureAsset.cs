@@ -3,7 +3,7 @@ using UnityEngine.Rendering;
 using UnityEngine.Experimental.Rendering;
 using Unity.Mathematics;
 
-namespace Landscape.ProceduralVirtualTexture
+namespace Landscape.RuntimeVirtualTexture
 {
     [CreateAssetMenu(menuName = "Landscape/VirtualTextureAsset")]
     public class VirtualTextureAsset : ScriptableObject

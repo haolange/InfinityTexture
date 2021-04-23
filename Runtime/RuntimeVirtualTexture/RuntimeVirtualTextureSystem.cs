@@ -3,7 +3,7 @@ using Unity.Mathematics;
 using UnityEngine.Rendering;
 using System.Collections.Generic;
 
-namespace Landscape.ProceduralVirtualTexture
+namespace Landscape.RuntimeVirtualTexture
 {
     [RequireComponent(typeof(RuntimeVirtualTextureVolume))]
     internal class RuntimeVirtualTextureSystem : MonoBehaviour

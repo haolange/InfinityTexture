@@ -1,8 +1,5 @@
-﻿namespace Landscape.ProceduralVirtualTexture
+﻿namespace Landscape.RuntimeVirtualTexture
 {
-	/// <summary>
-	/// 缩放因子
-	/// </summary>
 	public enum FeedbackScale
 	{
 		X1,

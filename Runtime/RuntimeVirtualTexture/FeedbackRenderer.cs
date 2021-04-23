@@ -2,7 +2,7 @@
 using Unity.Mathematics;
 using UnityEngine.Experimental.Rendering;
 
-namespace Landscape.ProceduralVirtualTexture
+namespace Landscape.RuntimeVirtualTexture
 {
     internal class FeedbackRenderer
 	{

@@ -5,7 +5,7 @@ using Unity.Mathematics;
 using System.Globalization;
 using System.Collections.Generic;
 
-namespace Landscape.ProceduralVirtualTexture
+namespace Landscape.RuntimeVirtualTexture
 {
     public struct FRect : IEquatable<FRect>, IFormattable
     {

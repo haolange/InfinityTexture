@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace Landscape.ProceduralVirtualTexture
+namespace Landscape.RuntimeVirtualTexture
 {
     public enum EVirtualTextureVolumeSize
     {
