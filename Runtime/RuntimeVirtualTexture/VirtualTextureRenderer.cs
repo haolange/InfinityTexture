@@ -4,7 +4,7 @@ using Unity.Mathematics;
 
 namespace Landscape.ProceduralVirtualTexture
 {
-	public class FPageRenderer 
+	internal class FPageRenderer 
 	{
         [SerializeField]
 		private int m_Limit = 12;
@@ -17,7 +17,7 @@ namespace Landscape.ProceduralVirtualTexture
             for (int i = 0; i < m_PageRequests.Count; ++i)
             {
                 pageRequest = m_PageRequests[i];
-                if (pageRequest.PageX == x && pageRequest.PageY == y && pageRequest.MipLevel == mip)
+                if (pageRequest.pageX == x && pageRequest.pageY == y && pageRequest.mipLevel == mip)
                 {
                     pageRequest = new FPageRequestInfo(x, y, mip, true);
                     return;
@@ -41,23 +41,23 @@ namespace Landscape.ProceduralVirtualTexture
                 FPageRequestInfo PageRequestInfo = m_PageRequests[m_PageRequests.Count - 1];
                 m_PageRequests.RemoveAt(m_PageRequests.Count - 1);
 
-                int3 pageUV = new int3(PageRequestInfo.PageX, PageRequestInfo.PageY, PageRequestInfo.MipLevel);
-                PageTable pageTable = pageProducer.PageTable[pageUV.z];
+                int3 pageUV = new int3(PageRequestInfo.pageX, PageRequestInfo.pageY, PageRequestInfo.mipLevel);
+                FPageTable pageTable = pageProducer.pageTables[pageUV.z];
                 ref FPage page = ref pageTable.GetPage(pageUV.x, pageUV.y);
 
-                if (page.bNull == true || page.Payload.pageRequestInfo.NotEquals(PageRequestInfo)) { continue; }
-                page.Payload.pageRequestInfo.bNull = true;
+                if (page.isNull == true || page.payload.pageRequestInfo.NotEquals(PageRequestInfo)) { continue; }
+                page.payload.pageRequestInfo.isNull = true;
 
-                Vector2Int PageCoord = new Vector2Int(lruCache.First % tileNum, lruCache.First / tileNum);
-                if (lruCache.SetActive(PageCoord.y * tileNum + PageCoord.x))
+                int2 pageCoord = new int2(lruCache.First % tileNum, lruCache.First / tileNum);
+                if (lruCache.SetActive(pageCoord.y * tileNum + pageCoord.x))
                 {
-                    pageProducer.InvalidatePage(PageCoord);
-                    PageSystem.DrawMesh(new RectInt(PageCoord.x * tileSize, PageCoord.y * tileSize, tileSize, tileSize), PageRequestInfo);
+                    pageProducer.InvalidatePage(pageCoord);
+                    PageSystem.DrawMesh(new RectInt(pageCoord.x * tileSize, pageCoord.y * tileSize, tileSize, tileSize), PageRequestInfo);
                 }
 
-                page.Payload.TileIndex = PageCoord;
-                pageProducer.ActivePages.Add(PageCoord, pageUV);
-                //Debug.Log(lruCache.First);
+                page.payload.pageCoord = pageCoord;
+                pageProducer.activePageMap.Add(pageCoord, pageUV);
+                Debug.Log(lruCache.First);
             }
         }
     }

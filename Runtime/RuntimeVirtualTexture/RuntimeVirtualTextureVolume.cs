@@ -18,7 +18,7 @@ namespace Landscape.ProceduralVirtualTexture
         public Bounds BoundBox;
 
         [HideInInspector]
-        public RuntimeVirtualTextureSystem VirtualTextureSystem;
+        internal RuntimeVirtualTextureSystem VirtualTextureSystem;
 
         public EVirtualTextureVolumeSize VolumeScale = EVirtualTextureVolumeSize.X1024;
 

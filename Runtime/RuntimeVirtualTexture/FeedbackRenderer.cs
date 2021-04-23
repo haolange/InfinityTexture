@@ -4,7 +4,7 @@ using UnityEngine.Experimental.Rendering;
 
 namespace Landscape.ProceduralVirtualTexture
 {
-    public class FeedbackRenderer
+    internal class FeedbackRenderer
 	{
         public float MipmapBias = 0.0f;
 
@@ -25,11 +25,8 @@ namespace Landscape.ProceduralVirtualTexture
 
             if (TargetTexture == null || TargetTexture.width != width || TargetTexture.height != height)
             {
-                TargetTexture = new RenderTexture(width, height, 0, GraphicsFormat.R8G8B8A8_UNorm);
+                TargetTexture = RenderTexture.GetTemporary(width, height, 1, GraphicsFormat.R8G8B8A8_UNorm, 1);
                 TargetTexture.name = "FeedbackTexture";
-                TargetTexture.useMipMap = false;
-                TargetTexture.wrapMode = TextureWrapMode.Clamp;
-                TargetTexture.filterMode = FilterMode.Point;
 
                 FeedbackCamera.targetTexture = TargetTexture;
 
@@ -45,7 +42,12 @@ namespace Landscape.ProceduralVirtualTexture
             CopyCamera(InMainCamera);
 		}
 
-		private void CopyCamera(Camera camera)
+        public void Release()
+        {
+            RenderTexture.ReleaseTemporary(TargetTexture);
+        }
+
+        private void CopyCamera(Camera camera)
 		{
 			if(camera == null)
 				return;

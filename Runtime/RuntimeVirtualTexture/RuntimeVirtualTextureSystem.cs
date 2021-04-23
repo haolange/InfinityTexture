@@ -6,7 +6,7 @@ using System.Collections.Generic;
 namespace Landscape.ProceduralVirtualTexture
 {
     [RequireComponent(typeof(RuntimeVirtualTextureVolume))]
-    public class RuntimeVirtualTextureSystem : MonoBehaviour
+    internal class RuntimeVirtualTextureSystem : MonoBehaviour
     {
         [HideInInspector]
         public float VolumeSize = 1024;
@@ -95,9 +95,9 @@ namespace Landscape.ProceduralVirtualTexture
 
         public void DrawMesh(RectInt DrawPageRect, FPageRequestInfo DrawRequestInfo)
         {
-            int x = DrawRequestInfo.PageX;
-            int y = DrawRequestInfo.PageY;
-            int perSize = (int)Mathf.Pow(2, DrawRequestInfo.MipLevel);
+            int x = DrawRequestInfo.pageX;
+            int y = DrawRequestInfo.pageY;
+            int perSize = (int)Mathf.Pow(2, DrawRequestInfo.mipLevel);
             x = x - x % perSize;
             y = y - y % perSize;
 
@@ -191,7 +191,7 @@ namespace Landscape.ProceduralVirtualTexture
         {
             if (CheckRunSystem()) { return; }
 
-            pageProducer.Release();
+            pageProducer.Dispose();
             VirtualTextureProfile.Release();
         }
 

@@ -50,8 +50,8 @@ feed_v2f VTVertFeedback(feed_attr v)
     
     o.pos = Attributes.positionCS;
     float2 posWS = Attributes.positionWS.xz;
-    //o.uv = (posWS + 256) * rcp(256);
-    o.uv = (posWS + 512) * rcp(1024);
+    o.uv = (posWS + 256) * rcp(256);
+    //o.uv = (posWS + 512) * rcp(1024);
     //o.uv = (posWS - _VTVolumeParams.xy) * rcp(_VTVolumeParams.zw);
     
     return o;

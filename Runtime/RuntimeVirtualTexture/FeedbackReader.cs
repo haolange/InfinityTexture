@@ -3,7 +3,7 @@ using UnityEngine.Rendering;
 
 namespace Landscape.ProceduralVirtualTexture
 {
-    public class FeedbackReader
+    internal class FeedbackReader
 	{
         public bool bReady
         {

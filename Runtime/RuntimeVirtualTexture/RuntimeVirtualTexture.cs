@@ -13,7 +13,7 @@ namespace Landscape.ProceduralVirtualTexture
         [Range(64, 1024)]
         public int TileSize = 256;
 
-        [Range(1, 4)]
+        [Range(0, 4)]
         public int TileBorder = 4;
 
         //[HideInInspector]
@@ -43,7 +43,7 @@ namespace Landscape.ProceduralVirtualTexture
         public RenderTargetIdentifier DepthBuffer;
         public RenderTargetIdentifier[] ColorBuffer;
 
-        public FLruCache PagePool;
+        internal FLruCache PagePool;
 
 
         public RuntimeVirtualTexture()
@@ -99,7 +99,7 @@ namespace Landscape.ProceduralVirtualTexture
 
         public void Release()
         {
-            PagePool.Release();
+            PagePool.Dispose();
             PhyscisTextureA.Release();
             PhyscisTextureB.Release();
             PageTableTexture.Release();

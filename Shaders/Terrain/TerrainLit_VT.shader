@@ -50,6 +50,22 @@ Shader "VirtualTexture/TerrainLit_VT"
 
         Pass
         {
+            Tags { "LightMode" = "Feedback" }
+
+            HLSLPROGRAM
+            #pragma target 4.5
+            #pragma multi_compile_instancing
+            #pragma shader_feature_local _TERRAIN_INSTANCED_PERPIXEL_NORMAL
+            #pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
+
+            #include "../FeedbackCommon.hlsl"	
+            #pragma vertex VTVertFeedback
+            #pragma fragment VTFragFeedback
+            ENDHLSL
+        }
+
+        Pass
+        {
             Name "ForwardLit"
             Tags { "LightMode" = "UniversalForward" }
 
@@ -94,21 +110,6 @@ Shader "VirtualTexture/TerrainLit_VT"
             #include "TerrainLitInclude.hlsl"
             ENDHLSL
         }
-
-		Pass
-		{
-			Tags { "LightMode" = "Feedback" }
-
-			HLSLPROGRAM
-			#pragma multi_compile_instancing
-			#pragma shader_feature_local _TERRAIN_INSTANCED_PERPIXEL_NORMAL
-            #pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
-
-			#include "../FeedbackCommon.hlsl"	
-			#pragma vertex VTVertFeedback
-			#pragma fragment VTFragFeedback
-			ENDHLSL
-		}
 
         Pass
         {
