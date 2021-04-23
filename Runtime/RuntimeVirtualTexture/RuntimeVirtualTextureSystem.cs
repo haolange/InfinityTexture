@@ -6,7 +6,7 @@ using System.Collections.Generic;
 namespace Landscape.RuntimeVirtualTexture
 {
     [RequireComponent(typeof(RuntimeVirtualTextureVolume))]
-    internal class RuntimeVirtualTextureSystem : MonoBehaviour
+    internal unsafe class RuntimeVirtualTextureSystem : MonoBehaviour
     {
         [HideInInspector]
         public float VolumeSize = 1024;
@@ -81,7 +81,7 @@ namespace Landscape.RuntimeVirtualTexture
                 feedbackReader.RequestReadback(feedbackRenderer.TargetTexture);
             }
 
-            pageRenderer.DrawPageColor(this, pageProducer, ref VirtualTextureProfile.lruCache, VirtualTextureProfile.tileNum, VirtualTextureProfile.TileSizePadding);
+            pageRenderer.DrawPageColor(this, pageProducer, ref VirtualTextureProfile.lruCache[0], VirtualTextureProfile.tileNum, VirtualTextureProfile.TileSizePadding);
         }
 
         public void DrawMesh(Mesh quadMesh, Material pageColorMat, in FRectInt pageCoordRect, in FPageRequestInfo requestInfo)

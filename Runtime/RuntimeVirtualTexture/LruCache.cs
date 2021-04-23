@@ -94,6 +94,27 @@ namespace Landscape.RuntimeVirtualTexture
             m_TailNodeInfo = m_NodeInfoList[count - 1];
         }
 
+        public static void BuildLruCache(ref FLruCache lruCache, in int count)
+        {
+            lruCache.m_Length = count;
+            lruCache.m_NodeInfoList = (FNodeInfo*)UnsafeUtility.Malloc(Marshal.SizeOf(typeof(FNodeInfo)) * count, 64, Allocator.Persistent);
+
+            for (int i = 0; i < count; ++i)
+            {
+                lruCache.m_NodeInfoList[i] = new FNodeInfo()
+                {
+                    id = i,
+                };
+            }
+            for (int j = 0; j < count; ++j)
+            {
+                lruCache.m_NodeInfoList[j].prevID = (j != 0) ? lruCache.m_NodeInfoList[j - 1].id : 0;
+                lruCache.m_NodeInfoList[j].nextID = (j + 1 < count) ? lruCache.m_NodeInfoList[j + 1].id : count - 1;
+            }
+            lruCache.m_HeadNodeInfo = lruCache.m_NodeInfoList[0];
+            lruCache.m_TailNodeInfo = lruCache.m_NodeInfoList[count - 1];
+        }
+
         public void Dispose()
         {
             UnsafeUtility.Free((void*)m_NodeInfoList, Allocator.Persistent);

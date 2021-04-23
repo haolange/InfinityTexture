@@ -24,9 +24,9 @@ namespace Landscape.RuntimeVirtualTexture
             //ActivatePage(0, 0, pageTexture.MaxMipLevel);
         }
 
-        public void ProcessFeedback(in NativeArray<Color32> readbackDatas, in int maxMip, in int tileNum, in int pageSize, ref FLruCache lruCache, in NativeList<FPageRequestInfo> pageRequests)
+        public void ProcessFeedback(in NativeArray<Color32> readbackDatas, in int maxMip, in int tileNum, in int pageSize, FLruCache* lruCache, in NativeList<FPageRequestInfo> pageRequests)
         {
-            /*FProcessFeedbackJob processFeedbackJob;
+            FProcessFeedbackJob processFeedbackJob;
             processFeedbackJob.maxMip = maxMip - 1;
             processFeedbackJob.tileNum = tileNum;
             processFeedbackJob.pageSize = pageSize;
@@ -35,13 +35,13 @@ namespace Landscape.RuntimeVirtualTexture
             processFeedbackJob.pageRequests = pageRequests;
             processFeedbackJob.frameCount = Time.frameCount;
             processFeedbackJob.readbackDatas = readbackDatas;
-            processFeedbackJob.Run();*/
+            processFeedbackJob.Run();
 
-            for (int i = 0; i < readbackDatas.Length; ++i)
+            /*for (int i = 0; i < readbackDatas.Length; ++i)
             {
                 Color32 readbackData = readbackDatas[i];
-                FVirtualTextureUtility.ActivatePage(readbackData.r, readbackData.g, readbackData.b, maxMip - 1, Time.frameCount, tileNum, pageSize, ref lruCache, pageTables, pageRequests);
-            }
+                FVirtualTextureUtility.ActivatePage(readbackData.r, readbackData.g, readbackData.b, maxMip - 1, Time.frameCount, tileNum, pageSize, ref lruCache[0], pageTables, pageRequests);
+            }*/
         }
 
         public void Reset()

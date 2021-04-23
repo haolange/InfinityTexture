@@ -19,6 +19,7 @@ namespace Landscape.RuntimeVirtualTexture
 
         internal int frameCount;
 
+        [NativeDisableUnsafePtrRestriction]
         internal FLruCache* lruCache;
 
         [ReadOnly]

@@ -1,12 +1,15 @@
 ﻿using UnityEngine;
-using UnityEngine.Rendering;
-using UnityEngine.Experimental.Rendering;
 using Unity.Mathematics;
+using Unity.Collections;
+using UnityEngine.Rendering;
+using System.Runtime.InteropServices;
+using Unity.Collections.LowLevel.Unsafe;
+using UnityEngine.Experimental.Rendering;
 
 namespace Landscape.RuntimeVirtualTexture
 {
     [CreateAssetMenu(menuName = "Landscape/VirtualTextureAsset")]
-    public class VirtualTextureAsset : ScriptableObject
+    public unsafe class VirtualTextureAsset : ScriptableObject
     {
         [Range(4, 32)]
         public int tileNum = 16;
@@ -20,7 +23,7 @@ namespace Landscape.RuntimeVirtualTexture
         public int MaxMip { get { return (int)math.log2(pageSize) + 1; } }
         public int TileSizePadding { get { return tileSize + tileBorder * 2; } }
 
-        internal FLruCache lruCache;
+        internal FLruCache* lruCache;
         internal RenderTexture physcisTextureA;
         internal RenderTexture physcisTextureB;
         internal RenderTexture pageTableTexture;
@@ -34,7 +37,8 @@ namespace Landscape.RuntimeVirtualTexture
 
         public void Initialize()
         {
-            lruCache = new FLruCache(tileNum * tileNum);
+            lruCache = (FLruCache*)UnsafeUtility.Malloc(Marshal.SizeOf(typeof(FLruCache)) * 1, 64, Allocator.Persistent);
+            FLruCache.BuildLruCache(ref lruCache[0], tileNum * tileNum);
 
             RenderTextureDescriptor TextureADesc = new RenderTextureDescriptor { width = TextureSize, height = TextureSize, volumeDepth = 1, dimension = TextureDimension.Tex2D, graphicsFormat = GraphicsFormat.R8G8B8A8_UNorm, depthBufferBits = 0, mipCount = -1, useMipMap = false, autoGenerateMips = false, bindMS = false, msaaSamples = 1 };
             physcisTextureA = new RenderTexture(TextureADesc);
@@ -79,7 +83,8 @@ namespace Landscape.RuntimeVirtualTexture
 
         public void Release()
         {
-            lruCache.Dispose();
+            lruCache[0].Dispose();
+            UnsafeUtility.Free((void*)lruCache, Allocator.Persistent);
 
             physcisTextureA.Release();
             physcisTextureB.Release();
@@ -92,12 +97,12 @@ namespace Landscape.RuntimeVirtualTexture
 
         public int2 RequestTile()
         {
-            return new int2(lruCache.First % tileNum, lruCache.First / tileNum);
+            return new int2(lruCache[0].First % tileNum, lruCache[0].First / tileNum);
         }
 
         public bool SetActive(in int index)
         {
-            return lruCache.SetActive(index);
+            return lruCache[0].SetActive(index);
         }
     }
 }

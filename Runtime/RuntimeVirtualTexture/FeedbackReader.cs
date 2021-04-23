@@ -3,7 +3,7 @@ using UnityEngine.Rendering;
 
 namespace Landscape.RuntimeVirtualTexture
 {
-    internal class FeedbackReader
+    internal unsafe class FeedbackReader
 	{
         public bool bReady
         {
@@ -25,7 +25,7 @@ namespace Landscape.RuntimeVirtualTexture
 		{
 			if(m_ReadbackRequest.done && !m_ReadbackRequest.hasError)
 			{
-                pageProducer.ProcessFeedback(m_ReadbackRequest.GetData<Color32>(), virtualTexture.MaxMip, virtualTexture.tileNum, virtualTexture.pageSize, ref virtualTexture.lruCache, pageRenderer.pageRequests);
+                pageProducer.ProcessFeedback(m_ReadbackRequest.GetData<Color32>(), virtualTexture.MaxMip, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, pageRenderer.pageRequests);
                 pageRenderer.DrawPageTable(virtualTexture.pageTableTexture, pageProducer);
             }
 		}
