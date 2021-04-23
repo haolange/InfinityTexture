@@ -21,7 +21,7 @@ namespace Landscape.ProceduralVirtualTexture
 
     internal unsafe class FPageProducer
 	{
-        public FPageTable[] pageTables;
+        public NativeArray<FPageTable> pageTables;
 
         public Dictionary<int2, int3> activePageMap = new Dictionary<int2, int3>();
 
@@ -46,8 +46,9 @@ namespace Landscape.ProceduralVirtualTexture
             pageTexture = InPageTexture;
             pageRenderer = InPageRenderer;
 
-            pageTables = new FPageTable[pageTexture.MaxMipLevel + 1];
-            for (int i = 0; i <= pageTexture.MaxMipLevel; i++)
+            pageTables = new NativeArray<FPageTable>(pageTexture.MaxMipLevel + 1, Allocator.Persistent);
+
+            for (int i = 0; i <= pageTexture.MaxMipLevel; ++i)
             {
                 pageTables[i] = new FPageTable(i, pageTexture.PageSize);
             }
@@ -71,7 +72,7 @@ namespace Landscape.ProceduralVirtualTexture
                 return;
 
             // 新建加载请求
-            pageRenderer.AllocateRquestInfo(x, y, Page.mipLevel, ref Page.payload.pageRequestInfo);
+            FVirtualTextureUtility.AllocateRquestInfo(x, y, Page.mipLevel, ref Page.payload.pageRequestInfo, pageRenderer.pageRequests);
         }
 
         private void ActivatePage(in int x, in int y, in int mip)
@@ -209,11 +210,11 @@ namespace Landscape.ProceduralVirtualTexture
         {
             for (int i = 0; i < pageTables.Length; ++i)
             {
-                ref FPageTable pageTable = ref pageTables[i];
+                FPageTable pageTable = pageTables[i];
                 pageTable.Dispose();
             }
             drawList.Dispose();
-            //PageTable.Dispose();
+            pageTables.Dispose();
             //activePageMap.Dispose();
         }
     }

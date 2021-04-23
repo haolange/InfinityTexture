@@ -69,7 +69,7 @@ namespace Landscape.ProceduralVirtualTexture
             DrawPageColorMaterial = new Material(Shader.Find("VirtualTexture/DrawPageColor"));
 
             pageProducer = new FPageProducer();
-            pageRenderer = new FPageRenderer();
+            pageRenderer = new FPageRenderer(VirtualTextureProfile.PageSize);
             feedbackReader = new FeedbackReader();
             feedbackRenderer = new FeedbackRenderer();
 
@@ -192,6 +192,7 @@ namespace Landscape.ProceduralVirtualTexture
             if (CheckRunSystem()) { return; }
 
             pageProducer.Dispose();
+            pageRenderer.Dispose();
             VirtualTextureProfile.Release();
         }
 
@@ -212,14 +213,12 @@ namespace Landscape.ProceduralVirtualTexture
 
         private int2 GetFixedCenter(int2 pos)
         {
-            return new int2((int)Mathf.Floor(pos.x / VolumeRadius + 0.5f) * (int)VolumeRadius,
-                                  (int)Mathf.Floor(pos.y / VolumeRadius + 0.5f) * (int)VolumeRadius);
+            return new int2((int)Mathf.Floor(pos.x / VolumeRadius + 0.5f) * (int)VolumeRadius, (int)Mathf.Floor(pos.y / VolumeRadius + 0.5f) * (int)VolumeRadius);
         }
 
         private int2 GetFixedPos(Vector3 pos)
         {
-            return new int2((int)Mathf.Floor(pos.x / PageSize + 0.5f) * (int)PageSize,
-                                  (int)Mathf.Floor(pos.z / PageSize + 0.5f) * (int)PageSize);
+            return new int2((int)Mathf.Floor(pos.x / PageSize + 0.5f) * (int)PageSize, (int)Mathf.Floor(pos.z / PageSize + 0.5f) * (int)PageSize);
         }
         
         private void BuildQuadMesh()
