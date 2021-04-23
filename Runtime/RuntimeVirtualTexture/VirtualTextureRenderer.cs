@@ -1,14 +1,16 @@
-﻿using UnityEngine;
-using System.Collections.Generic;
+﻿using System;
+using Unity.Jobs;
+using UnityEngine;
 using Unity.Mathematics;
 using Unity.Collections;
-using System;
+using UnityEngine.Rendering;
+using Object = UnityEngine.Object;
+using System.Runtime.InteropServices;
 
 namespace Landscape.ProceduralVirtualTexture
 {
 	internal class FPageRenderer : IDisposable
     {
-        [SerializeField]
 		private int m_Limit;
 		internal NativeList<FPageRequestInfo> pageRequests;
 

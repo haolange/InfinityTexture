@@ -7,13 +7,13 @@ using System.Collections.Generic;
 
 namespace Landscape.ProceduralVirtualTexture
 {
-    internal struct DrawPageInfo : IComparable<DrawPageInfo>
+    internal struct FPageDrawInfo : IComparable<FPageDrawInfo>
     {
         public int mip;
-        public Rect rect;
+        public FRect rect;
         public float2 drawPos;
 
-        public int CompareTo(DrawPageInfo target)
+        public int CompareTo(FPageDrawInfo target)
         {
             return -(mip.CompareTo(target.mip));
         }
@@ -37,7 +37,7 @@ namespace Landscape.ProceduralVirtualTexture
 
         private MaterialPropertyBlock DrawPageTableBlock;
 
-        NativeList<DrawPageInfo> drawList;
+        NativeList<FPageDrawInfo> drawList;
 
 
         public void Initialize(Mesh InDrawPageMesh, FPageRenderer InPageRenderer, RuntimeVirtualTexture InPageTexture)
@@ -57,55 +57,9 @@ namespace Landscape.ProceduralVirtualTexture
             DrawPageTableMaterial = new Material(Shader.Find("VirtualTexture/DrawPageTable"));
             DrawPageTableMaterial.enableInstancing = true;
 
-            ActivatePage(0, 0, pageTexture.MaxMipLevel);
+            //ActivatePage(0, 0, pageTexture.MaxMipLevel);
 
-            drawList = new NativeList<DrawPageInfo>(256, Allocator.Persistent);
-        }
-
-        private void LoadPage(in int x, in int y, ref FPage Page)
-        {
-            if (Page.isNull == true)
-                return;
-
-            // 正在加载中,不需要重复请求
-            if (Page.payload.pageRequestInfo.isNull == false)
-                return;
-
-            // 新建加载请求
-            FVirtualTextureUtility.AllocateRquestInfo(x, y, Page.mipLevel, ref Page.payload.pageRequestInfo, pageRenderer.pageRequests);
-        }
-
-        private void ActivatePage(in int x, in int y, in int mip)
-        {
-            if (mip > pageTexture.MaxMipLevel || mip < 0 || x < 0 || y < 0 || x >= pageTexture.PageSize || y >= pageTexture.PageSize)
-                return;
-
-            // 找到当前页表
-            ref FPage Page = ref pageTables[mip].GetPage(x, y);
-
-            if (Page.isNull == true) { return; }
-
-            if (!Page.payload.isReady)
-            {
-                LoadPage(x, y, ref Page);
-
-                //向上找到最近的父节点
-                /*while(mip < pageTexture.MaxMipLevel && !Page.Payload.IsReady)
-                {
-                    mip++;
-                    Page = ref PageTable[mip].GetPage(x, y);
-                }*/
-            }
-
-            if (Page.payload.isReady)
-            {
-                // 激活对应的平铺贴图块
-                Page.payload.activeFrame = Time.frameCount;
-                pageTexture.SetActive(Page.payload.pageCoord.y * pageTexture.TileNum + Page.payload.pageCoord.x);
-                return;
-            }
-
-            return;
+            drawList = new NativeList<FPageDrawInfo>(256, Allocator.Persistent);
         }
 
         public void ProcessFeedback(in NativeArray<Color32> FeedbackData)
@@ -114,7 +68,7 @@ namespace Landscape.ProceduralVirtualTexture
             for (int i = 0; i < FeedbackData.Length; ++i)
             {
                 Color32 Feedback = FeedbackData[i];
-                ActivatePage(Feedback.r, Feedback.g, Feedback.b);
+                FVirtualTextureUtility.ActivatePage(Feedback.r, Feedback.g, Feedback.b, pageTexture.MaxMipLevel, Time.frameCount, pageTexture.PageSize, pageTexture.TileNum, ref pageTexture.PagePool, pageTables, pageRenderer.pageRequests);
             }
         }
 
@@ -130,8 +84,7 @@ namespace Landscape.ProceduralVirtualTexture
                 ref FPage page = ref pageTable.GetPage(pageCoord.Value.x, pageCoord.Value.y);
 
                 // 只写入当前帧活跃的页表
-                if (page.payload.activeFrame != Time.frameCount)
-                    continue;
+                if (page.payload.activeFrame != Time.frameCount) { continue; }
 
                 int2 rectXY = new int2(page.rect.xMin, page.rect.yMin);
                 while (rectXY.x < 0)
@@ -143,11 +96,11 @@ namespace Landscape.ProceduralVirtualTexture
                     rectXY.y += pageTexture.PageSize;
                 }
 
-                drawList.Add(new DrawPageInfo() {
-                    rect = new Rect(rectXY.x, rectXY.y, page.rect.width, page.rect.height),
-                    mip = page.mipLevel,
-                    drawPos = new float2((float)page.payload.pageCoord.x / 255, (float)page.payload.pageCoord.y / 255),
-                });
+                FPageDrawInfo drawInfo;
+                drawInfo.mip = page.mipLevel;
+                drawInfo.rect = new FRect(rectXY.x, rectXY.y, page.rect.width, page.rect.height);
+                drawInfo.drawPos = new float2((float)page.payload.pageCoord.x / 255, (float)page.payload.pageCoord.y / 255);
+                drawList.Add(drawInfo);
             }
 
             if (drawList.Length == 0) { return; }
