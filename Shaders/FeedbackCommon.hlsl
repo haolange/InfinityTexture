@@ -50,9 +50,9 @@ feed_v2f VTVertFeedback(feed_attr v)
     
     o.pos = Attributes.positionCS;
     float2 posWS = Attributes.positionWS.xz;
-    o.uv = (posWS + 256) * rcp(256);
+    //o.uv = (posWS + 256) * rcp(256);
     //o.uv = (posWS + 512) * rcp(1024);
-    //o.uv = (posWS - _VTVolumeParams.xy) * rcp(_VTVolumeParams.zw);
+    o.uv = (posWS - _VTVolumeParams.xy) * rcp(_VTVolumeParams.zw);
     
     return o;
 }
@@ -73,15 +73,15 @@ float BoxMask(float2 A, float2 B, float2 Size)
 
 float4 VTFragFeedback(feed_v2f i) : SV_Target
 {
-    float ComputedLevel = floor(MipLevel(i.uv * 4096));//4224
+    /*float ComputedLevel = floor(MipLevel(i.uv * 4096));//4224
     ComputedLevel = clamp(ComputedLevel, 0, 8);
     ComputedLevel /= 255;
-    return float4(i.uv, ComputedLevel, 1) * BoxMask(i.uv, 0.5, 1);
+    return float4(i.uv, ComputedLevel, 1) * BoxMask(i.uv, 0.5, 1);*/
 
-	/*float2 PageUV = floor(i.uv * _VTFeedbackParam.x);
+	float2 PageUV = floor(i.uv * _VTFeedbackParam.x);
     float ComputedLevel = MipLevel(i.uv * _VTFeedbackParam.y) + _VTFeedbackParam.w;
     ComputedLevel = clamp(ComputedLevel, 0, 7);
-	return float4(PageUV / 255.0, floor(ComputedLevel) / 255, 1);*/
+	return float4(PageUV / 255.0, floor(ComputedLevel) / 255, 1);
 }
 
 #endif

@@ -46,9 +46,9 @@ namespace Landscape.ProceduralVirtualTexture
             pageTexture = InPageTexture;
             pageRenderer = InPageRenderer;
 
-            pageTables = new NativeArray<FPageTable>(pageTexture.MaxMipLevel + 1, Allocator.Persistent);
+            pageTables = new NativeArray<FPageTable>(pageTexture.MaxMipLevel, Allocator.Persistent);
 
-            for (int i = 0; i <= pageTexture.MaxMipLevel; ++i)
+            for (int i = 0; i < pageTexture.MaxMipLevel; ++i)
             {
                 pageTables[i] = new FPageTable(i, pageTexture.PageSize);
             }
@@ -68,7 +68,7 @@ namespace Landscape.ProceduralVirtualTexture
             for (int i = 0; i < FeedbackData.Length; ++i)
             {
                 Color32 Feedback = FeedbackData[i];
-                FVirtualTextureUtility.ActivatePage(Feedback.r, Feedback.g, Feedback.b, pageTexture.MaxMipLevel, Time.frameCount, pageTexture.PageSize, pageTexture.TileNum, ref pageTexture.PagePool, pageTables, pageRenderer.pageRequests);
+                FVirtualTextureUtility.ActivatePage(Feedback.r, Feedback.g, Feedback.b, pageTexture.MaxMipLevel - 1, Time.frameCount, pageTexture.PageSize, pageTexture.TileNum, ref pageTexture.PagePool, pageTables, pageRenderer.pageRequests);
             }
         }
 
@@ -131,7 +131,7 @@ namespace Landscape.ProceduralVirtualTexture
 
         public void Reset()
         {
-            for (int i = 0; i <= pageTexture.MaxMipLevel; ++i)
+            for (int i = 0; i < pageTables.Length; ++i)
             {
                 FPageTable pageTable = pageTables[i];
 

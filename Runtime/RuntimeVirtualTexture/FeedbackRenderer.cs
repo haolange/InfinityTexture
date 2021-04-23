@@ -35,7 +35,7 @@ namespace Landscape.ProceduralVirtualTexture
                 // x: 页表大小(单位: 页)
                 // y: 虚拟贴图大小(单位: 像素)
                 // z: 最大mipmap等级
-                Shader.SetGlobalVector("_VTFeedbackParam", new Vector4(InPageTexture.PageSize, InPageTexture.PageSize * InPageTexture.TileSize * scale, InPageTexture.MaxMipLevel - 1, MipmapBias));
+                Shader.SetGlobalVector("_VTFeedbackParam", new Vector4(InPageTexture.PageSize, InPageTexture.PageSize * InPageTexture.TileSize * scale, InPageTexture.MaxMipLevel, MipmapBias));
             }
 
             // 渲染前先拷贝主摄像机的相关参数
@@ -52,7 +52,7 @@ namespace Landscape.ProceduralVirtualTexture
 			if(camera == null)
 				return;
 
-			FeedbackCamera.fieldOfView = camera.fieldOfView + 30;
+			FeedbackCamera.fieldOfView = camera.fieldOfView;
 			FeedbackCamera.nearClipPlane = camera.nearClipPlane;
 			FeedbackCamera.farClipPlane = camera.farClipPlane;
 		}

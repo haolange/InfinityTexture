@@ -21,7 +21,7 @@ namespace Landscape.ProceduralVirtualTexture
         [Range(256, 1024)]
         public int PageSize = 256;
 
-        public int MaxMipLevel { get { return (int)Mathf.Log(PageSize, 2); } }
+        public int MaxMipLevel { get { return (int)Mathf.Log(PageSize, 2) + 1; } }
 
         [HideInInspector]
         public int TileSizePadding { get { return TileSize + TileBorder * 2; } }
@@ -89,7 +89,7 @@ namespace Landscape.ProceduralVirtualTexture
             Shader.SetGlobalVector("_VTPageTileParams", new Vector4((float)TileBorder, (float)TileSize, TextureSize, TextureSize));
 
             Shader.SetGlobalTexture("_PageTableTexture", PageTableTexture);
-            Shader.SetGlobalVector("_VTPageTableParams", new Vector4(PageSize, 1 / PageSize, MaxMipLevel, 0));
+            Shader.SetGlobalVector("_VTPageTableParams", new Vector4(PageSize, 1 / PageSize, MaxMipLevel - 1, 0));
         }
 
         public void Reset()
