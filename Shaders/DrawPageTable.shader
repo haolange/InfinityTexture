@@ -13,6 +13,7 @@
 			#pragma vertex vert
 			#pragma fragment frag
 			#pragma multi_compile_instancing
+			#pragma enable_d3d11_debug_symbols
 
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
@@ -29,7 +30,7 @@
 				float4 color           : TEXCOORD0;
 				float4 positionHCS	   : SV_POSITION;
 			};
-			
+
 			float4 _tempInfo;
 			UNITY_INSTANCING_BUFFER_START(InstanceProp)
 			UNITY_DEFINE_INSTANCED_PROP(float4, _PageInfo)
@@ -38,15 +39,15 @@
 
 			Varyings vert(Attributes IN)
 			{
-				Varyings OUT ;
+				Varyings OUT;
 				UNITY_SETUP_INSTANCE_ID(IN);
 				float4x4 mat = UNITY_MATRIX_M;
-				
+
 				mat = UNITY_ACCESS_INSTANCED_PROP(InstanceProp, _Matrix_MVP);
 				float2 pos = saturate(mul(mat, IN.positionOS).xy);
 				pos.y = 1 - pos.y;
 
-				OUT.positionHCS = float4(2.0 * pos  - 1,0.5,1);
+				OUT.positionHCS = float4(2.0 * pos - 1,0.5,1);
 				OUT.color = UNITY_ACCESS_INSTANCED_PROP(InstanceProp, _PageInfo);
 				return OUT;
 			}
