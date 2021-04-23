@@ -152,7 +152,7 @@ namespace Landscape.RuntimeVirtualTexture
                 if (lruCache.SetActive(pageCoord.y * tileNum + pageCoord.x))
                 {
                     pageProducer.InvalidatePage(pageCoord);
-                    PageSystem.DrawMesh(m_DrawPageMesh, m_DrawColorMaterial, new FRectInt(pageCoord.x * tileSize, pageCoord.y * tileSize, tileSize, tileSize), PageRequestInfo);
+                    PageSystem.DrawMesh(m_DrawPageMesh, m_DrawColorMaterial, m_Property, new FRectInt(pageCoord.x * tileSize, pageCoord.y * tileSize, tileSize, tileSize), PageRequestInfo);
                 }
 
                 page.payload.pageCoord = pageCoord;

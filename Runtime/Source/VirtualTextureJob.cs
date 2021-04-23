@@ -3,7 +3,6 @@ using Unity.Burst;
 using UnityEngine;
 using Unity.Collections;
 using Unity.Mathematics;
-using System.Collections.Generic;
 using Unity.Collections.LowLevel.Unsafe;
 
 namespace Landscape.RuntimeVirtualTexture

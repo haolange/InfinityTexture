@@ -82,7 +82,7 @@ namespace Landscape.RuntimeVirtualTexture
             pageRenderer.DrawPageColor(this, pageProducer, ref virtualTextureAsset.lruCache[0], virtualTextureAsset.tileNum, virtualTextureAsset.TileSizePadding);
         }
 
-        public void DrawMesh(Mesh quadMesh, Material pageColorMat, in FRectInt pageCoordRect, in FPageRequestInfo requestInfo)
+        public void DrawMesh(Mesh quadMesh, Material pageColorMat, MaterialPropertyBlock propertyBlock, in FRectInt pageCoordRect, in FPageRequestInfo requestInfo)
         {
             int x = requestInfo.pageX;
             int y = requestInfo.pageY;
@@ -101,11 +101,12 @@ namespace Landscape.RuntimeVirtualTexture
 
 
             var terRect = Rect.zero;
+            CommandBuffer CmdBuffer = CommandBufferPool.Get("DrawPageColor");
+            CmdBuffer.SetRenderTarget(virtualTextureAsset.colorBuffers, virtualTextureAsset.colorBuffers[0]);
+
             foreach (var terrain in m_terrains)
             {
-                if ( !terrain.isActiveAndEnabled ) {
-                    continue;
-                }
+                propertyBlock.Clear();
 
                 terRect.xMin = terrain.transform.position.x;
                 terRect.yMin = terrain.transform.position.z;
@@ -145,14 +146,13 @@ namespace Landscape.RuntimeVirtualTexture
                 Matrix_MVP.m33 = 1;
 
                 // 绘制贴图
-                pageColorMat.SetVector("_SplatTileOffset", scaleOffset);
-                pageColorMat.SetMatrix(Shader.PropertyToID("_Matrix_MVP"), GL.GetGPUProjectionMatrix(Matrix_MVP, true));
+                propertyBlock.SetVector("_SplatTileOffset", scaleOffset);
+                propertyBlock.SetMatrix(Shader.PropertyToID("_Matrix_MVP"), GL.GetGPUProjectionMatrix(Matrix_MVP, true));
 
                 int layerIndex = 0;
-
                 foreach (var alphamap in terrain.terrainData.alphamapTextures)
                 {
-                    pageColorMat.SetTexture("_SplatTexture", alphamap);
+                    propertyBlock.SetTexture("_SplatTexture", alphamap);
 
                     int index = 1;
                     for(;layerIndex < terrain.terrainData.terrainLayers.Length && index <= 4;layerIndex ++)
@@ -160,18 +160,18 @@ namespace Landscape.RuntimeVirtualTexture
                         var layer = terrain.terrainData.terrainLayers[layerIndex];
                         var tileScale = new Vector2(terrain.terrainData.size.x / layer.tileSize.x, terrain.terrainData.size.z / layer.tileSize.y);
                         var tileOffset = new Vector4(tileScale.x * scaleOffset.x, tileScale.y * scaleOffset.y, scaleOffset.z * tileScale.x, scaleOffset.w * tileScale.y);
-                        pageColorMat.SetVector("_SurfaceTileOffset", tileOffset);
-                        pageColorMat.SetTexture($"_AlbedoTexture{index}", layer.diffuseTexture);
-                        pageColorMat.SetTexture($"_NormalTexture{index}", layer.normalMapTexture);
+                        propertyBlock.SetVector("_SurfaceTileOffset", tileOffset);
+                        propertyBlock.SetTexture($"_AlbedoTexture{index}", layer.diffuseTexture);
+                        propertyBlock.SetTexture($"_NormalTexture{index}", layer.normalMapTexture);
                         index++;
                     }
-                    CommandBuffer CmdBuffer = CommandBufferPool.Get("DrawPageColor");
-                    CmdBuffer.SetRenderTarget(virtualTextureAsset.colorBuffers, virtualTextureAsset.colorBuffers[0]);
-                    CmdBuffer.DrawMesh(quadMesh, Matrix4x4.identity, pageColorMat, 0, layerIndex <= 4 ? 0 : 1);
-                    Graphics.ExecuteCommandBuffer(CmdBuffer);
-                    CommandBufferPool.Release(CmdBuffer);
+                    
+                    CmdBuffer.DrawMesh(quadMesh, Matrix4x4.identity, pageColorMat, 0, layerIndex <= 4 ? 0 : 1, propertyBlock);
                 }
             }
+
+            Graphics.ExecuteCommandBuffer(CmdBuffer);
+            CommandBufferPool.Release(CmdBuffer);
         }
 
         public void SetFeedbackCamera()
