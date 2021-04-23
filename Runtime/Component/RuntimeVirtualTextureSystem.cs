@@ -147,9 +147,10 @@ namespace Landscape.RuntimeVirtualTexture
                 propertyBlock.SetMatrix(Shader.PropertyToID("_Matrix_MVP"), GL.GetGPUProjectionMatrix(Matrix_MVP, true));
 
                 int layerIndex = 0;
-                foreach (var alphamap in terrain.terrainData.alphamapTextures)
+                for (int i = 0; i < terrain.terrainData.alphamapTextures.Length; ++i)
                 {
-                    propertyBlock.SetTexture("_SplatTexture", alphamap);
+                    var splatMap = terrain.terrainData.alphamapTextures[i];
+                    propertyBlock.SetTexture("_SplatTexture", splatMap);
 
                     int index = 1;
                     for(;layerIndex < terrain.terrainData.terrainLayers.Length && index <= 4;layerIndex ++)
@@ -162,7 +163,7 @@ namespace Landscape.RuntimeVirtualTexture
                         propertyBlock.SetTexture($"_NormalTexture{index}", layer.normalMapTexture);
                         index++;
                     }
-                    
+
                     cmdBuffer.DrawMesh(quadMesh, Matrix4x4.identity, pageColorMat, 0, layerIndex <= 4 ? 0 : 1, propertyBlock);
                 }
             }
