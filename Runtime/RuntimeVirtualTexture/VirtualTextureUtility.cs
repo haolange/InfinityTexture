@@ -3,6 +3,7 @@ using UnityEngine;
 using Unity.Collections;
 using Unity.Mathematics;
 using System.Globalization;
+using System.Collections.Generic;
 
 namespace Landscape.ProceduralVirtualTexture
 {
@@ -413,6 +414,36 @@ namespace Landscape.ProceduralVirtualTexture
 
     internal static class FVirtualTextureUtility
     {
+        public static Mesh BuildQuadMesh()
+        {
+            List<Vector3> VertexArray = new List<Vector3>();
+            List<int> IndexArray = new List<int>();
+            List<Vector2> UB0Array = new List<Vector2>();
+
+            VertexArray.Add(new Vector3(0, 1, 0.1f));
+            VertexArray.Add(new Vector3(0, 0, 0.1f));
+            VertexArray.Add(new Vector3(1, 0, 0.1f));
+            VertexArray.Add(new Vector3(1, 1, 0.1f));
+
+            UB0Array.Add(new Vector2(0, 1));
+            UB0Array.Add(new Vector2(0, 0));
+            UB0Array.Add(new Vector2(1, 0));
+            UB0Array.Add(new Vector2(1, 1));
+
+            IndexArray.Add(0);
+            IndexArray.Add(1);
+            IndexArray.Add(2);
+            IndexArray.Add(2);
+            IndexArray.Add(3);
+            IndexArray.Add(0);
+
+            Mesh mesh = new Mesh();
+            mesh.SetVertices(VertexArray);
+            mesh.SetUVs(0, UB0Array);
+            mesh.SetTriangles(IndexArray, 0);
+            return mesh;
+        }
+
         public static void AllocateRquestInfo(in int x, in int y, in int mip, ref FPageRequestInfo pageRequest, in NativeList<FPageRequestInfo> pageRequests)
         {
             for (int i = 0; i < pageRequests.Length; ++i)
@@ -437,7 +468,7 @@ namespace Landscape.ProceduralVirtualTexture
             AllocateRquestInfo(x, y, page.mipLevel, ref page.payload.pageRequestInfo, pageRequests);
         }
 
-        public static void ActivatePage(in int x, in int y, in int mip, in int maxMip, in int frameCount, in int pageSize, in int tileNum, ref FLruCache lruCache, in NativeArray<FPageTable> pageTables, in NativeList<FPageRequestInfo> pageRequests)
+        public static void ActivatePage(in int x, in int y, in int mip, in int maxMip, in int frameCount, in int tileNum, in int pageSize, ref FLruCache lruCache, in NativeArray<FPageTable> pageTables, in NativeList<FPageRequestInfo> pageRequests)
         {
             if (mip > maxMip || mip < 0 || x < 0 || y < 0 || x >= pageSize || y >= pageSize) { return; }
 

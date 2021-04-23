@@ -6,22 +6,20 @@ namespace Landscape.ProceduralVirtualTexture
 {
     internal class FeedbackRenderer
 	{
-        public float MipmapBias = 0.0f;
-
+        public float mipmapBias = 0.0f;
         public Camera FeedbackCamera { get; set; }
-
         public RenderTexture TargetTexture { get; private set; }
 
 
-        public void Initialize(Camera InMainCamera, Camera InFeedbackCamera, int2 InFeedbackSize, FeedbackScale InFeedbackScale, FPageProducer InPageProducer, VirtualTextureAsset InPageTexture)
+        public void Initialize(Camera mainCamera, Camera feedbackCamera, int2 feedbackSize, FeedbackScale feedbackScale, VirtualTextureAsset virtualTexture)
 		{
-            FeedbackCamera = InFeedbackCamera;
+            FeedbackCamera = feedbackCamera;
             FeedbackCamera.enabled = false;
 
             // 处理屏幕尺寸变换
-            float scale = InFeedbackScale.ToFloat();
-            int width = (int)(InFeedbackSize.x * scale);
-            int height = (int)(InFeedbackSize.y * scale);
+            float scale = feedbackScale.ToFloat();
+            int width = (int)(feedbackSize.x * scale);
+            int height = (int)(feedbackSize.y * scale);
 
             if (TargetTexture == null || TargetTexture.width != width || TargetTexture.height != height)
             {
@@ -35,11 +33,11 @@ namespace Landscape.ProceduralVirtualTexture
                 // x: 页表大小(单位: 页)
                 // y: 虚拟贴图大小(单位: 像素)
                 // z: 最大mipmap等级
-                Shader.SetGlobalVector("_VTFeedbackParam", new Vector4(InPageTexture.pageSize, InPageTexture.pageSize * InPageTexture.tileSize * scale, InPageTexture.MaxMip, MipmapBias));
+                Shader.SetGlobalVector("_VTFeedbackParam", new Vector4(virtualTexture.pageSize, virtualTexture.pageSize * virtualTexture.tileSize * scale, virtualTexture.MaxMip, mipmapBias));
             }
 
             // 渲染前先拷贝主摄像机的相关参数
-            CopyCamera(InMainCamera);
+            CopyCamera(mainCamera);
 		}
 
         public void Release()

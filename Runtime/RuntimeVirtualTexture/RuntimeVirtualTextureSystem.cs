@@ -19,7 +19,7 @@ namespace Landscape.ProceduralVirtualTexture
             }
         }
 
-        private float PageSize
+        private float CellSize
         {
             get
             {
@@ -40,12 +40,7 @@ namespace Landscape.ProceduralVirtualTexture
         public Camera FeedbackCamera;
         public VirtualTextureAsset VirtualTextureProfile;
 
-
-        private Mesh DrawPageMesh;
         private Rect VTVolumeParams;
-        private Material DrawPageColorMaterial;
-
-
         private FPageProducer pageProducer;
         private FPageRenderer pageRenderer;
         private FeedbackReader feedbackReader;
@@ -65,24 +60,20 @@ namespace Landscape.ProceduralVirtualTexture
             VTVolumeParams = new Rect(fixedCenter.x - VolumeRadius, fixedCenter.y - VolumeRadius, VolumeSize, VolumeSize);
             Shader.SetGlobalVector("_VTVolumeParams", new Vector4(VTVolumeParams.xMin, VTVolumeParams.yMin, VTVolumeParams.width, VTVolumeParams.height));
 
-            BuildQuadMesh();
-            DrawPageColorMaterial = new Material(Shader.Find("VirtualTexture/DrawPageColor"));
-
-            pageProducer = new FPageProducer();
-            pageRenderer = new FPageRenderer(VirtualTextureProfile.pageSize);
+            pageProducer = new FPageProducer(VirtualTextureProfile.pageSize, VirtualTextureProfile.MaxMip);
+            pageRenderer = new FPageRenderer(VirtualTextureProfile.pageSize, VirtualTextureProfile.MaxMip);
             feedbackReader = new FeedbackReader();
             feedbackRenderer = new FeedbackRenderer();
 
             VirtualTextureProfile.Initialize();
-            pageProducer.Initialize(DrawPageMesh, pageRenderer, VirtualTextureProfile);
-            feedbackRenderer.Initialize(PlayerCamera, FeedbackCamera, FeedbackSize, FeedbackScale, pageProducer, VirtualTextureProfile);
+            feedbackRenderer.Initialize(PlayerCamera, FeedbackCamera, FeedbackSize, FeedbackScale, VirtualTextureProfile);
         }
 
         private void Update()
         {
             if (CheckRunSystem()) { return; }
 
-            feedbackReader.ProcessFeedback(pageProducer);
+            feedbackReader.ProcessAndDrawPageTable(pageRenderer, pageProducer, VirtualTextureProfile);
 
             if (feedbackReader.bReady)
             {
@@ -93,11 +84,11 @@ namespace Landscape.ProceduralVirtualTexture
             pageRenderer.DrawPageColor(this, pageProducer, ref VirtualTextureProfile.lruCache, VirtualTextureProfile.tileNum, VirtualTextureProfile.TileSizePadding);
         }
 
-        public void DrawMesh(RectInt DrawPageRect, FPageRequestInfo DrawRequestInfo)
+        public void DrawMesh(Mesh quadMesh, Material pageColorMat, in FRectInt pageCoordRect, in FPageRequestInfo requestInfo)
         {
-            int x = DrawRequestInfo.pageX;
-            int y = DrawRequestInfo.pageY;
-            int perSize = (int)Mathf.Pow(2, DrawRequestInfo.mipLevel);
+            int x = requestInfo.pageX;
+            int y = requestInfo.pageY;
+            int perSize = (int)Mathf.Pow(2, requestInfo.mipLevel);
             x = x - x % perSize;
             y = y - y % perSize;
 
@@ -133,10 +124,10 @@ namespace Landscape.ProceduralVirtualTexture
                 needDrawRect.xMax = Mathf.Min(realRect.xMax, terRect.xMax);
                 needDrawRect.yMax = Mathf.Min(realRect.yMax, terRect.yMax);
 
-                var scaleFactor = DrawPageRect.width / realRect.width;
+                var scaleFactor = pageCoordRect.width / realRect.width;
 
-                var position = new Rect(DrawPageRect.x + (needDrawRect.xMin - realRect.xMin) * scaleFactor,
-                                        DrawPageRect.y + (needDrawRect.yMin - realRect.yMin) * scaleFactor,
+                var position = new Rect(pageCoordRect.x + (needDrawRect.xMin - realRect.xMin) * scaleFactor,
+                                        pageCoordRect.y + (needDrawRect.yMin - realRect.yMin) * scaleFactor,
                                         needDrawRect.width * scaleFactor,
                                         needDrawRect.height * scaleFactor);
 
@@ -158,14 +149,14 @@ namespace Landscape.ProceduralVirtualTexture
                 Matrix_MVP.m33 = 1;
 
                 // 绘制贴图
-                DrawPageColorMaterial.SetVector("_SplatTileOffset", scaleOffset);
-                DrawPageColorMaterial.SetMatrix(Shader.PropertyToID("_Matrix_MVP"), GL.GetGPUProjectionMatrix(Matrix_MVP, true));
+                pageColorMat.SetVector("_SplatTileOffset", scaleOffset);
+                pageColorMat.SetMatrix(Shader.PropertyToID("_Matrix_MVP"), GL.GetGPUProjectionMatrix(Matrix_MVP, true));
 
                 int layerIndex = 0;
 
                 foreach (var alphamap in Terrain.terrainData.alphamapTextures)
                 {
-                    DrawPageColorMaterial.SetTexture("_SplatTexture", alphamap);
+                    pageColorMat.SetTexture("_SplatTexture", alphamap);
 
                     int index = 1;
                     for(;layerIndex < Terrain.terrainData.terrainLayers.Length && index <= 4;layerIndex ++)
@@ -173,14 +164,14 @@ namespace Landscape.ProceduralVirtualTexture
                         var layer = Terrain.terrainData.terrainLayers[layerIndex];
                         var tileScale = new Vector2(Terrain.terrainData.size.x / layer.tileSize.x, Terrain.terrainData.size.z / layer.tileSize.y);
                         var tileOffset = new Vector4(tileScale.x * scaleOffset.x, tileScale.y * scaleOffset.y, scaleOffset.z * tileScale.x, scaleOffset.w * tileScale.y);
-                        DrawPageColorMaterial.SetVector("_SurfaceTileOffset", tileOffset);
-                        DrawPageColorMaterial.SetTexture($"_AlbedoTexture{index}", layer.diffuseTexture);
-                        DrawPageColorMaterial.SetTexture($"_NormalTexture{index}", layer.normalMapTexture);
+                        pageColorMat.SetVector("_SurfaceTileOffset", tileOffset);
+                        pageColorMat.SetTexture($"_AlbedoTexture{index}", layer.diffuseTexture);
+                        pageColorMat.SetTexture($"_NormalTexture{index}", layer.normalMapTexture);
                         index++;
                     }
                     CommandBuffer CmdBuffer = CommandBufferPool.Get("DrawPageColor");
                     CmdBuffer.SetRenderTarget(VirtualTextureProfile.colorBuffers, VirtualTextureProfile.colorBuffers[0]);
-                    CmdBuffer.DrawMesh(DrawPageMesh, Matrix4x4.identity, DrawPageColorMaterial, 0, layerIndex <= 4 ? 0 : 1);
+                    CmdBuffer.DrawMesh(quadMesh, Matrix4x4.identity, pageColorMat, 0, layerIndex <= 4 ? 0 : 1);
                     Graphics.ExecuteCommandBuffer(CmdBuffer);
                     CommandBufferPool.Release(CmdBuffer);
                 }
@@ -218,37 +209,8 @@ namespace Landscape.ProceduralVirtualTexture
 
         private int2 GetFixedPos(Vector3 pos)
         {
-            return new int2((int)Mathf.Floor(pos.x / PageSize + 0.5f) * (int)PageSize, (int)Mathf.Floor(pos.z / PageSize + 0.5f) * (int)PageSize);
+            return new int2((int)Mathf.Floor(pos.x / CellSize + 0.5f) * (int)CellSize, (int)Mathf.Floor(pos.z / CellSize + 0.5f) * (int)CellSize);
         }
         
-        private void BuildQuadMesh()
-        {
-            List<Vector3> VertexArray = new List<Vector3>();
-            List<int> IndexArray = new List<int>();
-            List<Vector2> UB0Array = new List<Vector2>();
-
-            VertexArray.Add(new Vector3(0, 1, 0.1f));
-            VertexArray.Add(new Vector3(0, 0, 0.1f));
-            VertexArray.Add(new Vector3(1, 0, 0.1f));
-            VertexArray.Add(new Vector3(1, 1, 0.1f));
-
-            UB0Array.Add(new Vector2(0, 1));
-            UB0Array.Add(new Vector2(0, 0));
-            UB0Array.Add(new Vector2(1, 0));
-            UB0Array.Add(new Vector2(1, 1));
-
-            IndexArray.Add(0);
-            IndexArray.Add(1);
-            IndexArray.Add(2);
-            IndexArray.Add(2);
-            IndexArray.Add(3);
-            IndexArray.Add(0);
-
-            DrawPageMesh = new Mesh();
-            DrawPageMesh.SetVertices(VertexArray);
-            DrawPageMesh.SetUVs(0, UB0Array);
-            DrawPageMesh.SetTriangles(IndexArray, 0);
-        }
     }
-
 }

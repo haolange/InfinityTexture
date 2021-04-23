@@ -12,6 +12,7 @@ namespace Landscape.ProceduralVirtualTexture
                 return m_ReadbackRequest.done || m_ReadbackRequest.hasError;
             }
         }
+
         private AsyncGPUReadbackRequest m_ReadbackRequest;
 
 		public void RequestReadback(RenderTexture texture)
@@ -20,12 +21,12 @@ namespace Landscape.ProceduralVirtualTexture
             m_ReadbackRequest = AsyncGPUReadback.Request(texture);
         }
 
-		public void ProcessFeedback(FPageProducer InPageProducer)
+		public void ProcessAndDrawPageTable(FPageRenderer pageRenderer, FPageProducer pageProducer, VirtualTextureAsset virtualTexture)
 		{
 			if(m_ReadbackRequest.done && !m_ReadbackRequest.hasError)
 			{
-                InPageProducer.ProcessFeedback(m_ReadbackRequest.GetData<Color32>());
-                InPageProducer.DrawPageTable();
+                pageProducer.ProcessFeedback(m_ReadbackRequest.GetData<Color32>(), virtualTexture.MaxMip, virtualTexture.tileNum, virtualTexture.pageSize, ref virtualTexture.lruCache, pageRenderer.pageRequests);
+                pageRenderer.DrawPageTable(virtualTexture.pageTableTexture, pageProducer);
             }
 		}
     }

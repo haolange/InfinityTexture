@@ -7,7 +7,7 @@ MonoImporter:
   - TerrainMaterial: {fileID: 2100000, guid: 3a2c150cfa00c9140826163693691a0f, type: 2}
   - PlayerCamera: {instanceID: 0}
   - FeedbackCamera: {instanceID: 0}
-  - VirtualTextureProfile: {instanceID: 0}
+  - VirtualTextureProfile: {fileID: 11400000, guid: b8650e03683bb0844a15d265c3b49a85, type: 2}
   executionOrder: 100
   icon: {instanceID: 0}
   userData: 
