@@ -26,7 +26,7 @@ namespace Landscape.ProceduralVirtualTexture
         public Dictionary<int2, int3> activePageMap = new Dictionary<int2, int3>();
 
 
-        private RuntimeVirtualTexture pageTexture;
+        private VirtualTextureAsset pageTexture;
 
         private FPageRenderer pageRenderer;
 
@@ -40,17 +40,17 @@ namespace Landscape.ProceduralVirtualTexture
         NativeList<FPageDrawInfo> drawList;
 
 
-        public void Initialize(Mesh InDrawPageMesh, FPageRenderer InPageRenderer, RuntimeVirtualTexture InPageTexture)
+        public void Initialize(Mesh InDrawPageMesh, FPageRenderer InPageRenderer, VirtualTextureAsset InPageTexture)
         {
             DrawPageMesh = InDrawPageMesh;
             pageTexture = InPageTexture;
             pageRenderer = InPageRenderer;
 
-            pageTables = new NativeArray<FPageTable>(pageTexture.MaxMipLevel, Allocator.Persistent);
+            pageTables = new NativeArray<FPageTable>(pageTexture.MaxMip, Allocator.Persistent);
 
-            for (int i = 0; i < pageTexture.MaxMipLevel; ++i)
+            for (int i = 0; i < pageTexture.MaxMip; ++i)
             {
-                pageTables[i] = new FPageTable(i, pageTexture.PageSize);
+                pageTables[i] = new FPageTable(i, pageTexture.pageSize);
             }
 
             DrawPageTableBlock = new MaterialPropertyBlock();
@@ -68,7 +68,7 @@ namespace Landscape.ProceduralVirtualTexture
             for (int i = 0; i < FeedbackData.Length; ++i)
             {
                 Color32 Feedback = FeedbackData[i];
-                FVirtualTextureUtility.ActivatePage(Feedback.r, Feedback.g, Feedback.b, pageTexture.MaxMipLevel - 1, Time.frameCount, pageTexture.PageSize, pageTexture.TileNum, ref pageTexture.PagePool, pageTables, pageRenderer.pageRequests);
+                FVirtualTextureUtility.ActivatePage(Feedback.r, Feedback.g, Feedback.b, pageTexture.MaxMip - 1, Time.frameCount, pageTexture.pageSize, pageTexture.tileNum, ref pageTexture.lruCache, pageTables, pageRenderer.pageRequests);
             }
         }
 
@@ -89,11 +89,11 @@ namespace Landscape.ProceduralVirtualTexture
                 int2 rectXY = new int2(page.rect.xMin, page.rect.yMin);
                 while (rectXY.x < 0)
                 {
-                    rectXY.x += pageTexture.PageSize;
+                    rectXY.x += pageTexture.pageSize;
                 }
                 while (rectXY.y < 0)
                 {
-                    rectXY.y += pageTexture.PageSize;
+                    rectXY.y += pageTexture.pageSize;
                 }
 
                 FPageDrawInfo drawInfo;
@@ -111,9 +111,9 @@ namespace Landscape.ProceduralVirtualTexture
 
             for (int i = 0; i < drawList.Length; ++i)
             {
-                float size = drawList[i].rect.width / pageTexture.PageSize;
+                float size = drawList[i].rect.width / pageTexture.pageSize;
                 PageInfos[i] = new Vector4(drawList[i].drawPos.x, drawList[i].drawPos.y, drawList[i].mip / 255f, 0);
-                Materix_MVP[i] = Matrix4x4.TRS(new Vector3(drawList[i].rect.x / pageTexture.PageSize, drawList[i].rect.y / pageTexture.PageSize), Quaternion.identity, new Vector3(size, size, size));
+                Materix_MVP[i] = Matrix4x4.TRS(new Vector3(drawList[i].rect.x / pageTexture.pageSize, drawList[i].rect.y / pageTexture.pageSize), Quaternion.identity, new Vector3(size, size, size));
             }
 
             DrawPageTableBlock.Clear();
@@ -121,7 +121,7 @@ namespace Landscape.ProceduralVirtualTexture
             DrawPageTableBlock.SetMatrixArray("_Matrix_MVP", Materix_MVP.ToArray());
 
             CommandBuffer CmdBuffer = CommandBufferPool.Get("DrawPageTable");
-            CmdBuffer.SetRenderTarget(pageTexture.PageTableTexture);
+            CmdBuffer.SetRenderTarget(pageTexture.pageTableTexture);
             CmdBuffer.DrawMeshInstanced(DrawPageMesh, 0, DrawPageTableMaterial, 0, Materix_MVP.ToArray(), Materix_MVP.Length, DrawPageTableBlock);
 
             PageInfos.Dispose();

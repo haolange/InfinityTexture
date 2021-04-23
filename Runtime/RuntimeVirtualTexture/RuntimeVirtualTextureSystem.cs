@@ -23,7 +23,7 @@ namespace Landscape.ProceduralVirtualTexture
         {
             get
             {
-                return VolumeSize / VirtualTextureProfile.PageSize;
+                return VolumeSize / VirtualTextureProfile.pageSize;
             }
         }
 
@@ -38,7 +38,7 @@ namespace Landscape.ProceduralVirtualTexture
         [Header("VirtualTexture")]
         public Camera PlayerCamera;
         public Camera FeedbackCamera;
-        public RuntimeVirtualTexture VirtualTextureProfile;
+        public VirtualTextureAsset VirtualTextureProfile;
 
 
         private Mesh DrawPageMesh;
@@ -69,7 +69,7 @@ namespace Landscape.ProceduralVirtualTexture
             DrawPageColorMaterial = new Material(Shader.Find("VirtualTexture/DrawPageColor"));
 
             pageProducer = new FPageProducer();
-            pageRenderer = new FPageRenderer(VirtualTextureProfile.PageSize);
+            pageRenderer = new FPageRenderer(VirtualTextureProfile.pageSize);
             feedbackReader = new FeedbackReader();
             feedbackRenderer = new FeedbackRenderer();
 
@@ -90,7 +90,7 @@ namespace Landscape.ProceduralVirtualTexture
                 feedbackReader.RequestReadback(feedbackRenderer.TargetTexture);
             }
 
-            pageRenderer.DrawPageColor(this, pageProducer, ref VirtualTextureProfile.PagePool, VirtualTextureProfile.TileNum, VirtualTextureProfile.TileSizePadding);
+            pageRenderer.DrawPageColor(this, pageProducer, ref VirtualTextureProfile.lruCache, VirtualTextureProfile.tileNum, VirtualTextureProfile.TileSizePadding);
         }
 
         public void DrawMesh(RectInt DrawPageRect, FPageRequestInfo DrawRequestInfo)
@@ -101,9 +101,9 @@ namespace Landscape.ProceduralVirtualTexture
             x = x - x % perSize;
             y = y - y % perSize;
 
-            var tableSize = VirtualTextureProfile.PageSize;
+            var tableSize = VirtualTextureProfile.pageSize;
 
-            var paddingEffect = VirtualTextureProfile.TileBorder * perSize * (VTVolumeParams.width / tableSize) / VirtualTextureProfile.TileSize;
+            var paddingEffect = VirtualTextureProfile.tileBorder * perSize * (VTVolumeParams.width / tableSize) / VirtualTextureProfile.tileSize;
 
             var realRect = new Rect(VTVolumeParams.xMin + (float)x / tableSize * VTVolumeParams.width - paddingEffect,
                                     VTVolumeParams.yMin + (float)y / tableSize * VTVolumeParams.height - paddingEffect,
@@ -179,7 +179,7 @@ namespace Landscape.ProceduralVirtualTexture
                         index++;
                     }
                     CommandBuffer CmdBuffer = CommandBufferPool.Get("DrawPageColor");
-                    CmdBuffer.SetRenderTarget(VirtualTextureProfile.ColorBuffer, VirtualTextureProfile.DepthBuffer);
+                    CmdBuffer.SetRenderTarget(VirtualTextureProfile.colorBuffers, VirtualTextureProfile.colorBuffers[0]);
                     CmdBuffer.DrawMesh(DrawPageMesh, Matrix4x4.identity, DrawPageColorMaterial, 0, layerIndex <= 4 ? 0 : 1);
                     Graphics.ExecuteCommandBuffer(CmdBuffer);
                     CommandBufferPool.Release(CmdBuffer);

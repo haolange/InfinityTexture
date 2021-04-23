@@ -13,7 +13,7 @@ namespace Landscape.ProceduralVirtualTexture
         public RenderTexture TargetTexture { get; private set; }
 
 
-        public void Initialize(Camera InMainCamera, Camera InFeedbackCamera, int2 InFeedbackSize, FeedbackScale InFeedbackScale, FPageProducer InPageProducer, RuntimeVirtualTexture InPageTexture)
+        public void Initialize(Camera InMainCamera, Camera InFeedbackCamera, int2 InFeedbackSize, FeedbackScale InFeedbackScale, FPageProducer InPageProducer, VirtualTextureAsset InPageTexture)
 		{
             FeedbackCamera = InFeedbackCamera;
             FeedbackCamera.enabled = false;
@@ -35,7 +35,7 @@ namespace Landscape.ProceduralVirtualTexture
                 // x: 页表大小(单位: 页)
                 // y: 虚拟贴图大小(单位: 像素)
                 // z: 最大mipmap等级
-                Shader.SetGlobalVector("_VTFeedbackParam", new Vector4(InPageTexture.PageSize, InPageTexture.PageSize * InPageTexture.TileSize * scale, InPageTexture.MaxMipLevel, MipmapBias));
+                Shader.SetGlobalVector("_VTFeedbackParam", new Vector4(InPageTexture.pageSize, InPageTexture.pageSize * InPageTexture.tileSize * scale, InPageTexture.MaxMip, MipmapBias));
             }
 
             // 渲染前先拷贝主摄像机的相关参数
