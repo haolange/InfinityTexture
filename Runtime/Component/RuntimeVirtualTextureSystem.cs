@@ -82,7 +82,7 @@ namespace Landscape.RuntimeVirtualTexture
             pageRenderer.DrawPageColor(this, pageProducer, ref virtualTextureAsset.lruCache[0], virtualTextureAsset.tileNum, virtualTextureAsset.TileSizePadding);
         }
 
-        public void DrawMesh(Mesh quadMesh, Material pageColorMat, MaterialPropertyBlock propertyBlock, in FRectInt pageCoordRect, in FPageRequestInfo requestInfo)
+        public void DrawMesh(CommandBuffer cmdBuffer, Mesh quadMesh, Material pageColorMat, MaterialPropertyBlock propertyBlock, in FRectInt pageCoordRect, in FPageRequestInfo requestInfo)
         {
             int x = requestInfo.pageX;
             int y = requestInfo.pageY;
@@ -101,9 +101,6 @@ namespace Landscape.RuntimeVirtualTexture
 
 
             var terRect = Rect.zero;
-            CommandBuffer CmdBuffer = CommandBufferPool.Get("DrawPageColor");
-            CmdBuffer.SetRenderTarget(virtualTextureAsset.colorBuffers, virtualTextureAsset.colorBuffers[0]);
-
             foreach (var terrain in m_terrains)
             {
                 propertyBlock.Clear();
@@ -166,12 +163,9 @@ namespace Landscape.RuntimeVirtualTexture
                         index++;
                     }
                     
-                    CmdBuffer.DrawMesh(quadMesh, Matrix4x4.identity, pageColorMat, 0, layerIndex <= 4 ? 0 : 1, propertyBlock);
+                    cmdBuffer.DrawMesh(quadMesh, Matrix4x4.identity, pageColorMat, 0, layerIndex <= 4 ? 0 : 1, propertyBlock);
                 }
             }
-
-            Graphics.ExecuteCommandBuffer(CmdBuffer);
-            CommandBufferPool.Release(CmdBuffer);
         }
 
         public void SetFeedbackCamera()

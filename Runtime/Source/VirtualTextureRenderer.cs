@@ -134,6 +134,10 @@ namespace Landscape.RuntimeVirtualTexture
             pageRequestInfoSortJob.Run();
             //pageRequests.Sort();
 
+            CommandBuffer cmdBuffer = CommandBufferPool.Get("DrawPageColor");
+            cmdBuffer.Clear();
+            cmdBuffer.SetRenderTarget(PageSystem.virtualTextureAsset.colorBuffers, PageSystem.virtualTextureAsset.colorBuffers[0]);
+
             int count = m_Limit;
             while (count > 0 && pageRequests.Length > 0)
             {
@@ -152,12 +156,15 @@ namespace Landscape.RuntimeVirtualTexture
                 if (lruCache.SetActive(pageCoord.y * tileNum + pageCoord.x))
                 {
                     pageProducer.InvalidatePage(pageCoord);
-                    PageSystem.DrawMesh(m_DrawPageMesh, m_DrawColorMaterial, m_Property, new FRectInt(pageCoord.x * tileSize, pageCoord.y * tileSize, tileSize, tileSize), PageRequestInfo);
+                    PageSystem.DrawMesh(cmdBuffer, m_DrawPageMesh, m_DrawColorMaterial, m_Property, new FRectInt(pageCoord.x * tileSize, pageCoord.y * tileSize, tileSize, tileSize), PageRequestInfo);
                 }
 
                 page.payload.pageCoord = pageCoord;
                 pageProducer.activePageMap.Add(pageCoord, pageUV);
             }
+
+            Graphics.ExecuteCommandBuffer(cmdBuffer);
+            CommandBufferPool.Release(cmdBuffer);
         }
 
         public void Dispose()
