@@ -70,7 +70,6 @@ namespace Landscape.RuntimeVirtualTexture
 
             //Build PageTableInfo
             NativeArray<FPageTableInfo> pageTableInfos = new NativeArray<FPageTableInfo>(m_DrawInfos.Length, Allocator.TempJob);
-
             FPageTableInfoBuildJob pageTableInfoBuildJob;
             pageTableInfoBuildJob.pageSize = m_PageSize;
             pageTableInfoBuildJob.drawInfos = m_DrawInfos;
@@ -109,7 +108,7 @@ namespace Landscape.RuntimeVirtualTexture
                 FPageTable pageTable = pageProducer.pageTables[pageUV.z];
                 ref FPage page = ref pageTable.GetPage(pageUV.x, pageUV.y);
 
-                if (page.isNull == true || page.payload.pageRequestInfo.NotEquals(pageRequestInfo)) { return; }
+                if (page.isNull == true || page.payload.pageRequestInfo.NotEquals(pageRequestInfo)) { continue; }
                 page.payload.pageRequestInfo.isNull = true;
 
                 int2 pageCoord = new int2(lruCache.First % tileNum, lruCache.First / tileNum);
@@ -121,7 +120,7 @@ namespace Landscape.RuntimeVirtualTexture
 
                 page.payload.pageCoord = pageCoord;
                 pageProducer.activePageMap.Add(pageCoord, pageUV);
-                //Debug.Log(lruCache.First);
+                Debug.Log(lruCache.First);
             }
         }
 

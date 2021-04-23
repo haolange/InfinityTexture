@@ -1,11 +1,10 @@
 using System;
-using UnityEngine;
 using Unity.Mathematics;
 using Unity.Collections;
+using System.Diagnostics;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Unity.Collections.LowLevel.Unsafe;
-using System.Collections.Generic;
-using System.Diagnostics;
 
 namespace Landscape.RuntimeVirtualTexture
 {

@@ -73,7 +73,6 @@ namespace Landscape.RuntimeVirtualTexture
         internal FNodeInfo* m_NodeInfoList;
         public int First { get { return m_HeadNodeInfo.id; } }
 
-
         public FLruCache(in int count)
         {
             m_Length = count;
@@ -102,14 +101,10 @@ namespace Landscape.RuntimeVirtualTexture
 
         public bool SetActive(int id)
         {
-            if (id < 0 || id >= m_Length)
-                return false;
+            if (id < 0 || id >= m_Length) { return false; }
 
             ref FNodeInfo nodeInfo = ref m_NodeInfoList[id];
-            if (nodeInfo.id == m_TailNodeInfo.id)
-            {
-                return true;
-            }
+            if (nodeInfo.id == m_TailNodeInfo.id) { return true; }
 
             Remove(ref nodeInfo);
             AddLast(ref nodeInfo);

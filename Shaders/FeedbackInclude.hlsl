@@ -87,7 +87,7 @@ float4 FeedbackFrag(Varyings input) : SV_Target
     ComputedLevel = clamp(ComputedLevel, 0, 8);
     ComputedLevel /= 255;
 
-	return float4(ComputedLevel, input.uv0.y, input.uv0.x, 1) * BoxMask(input.uv0, 0.5, 1);
+	return float4(input.uv0, ComputedLevel, 1) * BoxMask(input.uv0, 0.5, 1);
 }
 
 #endif
