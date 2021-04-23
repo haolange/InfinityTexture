@@ -21,12 +21,12 @@ namespace Landscape.RuntimeVirtualTexture
             m_ReadbackRequest = AsyncGPUReadback.Request(texture);
         }
 
-		public void ProcessAndDrawPageTable(FPageRenderer pageRenderer, FPageProducer pageProducer, VirtualTextureAsset virtualTexture)
+		public void ProcessAndDrawPageTable(FPageProducer pageProducer, FPageRenderer pageRenderer, VirtualTextureAsset virtualTexture)
 		{
 			if(m_ReadbackRequest.done && !m_ReadbackRequest.hasError)
 			{
                 pageProducer.ProcessFeedback(m_ReadbackRequest.GetData<Color32>(), virtualTexture.NumMip, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, pageRenderer.pageRequests);
-                pageRenderer.DrawPageTable(virtualTexture.pageTableTexture, pageProducer);
+                pageRenderer.DrawPageTable(pageProducer, virtualTexture);
             }
 		}
     }

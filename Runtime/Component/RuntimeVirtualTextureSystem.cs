@@ -1,7 +1,5 @@
 ﻿using UnityEngine;
 using Unity.Mathematics;
-using UnityEngine.Rendering;
-using System.Collections.Generic;
 
 namespace Landscape.RuntimeVirtualTexture
 {
@@ -38,143 +36,59 @@ namespace Landscape.RuntimeVirtualTexture
         [Header("Texture")]
         public VirtualTextureAsset virtualTextureAsset;
 
-        private Camera m_playerCamera;
-        private Camera m_feedbackCamera;
-        private GameObject m_feedbackObject;
+        private Camera m_PlayerCamera;
+        private Camera m_FeedbackCamera;
+        private GameObject m_FeedbackObject;
 
-        private Rect VTVolumeParams;
-        private FPageProducer pageProducer;
-        private FPageRenderer pageRenderer;
-        private FeedbackReader feedbackReader;
-        private FeedbackRenderer feedbackRenderer;
+        private FRect m_VolumeRect;
+        private FPageProducer m_PageProducer;
+        private FPageRenderer m_PageRenderer;
+        private FeedbackReader m_FeedbackReader;
+        private FeedbackRenderer m_FeedbackRenderer;
 
-
+        //
         private void OnEnable()
         {
             SetFeedbackCamera();
             SetTerrainMaterial();
 
             int2 fixedCenter = GetFixedCenter(GetFixedPos(transform.position));
-            VTVolumeParams = new Rect(fixedCenter.x - VolumeRadius, fixedCenter.y - VolumeRadius, VolumeSize, VolumeSize);
-            Shader.SetGlobalVector("_VTVolumeParams", new Vector4(VTVolumeParams.xMin, VTVolumeParams.yMin, VTVolumeParams.width, VTVolumeParams.height));
+            m_VolumeRect = new FRect(fixedCenter.x - VolumeRadius, fixedCenter.y - VolumeRadius, VolumeSize, VolumeSize);
+            Shader.SetGlobalVector("_VTVolumeParams", new Vector4(m_VolumeRect.xMin, m_VolumeRect.yMin, m_VolumeRect.width, m_VolumeRect.height));
 
-            feedbackReader = new FeedbackReader();
-            feedbackRenderer = new FeedbackRenderer();
-            pageProducer = new FPageProducer(virtualTextureAsset.pageSize, virtualTextureAsset.NumMip);
-            pageRenderer = new FPageRenderer(virtualTextureAsset.pageSize, virtualTextureAsset.NumMip);
+            m_FeedbackReader = new FeedbackReader();
+            m_FeedbackRenderer = new FeedbackRenderer();
+            m_PageProducer = new FPageProducer(virtualTextureAsset.pageSize, virtualTextureAsset.NumMip);
+            m_PageRenderer = new FPageRenderer(virtualTextureAsset.pageSize, virtualTextureAsset.NumMip);
 
             virtualTextureAsset.Initialize();
-            feedbackRenderer.Initialize(m_playerCamera, m_feedbackCamera, FeedbackSize, FeedbackScale, virtualTextureAsset);
+            m_FeedbackRenderer.Initialize(m_PlayerCamera, m_FeedbackCamera, FeedbackSize, FeedbackScale, virtualTextureAsset);
         }
 
         private void Update()
         {
             if (CheckRunSystem()) { return; }
 
-            feedbackReader.ProcessAndDrawPageTable(pageRenderer, pageProducer, virtualTextureAsset);
+            m_FeedbackReader.ProcessAndDrawPageTable(m_PageProducer, m_PageRenderer, virtualTextureAsset);
 
-            if (feedbackReader.bReady)
+            if (m_FeedbackReader.bReady)
             {
-                feedbackRenderer.FeedbackCamera.Render();
-                feedbackReader.RequestReadback(feedbackRenderer.TargetTexture);
+                m_FeedbackRenderer.FeedbackCamera.Render();
+                m_FeedbackReader.RequestReadback(m_FeedbackRenderer.TargetTexture);
             }
 
-            pageRenderer.DrawPageColor(this, pageProducer, ref virtualTextureAsset.lruCache[0], virtualTextureAsset.tileNum, virtualTextureAsset.TileSizePadding);
-        }
-
-        public void DrawMesh(CommandBuffer cmdBuffer, Mesh quadMesh, Material pageColorMat, MaterialPropertyBlock propertyBlock, in FRectInt pageCoordRect, in FPageRequestInfo requestInfo)
-        {
-            int x = requestInfo.pageX;
-            int y = requestInfo.pageY;
-            int perSize = (int)Mathf.Pow(2, requestInfo.mipLevel);
-            x = x - x % perSize;
-            y = y - y % perSize;
-
-            var tableSize = virtualTextureAsset.pageSize;
-
-            var paddingEffect = virtualTextureAsset.tileBorder * perSize * (VTVolumeParams.width / tableSize) / virtualTextureAsset.tileSize;
-
-            var realRect = new Rect(VTVolumeParams.xMin + (float)x / tableSize * VTVolumeParams.width - paddingEffect,
-                                    VTVolumeParams.yMin + (float)y / tableSize * VTVolumeParams.height - paddingEffect,
-                                    VTVolumeParams.width / tableSize * perSize + 2f * paddingEffect,
-                                    VTVolumeParams.width / tableSize * perSize + 2f * paddingEffect);
-
-
-            var terRect = Rect.zero;
-            foreach (var terrain in m_terrains)
-            {
-                propertyBlock.Clear();
-
-                terRect.xMin = terrain.transform.position.x;
-                terRect.yMin = terrain.transform.position.z;
-                terRect.width = terrain.terrainData.size.x;
-                terRect.height = terrain.terrainData.size.z;
-                
-                if ( !realRect.Overlaps(terRect) ) { continue; }
-
-                var needDrawRect = realRect;
-                needDrawRect.xMin = Mathf.Max(realRect.xMin, terRect.xMin);
-                needDrawRect.yMin = Mathf.Max(realRect.yMin, terRect.yMin);
-                needDrawRect.xMax = Mathf.Min(realRect.xMax, terRect.xMax);
-                needDrawRect.yMax = Mathf.Min(realRect.yMax, terRect.yMax);
-
-                var scaleFactor = pageCoordRect.width / realRect.width;
-
-                var position = new Rect(pageCoordRect.x + (needDrawRect.xMin - realRect.xMin) * scaleFactor,
-                                        pageCoordRect.y + (needDrawRect.yMin - realRect.yMin) * scaleFactor,
-                                        needDrawRect.width * scaleFactor,
-                                        needDrawRect.height * scaleFactor);
-
-                var scaleOffset = new Vector4(needDrawRect.width / terRect.width, 
-                                              needDrawRect.height / terRect.height,
-                                              (needDrawRect.xMin - terRect.xMin) / terRect.width,
-                                              (needDrawRect.yMin - terRect.yMin) / terRect.height);
-                // 构建变换矩阵
-                float l = position.x * 2.0f / virtualTextureAsset.TextureSize - 1;
-                float r = (position.x + position.width) * 2.0f / virtualTextureAsset.TextureSize - 1;
-                float b = position.y * 2.0f / virtualTextureAsset.TextureSize - 1;
-                float t = (position.y + position.height) * 2.0f / virtualTextureAsset.TextureSize - 1;
-                Matrix4x4 Matrix_MVP = new Matrix4x4();
-                Matrix_MVP.m00 = r - l;
-                Matrix_MVP.m03 = l;
-                Matrix_MVP.m11 = t - b;
-                Matrix_MVP.m13 = b;
-                Matrix_MVP.m23 = -1;
-                Matrix_MVP.m33 = 1;
-
-                // 绘制贴图
-                propertyBlock.SetVector("_SplatTileOffset", scaleOffset);
-                propertyBlock.SetMatrix(Shader.PropertyToID("_Matrix_MVP"), GL.GetGPUProjectionMatrix(Matrix_MVP, true));
-
-                int layerIndex = 0;
-                for (int i = 0; i < terrain.terrainData.alphamapTextures.Length; ++i)
-                {
-                    var splatMap = terrain.terrainData.alphamapTextures[i];
-                    propertyBlock.SetTexture("_SplatTexture", splatMap);
-
-                    int index = 1;
-                    for(;layerIndex < terrain.terrainData.terrainLayers.Length && index <= 4;layerIndex ++)
-                    {
-                        var layer = terrain.terrainData.terrainLayers[layerIndex];
-                        var tileScale = new Vector2(terrain.terrainData.size.x / layer.tileSize.x, terrain.terrainData.size.z / layer.tileSize.y);
-                        var tileOffset = new Vector4(tileScale.x * scaleOffset.x, tileScale.y * scaleOffset.y, scaleOffset.z * tileScale.x, scaleOffset.w * tileScale.y);
-                        propertyBlock.SetVector("_SurfaceTileOffset", tileOffset);
-                        propertyBlock.SetTexture($"_AlbedoTexture{index}", layer.diffuseTexture);
-                        propertyBlock.SetTexture($"_NormalTexture{index}", layer.normalMapTexture);
-                        index++;
-                    }
-
-                    cmdBuffer.DrawMesh(quadMesh, Matrix4x4.identity, pageColorMat, 0, layerIndex <= 4 ? 0 : 1, propertyBlock);
-                }
-            }
+            FDrawPageParameter drawPageParameter;
+            drawPageParameter.terrainList = m_terrains;
+            drawPageParameter.volumeRect = m_VolumeRect;
+            m_PageRenderer.DrawPageColor(m_PageProducer, virtualTextureAsset, ref virtualTextureAsset.lruCache[0], drawPageParameter);
         }
 
         public void SetFeedbackCamera()
         {
-            m_playerCamera = Camera.main;
-            m_feedbackObject = GameObject.Instantiate(m_feedbackPrefab, m_playerCamera.transform.position, m_playerCamera.transform.rotation);
-            m_feedbackObject.transform.parent = m_playerCamera.transform;
-            m_feedbackCamera = m_feedbackObject.GetComponent<Camera>();
+            m_PlayerCamera = Camera.main;
+            m_FeedbackObject = GameObject.Instantiate(m_feedbackPrefab, m_PlayerCamera.transform.position, m_PlayerCamera.transform.rotation);
+            m_FeedbackObject.transform.parent = m_PlayerCamera.transform;
+            m_FeedbackCamera = m_FeedbackObject.GetComponent<Camera>();
         }
 
         public void SetTerrainMaterial()
@@ -190,7 +104,7 @@ namespace Landscape.RuntimeVirtualTexture
 
         private bool CheckRunSystem()
         {
-            if (m_terrains.Length == 0 && m_playerCamera == null && m_feedbackCamera == null && virtualTextureAsset == null) { return true; }
+            if (m_terrains.Length == 0 && m_PlayerCamera == null && m_FeedbackCamera == null && virtualTextureAsset == null) { return true; }
 
             return false;
         }
@@ -209,11 +123,11 @@ namespace Landscape.RuntimeVirtualTexture
         {
             if (CheckRunSystem()) { return; }
 
-            pageProducer.Dispose();
-            pageRenderer.Dispose();
-            feedbackRenderer.Dispose();
+            m_PageProducer.Dispose();
+            m_PageRenderer.Dispose();
+            m_FeedbackRenderer.Dispose();
             virtualTextureAsset.Dispose();
-            Object.DestroyImmediate(m_feedbackObject, true);
+            Object.DestroyImmediate(m_FeedbackObject, true);
         }
     }
 }

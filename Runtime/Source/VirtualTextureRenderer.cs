@@ -27,6 +27,12 @@ namespace Landscape.RuntimeVirtualTexture
         }
     }
 
+    internal struct FDrawPageParameter
+    {
+        public FRect volumeRect;
+        public Terrain[] terrainList;
+    }
+
     internal class FPageRenderer : IDisposable
     {
         private int m_Limit;
@@ -54,7 +60,7 @@ namespace Landscape.RuntimeVirtualTexture
             this.m_DrawPageMaterial.enableInstancing = true;
         }
 
-        public void DrawPageTable(RenderTexture pageTableTexture, FPageProducer pageProducer)
+        public void DrawPageTable(FPageProducer pageProducer, VirtualTextureAsset virtualTexture)
         {
             m_Property.Clear();
             m_DrawInfos.Clear();
@@ -68,37 +74,11 @@ namespace Landscape.RuntimeVirtualTexture
             pageDrawInfoBuildJob.pageEnumerator = pageProducer.activePageMap.GetEnumerator();
             pageDrawInfoBuildJob.Run();
 
-            /*var pageEnumerator = pageProducer.activePageMap.GetEnumerator();
-            while (pageEnumerator.MoveNext())
-            {
-                var pageCoord = pageEnumerator.Current.Value;
-                FPageTable pageTable = pageProducer.pageTables[pageCoord.z];
-                ref FPage page = ref pageTable.GetPage(pageCoord.x, pageCoord.y);
-                if (page.payload.activeFrame != Time.frameCount) { continue; }
-
-                int2 rectXY = new int2(page.rect.xMin, page.rect.yMin);
-                while (rectXY.x < 0)
-                {
-                    rectXY.x += m_PageSize;
-                }
-                while (rectXY.y < 0)
-                {
-                    rectXY.y += m_PageSize;
-                }
-
-                FPageDrawInfo drawInfo;
-                drawInfo.mip = page.mipLevel;
-                drawInfo.rect = new FRect(rectXY.x, rectXY.y, page.rect.width, page.rect.height);
-                drawInfo.drawPos = new float2((float)page.payload.pageCoord.x / 255, (float)page.payload.pageCoord.y / 255);
-                m_DrawInfos.Add(drawInfo);
-            }*/
-
             //Sort PageDrawInfo
             if (m_DrawInfos.Length == 0) { return; }
             FPageDrawInfoSortJob pageDrawInfoSortJob;
             pageDrawInfoSortJob.drawInfos = m_DrawInfos;
             pageDrawInfoSortJob.Run();
-            //m_DrawInfos.Sort();
 
             //Build PageTableInfo
             NativeArray<Vector4> PageInfos = new NativeArray<Vector4>(m_DrawInfos.Length, Allocator.TempJob);
@@ -117,7 +97,7 @@ namespace Landscape.RuntimeVirtualTexture
 
             //Draw PageTable
             CommandBuffer CmdBuffer = CommandBufferPool.Get("DrawPageTable");
-            CmdBuffer.SetRenderTarget(pageTableTexture);
+            CmdBuffer.SetRenderTarget(virtualTexture.pageTableTexture);
             CmdBuffer.DrawMeshInstanced(m_DrawPageMesh, 0, m_DrawPageMaterial, 0, Materix_MVP.ToArray(), Materix_MVP.Length, m_Property);
             Graphics.ExecuteCommandBuffer(CmdBuffer);
 
@@ -126,7 +106,7 @@ namespace Landscape.RuntimeVirtualTexture
             Materix_MVP.Dispose();
         }
 
-        public void DrawPageColor(RuntimeVirtualTextureSystem PageSystem, FPageProducer pageProducer, ref FLruCache lruCache, in int tileNum, in int tileSize)
+        public void DrawPageColor(FPageProducer pageProducer, VirtualTextureAsset virtualTexture, ref FLruCache lruCache, in FDrawPageParameter drawPageParameter)
         {
             if (pageRequests.Length <= 0) { return; }
             FPageRequestInfoSortJob pageRequestInfoSortJob;
@@ -136,27 +116,29 @@ namespace Landscape.RuntimeVirtualTexture
 
             CommandBuffer cmdBuffer = CommandBufferPool.Get("DrawPageColor");
             cmdBuffer.Clear();
-            cmdBuffer.SetRenderTarget(PageSystem.virtualTextureAsset.colorBuffers, PageSystem.virtualTextureAsset.colorBuffers[0]);
+            cmdBuffer.SetRenderTarget(virtualTexture.colorBuffers, virtualTexture.colorBuffers[0]);
 
             int count = m_Limit;
             while (count > 0 && pageRequests.Length > 0)
             {
                 count--;
-                FPageRequestInfo PageRequestInfo = pageRequests[pageRequests.Length - 1];
+                FPageRequestInfo requestInfo = pageRequests[pageRequests.Length - 1];
                 pageRequests.RemoveAt(pageRequests.Length - 1);
 
-                int3 pageUV = new int3(PageRequestInfo.pageX, PageRequestInfo.pageY, PageRequestInfo.mipLevel);
+                int3 pageUV = new int3(requestInfo.pageX, requestInfo.pageY, requestInfo.mipLevel);
                 FPageTable pageTable = pageProducer.pageTables[pageUV.z];
                 ref FPage page = ref pageTable.GetPage(pageUV.x, pageUV.y);
 
-                if (page.isNull == true || page.payload.pageRequestInfo.NotEquals(PageRequestInfo)) { continue; }
+                if (page.isNull == true || page.payload.pageRequestInfo.NotEquals(requestInfo)) { continue; }
                 page.payload.pageRequestInfo.isNull = true;
 
-                int2 pageCoord = new int2(lruCache.First % tileNum, lruCache.First / tileNum);
-                if (lruCache.SetActive(pageCoord.y * tileNum + pageCoord.x))
+                int2 pageCoord = new int2(lruCache.First % virtualTexture.tileNum, lruCache.First / virtualTexture.tileNum);
+                if (lruCache.SetActive(pageCoord.y * virtualTexture.tileNum + pageCoord.x))
                 {
                     pageProducer.InvalidatePage(pageCoord);
-                    PageSystem.DrawMesh(cmdBuffer, m_DrawPageMesh, m_DrawColorMaterial, m_Property, new FRectInt(pageCoord.x * tileSize, pageCoord.y * tileSize, tileSize, tileSize), PageRequestInfo);
+
+                    FRectInt pageRect = new FRectInt(pageCoord.x * virtualTexture.TileSizePadding, pageCoord.y * virtualTexture.TileSizePadding, virtualTexture.TileSizePadding, virtualTexture.TileSizePadding);
+                    RenderPage(cmdBuffer, virtualTexture, pageRect, requestInfo, drawPageParameter);
                 }
 
                 page.payload.pageCoord = pageCoord;
@@ -165,6 +147,93 @@ namespace Landscape.RuntimeVirtualTexture
 
             Graphics.ExecuteCommandBuffer(cmdBuffer);
             CommandBufferPool.Release(cmdBuffer);
+        }
+
+        private void RenderPage(CommandBuffer cmdBuffer, VirtualTextureAsset virtualTextureAsset, in FRectInt pageRect, in FPageRequestInfo requestInfo, in FDrawPageParameter drawPageParameter)
+        {
+            int x = requestInfo.pageX;
+            int y = requestInfo.pageY;
+            int perSize = (int)Mathf.Pow(2, requestInfo.mipLevel);
+            x = x - x % perSize;
+            y = y - y % perSize;
+
+            var tableSize = virtualTextureAsset.pageSize;
+
+            var paddingEffect = virtualTextureAsset.tileBorder * perSize * (drawPageParameter.volumeRect.width / tableSize) / virtualTextureAsset.tileSize;
+
+            var realRect = new Rect(drawPageParameter.volumeRect.xMin + (float)x / tableSize * drawPageParameter.volumeRect.width - paddingEffect,
+                                    drawPageParameter.volumeRect.yMin + (float)y / tableSize * drawPageParameter.volumeRect.height - paddingEffect,
+                                    drawPageParameter.volumeRect.width / tableSize * perSize + 2f * paddingEffect,
+                                    drawPageParameter.volumeRect.width / tableSize * perSize + 2f * paddingEffect);
+
+
+            var terRect = Rect.zero;
+            foreach (var terrain in drawPageParameter.terrainList)
+            {
+                m_Property.Clear();
+
+                terRect.xMin = terrain.transform.position.x;
+                terRect.yMin = terrain.transform.position.z;
+                terRect.width = terrain.terrainData.size.x;
+                terRect.height = terrain.terrainData.size.z;
+
+                if (!realRect.Overlaps(terRect)) { continue; }
+
+                var needDrawRect = realRect;
+                needDrawRect.xMin = Mathf.Max(realRect.xMin, terRect.xMin);
+                needDrawRect.yMin = Mathf.Max(realRect.yMin, terRect.yMin);
+                needDrawRect.xMax = Mathf.Min(realRect.xMax, terRect.xMax);
+                needDrawRect.yMax = Mathf.Min(realRect.yMax, terRect.yMax);
+
+                var scaleFactor = pageRect.width / realRect.width;
+
+                var position = new Rect(pageRect.x + (needDrawRect.xMin - realRect.xMin) * scaleFactor,
+                                        pageRect.y + (needDrawRect.yMin - realRect.yMin) * scaleFactor,
+                                        needDrawRect.width * scaleFactor,
+                                        needDrawRect.height * scaleFactor);
+
+                var scaleOffset = new Vector4(needDrawRect.width / terRect.width,
+                                              needDrawRect.height / terRect.height,
+                                              (needDrawRect.xMin - terRect.xMin) / terRect.width,
+                                              (needDrawRect.yMin - terRect.yMin) / terRect.height);
+                // 构建变换矩阵
+                float l = position.x * 2.0f / virtualTextureAsset.TextureSize - 1;
+                float r = (position.x + position.width) * 2.0f / virtualTextureAsset.TextureSize - 1;
+                float b = position.y * 2.0f / virtualTextureAsset.TextureSize - 1;
+                float t = (position.y + position.height) * 2.0f / virtualTextureAsset.TextureSize - 1;
+                Matrix4x4 Matrix_MVP = new Matrix4x4();
+                Matrix_MVP.m00 = r - l;
+                Matrix_MVP.m03 = l;
+                Matrix_MVP.m11 = t - b;
+                Matrix_MVP.m13 = b;
+                Matrix_MVP.m23 = -1;
+                Matrix_MVP.m33 = 1;
+
+                // 绘制贴图
+                m_Property.SetVector("_SplatTileOffset", scaleOffset);
+                m_Property.SetMatrix(Shader.PropertyToID("_Matrix_MVP"), GL.GetGPUProjectionMatrix(Matrix_MVP, true));
+
+                int layerIndex = 0;
+                for (int i = 0; i < terrain.terrainData.alphamapTextures.Length; ++i)
+                {
+                    var splatMap = terrain.terrainData.alphamapTextures[i];
+                    m_Property.SetTexture("_SplatTexture", splatMap);
+
+                    int index = 1;
+                    for (; layerIndex < terrain.terrainData.terrainLayers.Length && index <= 4; layerIndex++)
+                    {
+                        var layer = terrain.terrainData.terrainLayers[layerIndex];
+                        var tileScale = new Vector2(terrain.terrainData.size.x / layer.tileSize.x, terrain.terrainData.size.z / layer.tileSize.y);
+                        var tileOffset = new Vector4(tileScale.x * scaleOffset.x, tileScale.y * scaleOffset.y, scaleOffset.z * tileScale.x, scaleOffset.w * tileScale.y);
+                        m_Property.SetVector("_SurfaceTileOffset", tileOffset);
+                        m_Property.SetTexture($"_AlbedoTexture{index}", layer.diffuseTexture);
+                        m_Property.SetTexture($"_NormalTexture{index}", layer.normalMapTexture);
+                        index++;
+                    }
+
+                    cmdBuffer.DrawMesh(m_DrawPageMesh, Matrix4x4.identity, m_DrawColorMaterial, 0, layerIndex <= 4 ? 0 : 1, m_Property);
+                }
+            }
         }
 
         public void Dispose()
