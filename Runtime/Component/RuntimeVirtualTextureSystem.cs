@@ -58,10 +58,10 @@ namespace Landscape.RuntimeVirtualTexture
             VTVolumeParams = new Rect(fixedCenter.x - VolumeRadius, fixedCenter.y - VolumeRadius, VolumeSize, VolumeSize);
             Shader.SetGlobalVector("_VTVolumeParams", new Vector4(VTVolumeParams.xMin, VTVolumeParams.yMin, VTVolumeParams.width, VTVolumeParams.height));
 
-            pageProducer = new FPageProducer(virtualTextureAsset.pageSize, virtualTextureAsset.MaxMip);
-            pageRenderer = new FPageRenderer(virtualTextureAsset.pageSize, virtualTextureAsset.MaxMip);
             feedbackReader = new FeedbackReader();
             feedbackRenderer = new FeedbackRenderer();
+            pageProducer = new FPageProducer(virtualTextureAsset.pageSize, virtualTextureAsset.NumMip);
+            pageRenderer = new FPageRenderer(virtualTextureAsset.pageSize, virtualTextureAsset.NumMip);
 
             virtualTextureAsset.Initialize();
             feedbackRenderer.Initialize(m_playerCamera, m_feedbackCamera, FeedbackSize, FeedbackScale, virtualTextureAsset);
