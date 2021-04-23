@@ -1,7 +1,9 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 using Unity.Mathematics;
 using Unity.Collections;
 using UnityEngine.Rendering;
+using Object = UnityEngine.Object;
 using System.Runtime.InteropServices;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine.Experimental.Rendering;
@@ -9,7 +11,7 @@ using UnityEngine.Experimental.Rendering;
 namespace Landscape.RuntimeVirtualTexture
 {
     [CreateAssetMenu(menuName = "Landscape/VirtualTextureAsset")]
-    public unsafe class VirtualTextureAsset : ScriptableObject
+    public unsafe class VirtualTextureAsset : ScriptableObject, IDisposable
     {
         [Range(4, 32)]
         public int tileNum = 16;
@@ -77,11 +79,11 @@ namespace Landscape.RuntimeVirtualTexture
 
         public void Reset()
         {
-            Release();
+            Dispose();
             Initialize();
         }
 
-        public void Release()
+        public void Dispose()
         {
             lruCache[0].Dispose();
             UnsafeUtility.Free((void*)lruCache, Allocator.Persistent);

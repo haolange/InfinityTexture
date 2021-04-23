@@ -33,7 +33,7 @@ namespace Landscape.RuntimeVirtualTexture
 
         [Header("FeedbackSetting")]
         public int2 FeedbackSize = new int2(1920, 1080);
-        public FeedbackScale FeedbackScale = FeedbackScale.X16;
+        public EFeedbackScale FeedbackScale = EFeedbackScale.X16;
 
         [Header("VirtualTexture")]
         public Camera PlayerCamera;
@@ -184,7 +184,8 @@ namespace Landscape.RuntimeVirtualTexture
 
             pageProducer.Dispose();
             pageRenderer.Dispose();
-            VirtualTextureProfile.Release();
+            feedbackRenderer.Dispose();
+            VirtualTextureProfile.Dispose();
         }
 
         public void Reset()
