@@ -11,7 +11,7 @@ namespace Landscape.ProceduralVirtualTexture
     {
         public int mip;
         public Rect rect;
-        public Vector2 drawPos;
+        public float2 drawPos;
 
         public int CompareTo(DrawPageInfo target)
         {
@@ -132,7 +132,7 @@ namespace Landscape.ProceduralVirtualTexture
                 if (page.payload.activeFrame != Time.frameCount)
                     continue;
 
-                var rectXY = new Vector2Int(page.rect.xMin, page.rect.yMin);
+                int2 rectXY = new int2(page.rect.xMin, page.rect.yMin);
                 while (rectXY.x < 0)
                 {
                     rectXY.x += pageTexture.PageSize;
@@ -145,8 +145,7 @@ namespace Landscape.ProceduralVirtualTexture
                 drawList.Add(new DrawPageInfo() {
                     rect = new Rect(rectXY.x, rectXY.y, page.rect.width, page.rect.height),
                     mip = page.mipLevel,
-                    drawPos = new Vector2((float)page.payload.pageCoord.x / 255,
-                    (float)page.payload.pageCoord.y / 255),
+                    drawPos = new float2((float)page.payload.pageCoord.x / 255, (float)page.payload.pageCoord.y / 255),
                 });
             }
 

@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Experimental.Rendering;
+using Unity.Mathematics;
 
 namespace Landscape.ProceduralVirtualTexture
 {
@@ -105,9 +106,9 @@ namespace Landscape.ProceduralVirtualTexture
             PageTableTexture.Release();
         }
 
-        public Vector2Int RequestTile()
+        public int2 RequestTile()
         {
-            return new Vector2Int(PagePool.First % TileNum, PagePool.First / TileNum);
+            return new int2(PagePool.First % TileNum, PagePool.First / TileNum);
         }
 
         public bool SetActive(in int index)

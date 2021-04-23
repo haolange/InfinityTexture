@@ -61,7 +61,7 @@ namespace Landscape.ProceduralVirtualTexture
                 TerrainList[i].materialTemplate = TerrainMaterial;
             }
 
-            Vector2Int fixedCenter = GetFixedCenter(GetFixedPos(transform.position));
+            int2 fixedCenter = GetFixedCenter(GetFixedPos(transform.position));
             VTVolumeParams = new Rect(fixedCenter.x - VolumeRadius, fixedCenter.y - VolumeRadius, VolumeSize, VolumeSize);
             Shader.SetGlobalVector("_VTVolumeParams", new Vector4(VTVolumeParams.xMin, VTVolumeParams.yMin, VTVolumeParams.width, VTVolumeParams.height));
 
@@ -210,15 +210,15 @@ namespace Landscape.ProceduralVirtualTexture
             return false;
         }
 
-        private Vector2Int GetFixedCenter(Vector2Int pos)
+        private int2 GetFixedCenter(int2 pos)
         {
-            return new Vector2Int((int)Mathf.Floor(pos.x / VolumeRadius + 0.5f) * (int)VolumeRadius,
+            return new int2((int)Mathf.Floor(pos.x / VolumeRadius + 0.5f) * (int)VolumeRadius,
                                   (int)Mathf.Floor(pos.y / VolumeRadius + 0.5f) * (int)VolumeRadius);
         }
 
-        private Vector2Int GetFixedPos(Vector3 pos)
+        private int2 GetFixedPos(Vector3 pos)
         {
-            return new Vector2Int((int)Mathf.Floor(pos.x / PageSize + 0.5f) * (int)PageSize,
+            return new int2((int)Mathf.Floor(pos.x / PageSize + 0.5f) * (int)PageSize,
                                   (int)Mathf.Floor(pos.z / PageSize + 0.5f) * (int)PageSize);
         }
         
