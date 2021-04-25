@@ -19,6 +19,7 @@ TEXTURE2D(_NormalTexture2);
 TEXTURE2D(_NormalTexture3);
 TEXTURE2D(_NormalTexture4);
 
+SAMPLER(Global_bilinear_clamp_sampler);
 SAMPLER(Global_trilinear_repeat_sampler);
 
 
@@ -51,7 +52,7 @@ Varyings vert(Attributes Input)
 
 PixelOutput frag(const Varyings In)
 {
-    float4 blend = _SplatTexture.Sample(Global_trilinear_repeat_sampler, In.uv * _SplatTileOffset.xy + _SplatTileOffset.zw);
+    float4 blend = _SplatTexture.Sample(Global_bilinear_clamp_sampler, In.uv * _SplatTileOffset.xy + _SplatTileOffset.zw);
     
 #ifdef TERRAIN_SPLAT_ADDPASS
     clip(blend.x + blend.y + blend.z + blend.w <= 0.005h ? -1.0h : 1.0h);

@@ -56,7 +56,7 @@ namespace Landscape.RuntimeVirtualTexture
         public override void OnCameraSetup(CommandBuffer cmdBuffer, ref RenderingData renderingData)
         {
             Camera camera = renderingData.cameraData.camera;
-            m_FeedbackTexture = RenderTexture.GetTemporary(camera.pixelWidth / (int)m_feedbackScale, camera.pixelHeight / (int)m_feedbackScale, 1, GraphicsFormat.R8G8B8A8_UNorm, 1);
+            m_FeedbackTexture = RenderTexture.GetTemporary(1920 / (int)m_feedbackScale, 1080 / (int)m_feedbackScale, 1, GraphicsFormat.R8G8B8A8_UNorm, 1);
             m_FeedbackTexture.name = "FeedbackTexture";
             m_FeedbackTextureID = new RenderTargetIdentifier(m_FeedbackTexture);
             //ConfigureTarget(m_FeedbackTextureID);
