@@ -60,7 +60,7 @@ namespace Landscape.RuntimeVirtualTexture
             this.m_DrawPageMaterial.enableInstancing = true;
         }
 
-        public void DrawPageTable(FPageProducer pageProducer, VirtualTextureAsset virtualTexture)
+        public void DrawPageTable(ScriptableRenderContext renderContext, CommandBuffer cmdBuffer, FPageProducer pageProducer, VirtualTextureAsset virtualTexture)
         {
             m_Property.Clear();
             m_DrawInfos.Clear();
@@ -96,27 +96,21 @@ namespace Landscape.RuntimeVirtualTexture
             m_Property.SetMatrixArray("_Matrix_MVP", Materix_MVP.ToArray());
 
             //Draw PageTable
-            CommandBuffer CmdBuffer = CommandBufferPool.Get("DrawPageTable");
-            CmdBuffer.SetRenderTarget(virtualTexture.pageTableTexture);
-            CmdBuffer.DrawMeshInstanced(m_DrawPageMesh, 0, m_DrawPageMaterial, 0, Materix_MVP.ToArray(), Materix_MVP.Length, m_Property);
-            Graphics.ExecuteCommandBuffer(CmdBuffer);
+            cmdBuffer.DrawMeshInstanced(m_DrawPageMesh, 0, m_DrawPageMaterial, 0, Materix_MVP.ToArray(), Materix_MVP.Length, m_Property);
+            renderContext.ExecuteCommandBuffer(cmdBuffer);
+            cmdBuffer.Clear();
 
             //Release
             PageInfos.Dispose();
             Materix_MVP.Dispose();
         }
 
-        public void DrawPageColor(FPageProducer pageProducer, VirtualTextureAsset virtualTexture, ref FLruCache lruCache, in FDrawPageParameter drawPageParameter)
+        public void DrawPageColor(ScriptableRenderContext renderContext, CommandBuffer cmdBuffer, FPageProducer pageProducer, VirtualTextureAsset virtualTexture, ref FLruCache lruCache, in FDrawPageParameter drawPageParameter)
         {
             if (pageRequests.Length <= 0) { return; }
             FPageRequestInfoSortJob pageRequestInfoSortJob;
             pageRequestInfoSortJob.pageRequests = pageRequests;
             pageRequestInfoSortJob.Run();
-            //pageRequests.Sort();
-
-            CommandBuffer cmdBuffer = CommandBufferPool.Get("DrawPageColor");
-            cmdBuffer.Clear();
-            cmdBuffer.SetRenderTarget(virtualTexture.colorBuffers, virtualTexture.colorBuffers[0]);
 
             int count = m_Limit;
             while (count > 0 && pageRequests.Length > 0)
@@ -145,11 +139,11 @@ namespace Landscape.RuntimeVirtualTexture
                 pageProducer.activePageMap.Add(pageCoord, pageUV);
             }
 
-            Graphics.ExecuteCommandBuffer(cmdBuffer);
-            CommandBufferPool.Release(cmdBuffer);
+            renderContext.ExecuteCommandBuffer(cmdBuffer);
+            cmdBuffer.Clear();
         }
 
-        private void RenderPage(CommandBuffer cmdBuffer, VirtualTextureAsset virtualTextureAsset, in FRectInt pageRect, in FPageRequestInfo requestInfo, in FDrawPageParameter drawPageParameter)
+        private void RenderPage(CommandBuffer cmdBuffer, VirtualTextureAsset virtualTexture, in FRectInt pageRect, in FPageRequestInfo requestInfo, in FDrawPageParameter drawPageParameter)
         {
             int x = requestInfo.pageX;
             int y = requestInfo.pageY;
@@ -157,9 +151,9 @@ namespace Landscape.RuntimeVirtualTexture
             x = x - x % perSize;
             y = y - y % perSize;
 
-            var tableSize = virtualTextureAsset.pageSize;
+            var tableSize = virtualTexture.pageSize;
 
-            var paddingEffect = virtualTextureAsset.tileBorder * perSize * (drawPageParameter.volumeRect.width / tableSize) / virtualTextureAsset.tileSize;
+            var paddingEffect = virtualTexture.tileBorder * perSize * (drawPageParameter.volumeRect.width / tableSize) / virtualTexture.tileSize;
 
             var realRect = new Rect(drawPageParameter.volumeRect.xMin + (float)x / tableSize * drawPageParameter.volumeRect.width - paddingEffect,
                                     drawPageParameter.volumeRect.yMin + (float)y / tableSize * drawPageParameter.volumeRect.height - paddingEffect,
@@ -197,10 +191,10 @@ namespace Landscape.RuntimeVirtualTexture
                                               (needDrawRect.xMin - terRect.xMin) / terRect.width,
                                               (needDrawRect.yMin - terRect.yMin) / terRect.height);
                 // 构建变换矩阵
-                float l = position.x * 2.0f / virtualTextureAsset.TextureSize - 1;
-                float r = (position.x + position.width) * 2.0f / virtualTextureAsset.TextureSize - 1;
-                float b = position.y * 2.0f / virtualTextureAsset.TextureSize - 1;
-                float t = (position.y + position.height) * 2.0f / virtualTextureAsset.TextureSize - 1;
+                float l = position.x * 2.0f / virtualTexture.TextureSize - 1;
+                float r = (position.x + position.width) * 2.0f / virtualTexture.TextureSize - 1;
+                float b = position.y * 2.0f / virtualTexture.TextureSize - 1;
+                float t = (position.y + position.height) * 2.0f / virtualTexture.TextureSize - 1;
                 Matrix4x4 Matrix_MVP = new Matrix4x4();
                 Matrix_MVP.m00 = r - l;
                 Matrix_MVP.m03 = l;

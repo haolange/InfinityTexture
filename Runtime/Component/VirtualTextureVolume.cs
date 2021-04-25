@@ -26,13 +26,13 @@ namespace Landscape.RuntimeVirtualTexture
 
         [Header("Texture")]
         public EVirtualTextureVolumeSize volumeScale;
-        public VirtualTextureAsset virtualTextureAsset;
+        public VirtualTextureAsset virtualTexture;
 
         private float m_CellSize
         {
             get
             {
-                return VolumeSize / virtualTextureAsset.pageSize;
+                return VolumeSize / virtualTexture.pageSize;
             }
         }
         public float VolumeSize
@@ -49,71 +49,34 @@ namespace Landscape.RuntimeVirtualTexture
                 return VolumeSize * 0.5f;
             }
         }
-        private FRect m_VolumeRect;
-        private Camera m_PlayerCamera;
-        private Camera m_FeedbackCamera;
-        private GameObject m_FeedbackObject;
 
+        internal FRect volumeRect;
         internal FPageProducer pageProducer;
         internal FPageRenderer pageRenderer;
         internal static VirtualTextureVolume s_VirtualTextureVolume;
 
-        private FeedbackReader m_FeedbackReader;
-        private FeedbackRenderer m_FeedbackRenderer;
-
 
         void OnEnable()
         {
-            SetFeedbackCamera();
             SetTerrainMaterial();
 
-            virtualTextureAsset.Initialize();
+            virtualTexture.Initialize();
             s_VirtualTextureVolume = this;
 
             int2 fixedCenter = GetFixedCenter(GetFixedPos(transform.position));
-            m_VolumeRect = new FRect(fixedCenter.x - m_VolumeRadius, fixedCenter.y - m_VolumeRadius, VolumeSize, VolumeSize);
-            Shader.SetGlobalVector("_VTVolumeRect", new Vector4(m_VolumeRect.xMin, m_VolumeRect.yMin, m_VolumeRect.width, m_VolumeRect.height));
+            volumeRect = new FRect(fixedCenter.x - m_VolumeRadius, fixedCenter.y - m_VolumeRadius, VolumeSize, VolumeSize);
+            Shader.SetGlobalVector("_VTVolumeRect", new Vector4(volumeRect.xMin, volumeRect.yMin, volumeRect.width, volumeRect.height));
             Shader.SetGlobalVector("_VTVolumeBound", new Vector4(transform.position.x, transform.position.y, transform.position.z, VolumeSize));
 
-            m_FeedbackReader = new FeedbackReader();
-            m_FeedbackRenderer = new FeedbackRenderer();
-            pageProducer = new FPageProducer(virtualTextureAsset.pageSize, virtualTextureAsset.NumMip);
-            pageRenderer = new FPageRenderer(virtualTextureAsset.pageSize, virtualTextureAsset.NumMip);
-
-            m_FeedbackRenderer.Initialize(m_PlayerCamera, m_FeedbackCamera, feedbackSize, feedbackScale, virtualTextureAsset);
-        }
-
-        void Update()
-        {
-            m_FeedbackReader.ProcessAndDrawPageTable(pageProducer, pageRenderer, virtualTextureAsset);
-
-            if (m_FeedbackReader.bReady)
-            {
-                m_FeedbackRenderer.FeedbackCamera.Render();
-                m_FeedbackReader.RequestReadback(m_FeedbackRenderer.TargetTexture);
-            }
-
-            FDrawPageParameter drawPageParameter;
-            drawPageParameter.volumeRect = m_VolumeRect;
-            drawPageParameter.terrainList = m_terrainList;
-            pageRenderer.DrawPageColor(pageProducer, virtualTextureAsset, ref virtualTextureAsset.lruCache[0], drawPageParameter);
+            pageProducer = new FPageProducer(virtualTexture.pageSize, virtualTexture.NumMip);
+            pageRenderer = new FPageRenderer(virtualTexture.pageSize, virtualTexture.NumMip);
         }
 
         void OnDisable()
         {
             pageProducer.Dispose();
             pageRenderer.Dispose();
-            m_FeedbackRenderer.Dispose();
-            virtualTextureAsset.Dispose();
-            Object.DestroyImmediate(m_FeedbackObject, true);
-        }
-
-        void SetFeedbackCamera()
-        {
-            m_PlayerCamera = Camera.main;
-            m_FeedbackObject = GameObject.Instantiate(m_FeedbackPrefab, m_PlayerCamera.transform.position, m_PlayerCamera.transform.rotation);
-            m_FeedbackObject.transform.parent = m_PlayerCamera.transform;
-            m_FeedbackCamera = m_FeedbackObject.GetComponent<Camera>();
+            virtualTexture.Dispose();
         }
 
         void SetTerrainMaterial()
@@ -140,7 +103,7 @@ namespace Landscape.RuntimeVirtualTexture
         internal FDrawPageParameter GetDrawPageParamter()
         {
             FDrawPageParameter drawPageParameter;
-            drawPageParameter.volumeRect = m_VolumeRect;
+            drawPageParameter.volumeRect = volumeRect;
             drawPageParameter.terrainList = m_terrainList;
             return drawPageParameter;
         }
