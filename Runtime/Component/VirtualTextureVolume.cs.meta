@@ -5,7 +5,7 @@ MonoImporter:
   serializedVersion: 2
   defaultReferences:
   - m_material: {fileID: 2100000, guid: 3a2c150cfa00c9140826163693691a0f, type: 2}
-  - m_feedbackPrefab: {fileID: 5162534690774019376, guid: 8de85f97505b35243b9b36d4fb90ad82, type: 3}
+  - m_FeedbackPrefab: {fileID: 5162534690774019376, guid: 8de85f97505b35243b9b36d4fb90ad82, type: 3}
   - virtualTextureAsset: {fileID: 11400000, guid: b8650e03683bb0844a15d265c3b49a85, type: 2}
   executionOrder: 100
   icon: {instanceID: 0}
