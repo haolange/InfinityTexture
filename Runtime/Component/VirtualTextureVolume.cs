@@ -16,7 +16,7 @@ namespace Landscape.RuntimeVirtualTexture
     {
         [HideInInspector]
         public Material m_material;
-        private Terrain[] m_terrains;
+        private Terrain[] m_terrainList;
 
         [Header("Feedback")]
         [HideInInspector]
@@ -25,8 +25,8 @@ namespace Landscape.RuntimeVirtualTexture
         public EFeedbackScale feedbackScale = EFeedbackScale.X16;
 
         [Header("Texture")]
+        public EVirtualTextureVolumeSize volumeScale;
         public VirtualTextureAsset virtualTextureAsset;
-        public EVirtualTextureVolumeSize volumeScale = EVirtualTextureVolumeSize.X1024;
 
         private float m_CellSize
         {
@@ -79,8 +79,6 @@ namespace Landscape.RuntimeVirtualTexture
 
         void Update()
         {
-            if (CheckRunSystem()) { return; }
-
             m_FeedbackReader.ProcessAndDrawPageTable(m_PageProducer, m_PageRenderer, virtualTextureAsset);
 
             if (m_FeedbackReader.bReady)
@@ -90,15 +88,13 @@ namespace Landscape.RuntimeVirtualTexture
             }
 
             FDrawPageParameter drawPageParameter;
-            drawPageParameter.terrainList = m_terrains;
             drawPageParameter.volumeRect = m_VolumeRect;
+            drawPageParameter.terrainList = m_terrainList;
             m_PageRenderer.DrawPageColor(m_PageProducer, virtualTextureAsset, ref virtualTextureAsset.lruCache[0], drawPageParameter);
         }
 
         void OnDisable()
         {
-            if (CheckRunSystem()) { return; }
-
             m_PageProducer.Dispose();
             m_PageRenderer.Dispose();
             m_FeedbackRenderer.Dispose();
@@ -116,20 +112,13 @@ namespace Landscape.RuntimeVirtualTexture
 
         void SetTerrainMaterial()
         {
-            m_terrains = GameObject.FindObjectsOfType<Terrain>();
-            if (m_terrains.Length == 0) { return; }
+            m_terrainList = GameObject.FindObjectsOfType<Terrain>();
+            if (m_terrainList.Length == 0) { return; }
 
-            for (int i = 0; i < m_terrains.Length; i++)
+            for (int i = 0; i < m_terrainList.Length; i++)
             {
-                m_terrains[i].materialTemplate = m_material;
+                m_terrainList[i].materialTemplate = m_material;
             }
-        }
-
-        bool CheckRunSystem()
-        {
-            if (m_terrains.Length == 0 && m_PlayerCamera == null && m_FeedbackCamera == null && virtualTextureAsset == null) { return true; }
-
-            return false;
         }
 
         int2 GetFixedCenter(int2 pos)

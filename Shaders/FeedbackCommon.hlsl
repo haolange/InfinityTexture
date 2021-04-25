@@ -9,10 +9,10 @@ UNITY_INSTANCING_BUFFER_START(Terrain)
 UNITY_INSTANCING_BUFFER_END(Terrain)
 
 #ifdef UNITY_INSTANCING_ENABLED
+    float4 _TerrainHeightmapScale;       // float4(hmScale.x, hmScale.y / (float)(kMaxHeight), hmScale.z, 0)
+    float4 _TerrainHeightmapRecipSize;   // float4(1.0f/width, 1.0f/height, 1.0f/(width-1), 1.0f/(height-1))
     TEXTURE2D(_TerrainHeightmapTexture);
     SAMPLER(sampler_TerrainNormalmapTexture);
-    float4 _TerrainHeightmapRecipSize;   // float4(1.0f/width, 1.0f/height, 1.0f/(width-1), 1.0f/(height-1))
-    float4 _TerrainHeightmapScale;       // float4(hmScale.x, hmScale.y / (float)(kMaxHeight), hmScale.z, 0.0f)
 #endif
 
 struct feed_v2f
