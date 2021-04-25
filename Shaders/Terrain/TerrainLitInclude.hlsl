@@ -14,10 +14,10 @@
 #endif
 
 
-float4 _VTFeedbackParam;
-float4 _VTPageTableParams;
+float4 _VTVolumeRect;
+float4 _VTPageParams;
+float4 _VTFeedbackParams;
 float4 _VTPageTileParams;
-float4 _VTVolumeParams;
 
 TEXTURE2D(_PhyscisAlbedo);
 TEXTURE2D(_PhyscisNormal);
@@ -338,13 +338,13 @@ float BoxMask(float2 A, float2 B, float2 Size)
 
 half4 TextureSampleVirtual(Varyings IN)
 {
-    float2 uv = (IN.positionWS.xz - _VTVolumeParams.xy) / _VTVolumeParams.zw;
-    float2 uvInt = uv - frac(uv * _VTPageTableParams.x) * _VTPageTableParams.y;
+    float2 uv = (IN.positionWS.xz - _VTVolumeRect.xy) / _VTVolumeRect.zw;
+    float2 uvInt = uv - frac(uv * _VTPageParams.x) * _VTPageParams.y;
 	float4 page = _PageTableTexture.SampleLevel(Global_point_clamp_sampler, uvInt, 0) * 255;
     #ifdef _SHOWRVTMIPMAP
         return float4(clamp(1 - page.b * 0.1 , 0, 1), 0, 0, 1);
     #endif
-	float2 inPageOffset = frac(uv * exp2(_VTPageTableParams.z - page.b));
+	float2 inPageOffset = frac(uv * exp2(_VTPageParams.z - page.b));
     uv = (page.rg * (_VTPageTileParams.y + _VTPageTileParams.x * 2) + inPageOffset * _VTPageTileParams.y + _VTPageTileParams.x) / _VTPageTileParams.zw;
     half3 albedo = _PhyscisAlbedo.Sample(sampler_PhyscisAlbedo, uv).rgb;
     half3 normalTS = UnpackNormalScale(_PhyscisNormal.Sample(sampler_PhyscisNormal, uv), 1);

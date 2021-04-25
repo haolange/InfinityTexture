@@ -66,7 +66,7 @@ namespace Landscape.RuntimeVirtualTexture
 
             int2 fixedCenter = GetFixedCenter(GetFixedPos(transform.position));
             m_VolumeRect = new FRect(fixedCenter.x - m_VolumeRadius, fixedCenter.y - m_VolumeRadius, VolumeSize, VolumeSize);
-            Shader.SetGlobalVector("_VTVolumeParams", new Vector4(m_VolumeRect.xMin, m_VolumeRect.yMin, m_VolumeRect.width, m_VolumeRect.height));
+            Shader.SetGlobalVector("_VTVolumeRect", new Vector4(m_VolumeRect.xMin, m_VolumeRect.yMin, m_VolumeRect.width, m_VolumeRect.height));
 
             m_FeedbackReader = new FeedbackReader();
             m_FeedbackRenderer = new FeedbackRenderer();

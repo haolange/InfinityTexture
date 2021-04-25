@@ -38,7 +38,7 @@ namespace Landscape.RuntimeVirtualTexture
                 // x: 页表大小(单位: 页)
                 // y: 虚拟贴图大小(单位: 像素)
                 // z: 最大mipmap等级
-                Shader.SetGlobalVector("_VTFeedbackParam", new Vector4(virtualTexture.pageSize, virtualTexture.pageSize * virtualTexture.tileSize * (1.0f / (float)feedbackScale), virtualTexture.NumMip, mipmapBias));
+                Shader.SetGlobalVector("_VTFeedbackParams", new Vector4(virtualTexture.pageSize, virtualTexture.pageSize * virtualTexture.tileSize * (1.0f / (float)feedbackScale), virtualTexture.NumMip, mipmapBias));
             }
 
             CopyCameraParameter(mainCamera);

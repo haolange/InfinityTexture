@@ -14,20 +14,21 @@ struct VTV2f
 	float2 uv : TEXCOORD0;
 };
 
+float4 _VTVolumeRect;
+
+// xy: page count
+// z:  max mipmap level
+float4 _VTPageParams;
+
 // x: page size
 // y: vertual texture size
 // z: max mipmap level
 // w: mipmap level bias
-float4 _VTFeedbackParam;
-
-// xy: page count
-// z:  max mipmap level
-float4 _VTPageTableParams;
+float4 _VTFeedbackParams;
 
 // x: padding size
 // y: center size
 // zw: 1 / tile count
 float4 _VTPageTileParams;
-float4 _VTVolumeParams;
 
 #endif
