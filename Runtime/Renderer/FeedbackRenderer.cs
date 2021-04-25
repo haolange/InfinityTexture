@@ -94,13 +94,11 @@ namespace Landscape.RuntimeVirtualTexture
 
             if (m_Feedbacker.isReady)
             {
-                //process and draw pageTable
-                if (m_Feedbacker.readbackDatas.IsCreated)
+                using (new ProfilingScope(cmdBuffer, m_DrawPageTableSampler))
                 {
-                    //Debug.Log(m_Feedbacker.readbackDatas[0]);
-                    pageProducer.ProcessFeedback(m_Feedbacker.readbackDatas, virtualTexture.NumMip, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, pageRenderer.pageRequests);
-                    using (new ProfilingScope(cmdBuffer, m_DrawPageTableSampler))
+                    if (m_Feedbacker.readbackDatas.IsCreated)
                     {
+                        pageProducer.ProcessFeedback(m_Feedbacker.readbackDatas, virtualTexture.NumMip, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, pageRenderer.pageRequests);
                         cmdBuffer.SetRenderTarget(virtualTexture.pageTableTexture);
                         renderContext.ExecuteCommandBuffer(cmdBuffer);
                         cmdBuffer.Clear();
@@ -108,7 +106,6 @@ namespace Landscape.RuntimeVirtualTexture
                     }
                 }
 
-                //draw feedback
                 using (new ProfilingScope(cmdBuffer, m_DrawFeedbackSampler))
                 {
                     DrawingSettings drawSetting = new DrawingSettings(m_ShaderPassID, new SortingSettings(camera) { criteria = SortingCriteria.QuantizedFrontToBack })
@@ -149,6 +146,7 @@ namespace Landscape.RuntimeVirtualTexture
     {
         public LayerMask layerMask;
         public EFeedbackScale feedbackScale;
+
         FeedbackRenderPass m_FeedbackRenderPass;
 
         public override void Create()
