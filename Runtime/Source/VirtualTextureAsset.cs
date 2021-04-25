@@ -134,15 +134,5 @@ namespace Landscape.RuntimeVirtualTexture
             Object.DestroyImmediate(compressTextureB);
             Object.DestroyImmediate(pageTableTexture);
         }
-
-        public int2 RequestTile()
-        {
-            return new int2(lruCache[0].First % tileNum, lruCache[0].First / tileNum);
-        }
-
-        public bool SetActive(in int index)
-        {
-            return lruCache[0].SetActive(index);
-        }
     }
 }
