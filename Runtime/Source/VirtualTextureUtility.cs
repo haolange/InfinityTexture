@@ -444,7 +444,7 @@ namespace Landscape.RuntimeVirtualTexture
             return mesh;
         }
 
-        public static void AllocateRquestInfo(in int x, in int y, in int mip, ref FPageRequestInfo pageRequest, in NativeList<FPageRequestInfo> pageRequests)
+        public static void AllocateRquestInfo(in int x, in int y, in int mip, ref FPageRequestInfo pageRequest, ref NativeList<FPageRequestInfo> pageRequests)
         {
             for (int i = 0; i < pageRequests.Length; ++i)
             {
@@ -461,14 +461,14 @@ namespace Landscape.RuntimeVirtualTexture
             return;
         }
 
-        public static void LoadPage(in int x, in int y, ref FPage page, in NativeList<FPageRequestInfo> pageRequests)
+        public static void LoadPage(in int x, in int y, ref FPage page, ref NativeList<FPageRequestInfo> pageRequests)
         {
             if (page.isNull == true) { return; }
             if (page.payload.pageRequestInfo.isNull == false) { return; }
-            AllocateRquestInfo(x, y, page.mipLevel, ref page.payload.pageRequestInfo, pageRequests);
+            AllocateRquestInfo(x, y, page.mipLevel, ref page.payload.pageRequestInfo, ref pageRequests);
         }
 
-        public static void ActivatePage(in int x, in int y, in int mip, in int maxMip, in int frameCount, in int tileNum, in int pageSize, ref FLruCache lruCache, in NativeArray<FPageTable> pageTables, in NativeList<FPageRequestInfo> pageRequests)
+        public static void ActivatePage(in int x, in int y, in int mip, in int maxMip, in int frameCount, in int tileNum, in int pageSize, ref FLruCache lruCache, ref  NativeArray<FPageTable> pageTables, ref NativeList<FPageRequestInfo> pageRequests)
         {
             if (mip > maxMip || mip < 0 || x < 0 || y < 0 || x >= pageSize || y >= pageSize) { return; }
 
@@ -477,7 +477,7 @@ namespace Landscape.RuntimeVirtualTexture
 
             if (!page.payload.isReady)
             {
-                LoadPage(x, y, ref page, pageRequests);
+                LoadPage(x, y, ref page, ref pageRequests);
             }
 
             if (page.payload.isReady)
