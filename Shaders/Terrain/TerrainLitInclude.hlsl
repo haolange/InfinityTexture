@@ -346,8 +346,8 @@ half4 TextureSampleVirtual(Varyings IN)
     #endif
 	float2 inPageOffset = frac(uv * exp2(_VTPageParams.z - page.b));
     uv = (page.rg * (_VTPageTileParams.y + _VTPageTileParams.x * 2) + inPageOffset * _VTPageTileParams.y + _VTPageTileParams.x) / _VTPageTileParams.zw;
-    half3 albedo = _PhyscisAlbedo.SampleLevel(Global_point_clamp_sampler, uv, 0).rgb;
-    half3 normalTS = UnpackNormalScale(_PhyscisNormal.SampleLevel(Global_point_clamp_sampler, uv, 0), 1);
+    half3 albedo = _PhyscisAlbedo.SampleLevel(Global_bilinear_clamp_sampler, uv, 0).rgb;
+    half3 normalTS = UnpackNormalScale(_PhyscisNormal.SampleLevel(Global_bilinear_clamp_sampler, uv, 0), 1);
 
     InputData inputData;
     InitializeInputData(IN, normalTS, inputData);
