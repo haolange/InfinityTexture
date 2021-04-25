@@ -50,7 +50,7 @@ Shader "VirtualTexture/TerrainLit_VT"
 
         Pass
         {
-            Tags { "LightMode" = "Feedback" }
+            Tags { "LightMode" = "VTFeedback" }
 
             HLSLPROGRAM
             #pragma target 4.5

@@ -65,7 +65,7 @@ MonoBehaviour:
         serializedVersion: 2
         m_Bits: 256
       PassNames:
-      - Feedback
+      - VTFeedback
     overrideMaterial: {fileID: 0}
     overrideMaterialPassIndex: 0
     overrideDepthState: 0
