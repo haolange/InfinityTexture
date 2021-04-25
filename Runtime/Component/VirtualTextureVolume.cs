@@ -53,8 +53,11 @@ namespace Landscape.RuntimeVirtualTexture
         private Camera m_PlayerCamera;
         private Camera m_FeedbackCamera;
         private GameObject m_FeedbackObject;
-        private FPageProducer m_PageProducer;
-        private FPageRenderer m_PageRenderer;
+
+        internal FPageProducer pageProducer;
+        internal FPageRenderer pageRenderer;
+        internal static VirtualTextureVolume s_VirtualTextureVolume;
+
         private FeedbackReader m_FeedbackReader;
         private FeedbackRenderer m_FeedbackRenderer;
 
@@ -64,22 +67,25 @@ namespace Landscape.RuntimeVirtualTexture
             SetFeedbackCamera();
             SetTerrainMaterial();
 
+            virtualTextureAsset.Initialize();
+            s_VirtualTextureVolume = this;
+
             int2 fixedCenter = GetFixedCenter(GetFixedPos(transform.position));
             m_VolumeRect = new FRect(fixedCenter.x - m_VolumeRadius, fixedCenter.y - m_VolumeRadius, VolumeSize, VolumeSize);
             Shader.SetGlobalVector("_VTVolumeRect", new Vector4(m_VolumeRect.xMin, m_VolumeRect.yMin, m_VolumeRect.width, m_VolumeRect.height));
+            Shader.SetGlobalVector("_VTVolumeBound", new Vector4(transform.position.x, transform.position.y, transform.position.z, VolumeSize));
 
             m_FeedbackReader = new FeedbackReader();
             m_FeedbackRenderer = new FeedbackRenderer();
-            m_PageProducer = new FPageProducer(virtualTextureAsset.pageSize, virtualTextureAsset.NumMip);
-            m_PageRenderer = new FPageRenderer(virtualTextureAsset.pageSize, virtualTextureAsset.NumMip);
+            pageProducer = new FPageProducer(virtualTextureAsset.pageSize, virtualTextureAsset.NumMip);
+            pageRenderer = new FPageRenderer(virtualTextureAsset.pageSize, virtualTextureAsset.NumMip);
 
-            virtualTextureAsset.Initialize();
             m_FeedbackRenderer.Initialize(m_PlayerCamera, m_FeedbackCamera, feedbackSize, feedbackScale, virtualTextureAsset);
         }
 
         void Update()
         {
-            m_FeedbackReader.ProcessAndDrawPageTable(m_PageProducer, m_PageRenderer, virtualTextureAsset);
+            m_FeedbackReader.ProcessAndDrawPageTable(pageProducer, pageRenderer, virtualTextureAsset);
 
             if (m_FeedbackReader.bReady)
             {
@@ -90,13 +96,13 @@ namespace Landscape.RuntimeVirtualTexture
             FDrawPageParameter drawPageParameter;
             drawPageParameter.volumeRect = m_VolumeRect;
             drawPageParameter.terrainList = m_terrainList;
-            m_PageRenderer.DrawPageColor(m_PageProducer, virtualTextureAsset, ref virtualTextureAsset.lruCache[0], drawPageParameter);
+            pageRenderer.DrawPageColor(pageProducer, virtualTextureAsset, ref virtualTextureAsset.lruCache[0], drawPageParameter);
         }
 
         void OnDisable()
         {
-            m_PageProducer.Dispose();
-            m_PageRenderer.Dispose();
+            pageProducer.Dispose();
+            pageRenderer.Dispose();
             m_FeedbackRenderer.Dispose();
             virtualTextureAsset.Dispose();
             Object.DestroyImmediate(m_FeedbackObject, true);
@@ -129,6 +135,14 @@ namespace Landscape.RuntimeVirtualTexture
         int2 GetFixedPos(Vector3 pos)
         {
             return new int2((int)Mathf.Floor(pos.x / m_CellSize + 0.5f) * (int)m_CellSize, (int)Mathf.Floor(pos.z / m_CellSize + 0.5f) * (int)m_CellSize);
+        }
+
+        internal FDrawPageParameter GetDrawPageParamter()
+        {
+            FDrawPageParameter drawPageParameter;
+            drawPageParameter.volumeRect = m_VolumeRect;
+            drawPageParameter.terrainList = m_terrainList;
+            return drawPageParameter;
         }
     }
 }

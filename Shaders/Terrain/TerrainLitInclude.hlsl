@@ -329,7 +329,7 @@ void ComputeMasks(out half4 masks[4], half4 hasMask, Varyings IN)
     masks[3] += _MaskMapRemapOffset3.rgba;
 }
 
-float4 _VTVolumeInfo;
+float4 _VTVolumeBound;
 
 float BoxMask(float2 A, float2 B, float2 Size)
 {
@@ -358,7 +358,7 @@ half4 TextureSampleVirtual(Varyings IN)
     half4 color = UniversalFragmentPBR(inputData, albedo, metallic, /* specular */ half3(0.0h, 0.0h, 0.0h), smoothness, occlusion, /* emission */ half3(0, 0, 0), alpha);
     SplatmapFinalColor(color, inputData.fogCoord);
 
-    float Mask = BoxMask(IN.positionWS.xz, _VTVolumeInfo.xz, _VTVolumeInfo.w);
+    float Mask = BoxMask(IN.positionWS.xz, _VTVolumeBound.xz, _VTVolumeBound.w);
 
     //return page;
     //return float4(uv, 0, 1) * Mask;
