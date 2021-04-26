@@ -13,6 +13,21 @@
     SAMPLER(sampler_TerrainNormalmapTexture);
 #endif
 
+
+float4 _VTVolumeRect;
+float4 _VTPageParams;
+float4 _VTFeedbackParams;
+float4 _VTPageTileParams;
+
+TEXTURE2D(_PhyscisAlbedo);
+TEXTURE2D(_PhyscisNormal);
+TEXTURE2D(_PageTableTexture);
+
+SAMPLER(sampler_PhyscisAlbedo);
+SAMPLER(sampler_PhyscisNormal);
+SAMPLER(Global_point_clamp_sampler);
+SAMPLER(Global_bilinear_clamp_sampler);
+
 UNITY_INSTANCING_BUFFER_START(Terrain)
     UNITY_DEFINE_INSTANCED_PROP(float4, _TerrainPatchInstanceData)  // float4(xBase, yBase, skipScale, ~)
 UNITY_INSTANCING_BUFFER_END(Terrain)
@@ -313,14 +328,53 @@ void ComputeMasks(out half4 masks[4], half4 hasMask, Varyings IN)
     masks[3] *= _MaskMapRemapScale3.rgba;
     masks[3] += _MaskMapRemapOffset3.rgba;
 }
+
+float4 _VTVolumeBound;
+
+float BoxMask(float2 A, float2 B, float2 Size)
+{
+    return 1 - saturate(ceil(length(max(0, abs(A - B) - (Size * 0.5)))));
+}
+
+half4 TextureSampleVirtual(Varyings IN)
+{
+    //float2 uv = (IN.positionWS.xz + 512) * rcp(4096);
+    float2 uv = (IN.positionWS.xz - _VTVolumeRect.xy) / _VTVolumeRect.zw;
+    float2 uvInt = uv - frac(uv * _VTPageParams.x) * _VTPageParams.y;
+	float4 page = _PageTableTexture.SampleLevel(Global_point_clamp_sampler, uvInt, 0) * 255;
+    #ifdef _SHOWRVTMIPMAP
+        return float4(clamp(1 - page.b * 0.1 , 0, 1), 0, 0, 1);
+    #endif
+	float2 inPageOffset = frac(uv * exp2(_VTPageParams.z - page.b));
+    uv = (page.rg * (_VTPageTileParams.y + _VTPageTileParams.x * 2) + inPageOffset * _VTPageTileParams.y + _VTPageTileParams.x) / _VTPageTileParams.zw;
+    half3 albedo = _PhyscisAlbedo.SampleLevel(Global_bilinear_clamp_sampler, uv, 0).rgb;
+    half3 normalTS = UnpackNormalScale(_PhyscisNormal.SampleLevel(Global_bilinear_clamp_sampler, uv, 0), 1);
+
+    InputData inputData;
+    InitializeInputData(IN, normalTS, inputData);
+    half4 color = UniversalFragmentPBR(inputData, albedo, 0, /* specular */ 0, 0, 1, /* emission */ 0, 1);
+    SplatmapFinalColor(color, inputData.fogCoord);
+
+    float Mask = BoxMask(IN.positionWS.xz, _VTVolumeBound.xz, _VTVolumeBound.w);
+
+    //return page / 255;
+    //return float4(uv, 0, 1) * Mask;
+    //return half4(albedo, 1) * Mask;
+    return half4(color.rgb, 1) * Mask;
+}
 #endif
 
 // Used in Standard Terrain shader
 half4 SplatmapFragment(Varyings IN) : SV_TARGET
 {
-/*#ifdef _RVT
     return TextureSampleVirtual(IN);
-#endif*/
+}
+
+/*half4 SplatmapFragment(Varyings IN) : SV_TARGET
+{
+#ifdef _RVT
+    return TextureSampleVirtual(IN);
+#endif
     
 #ifdef _ALPHATEST_ON
     ClipHoles(IN.uvMainAndLM.xy);
@@ -380,7 +434,7 @@ half4 SplatmapFragment(Varyings IN) : SV_TARGET
     SplatmapFinalColor(color, inputData.fogCoord);
 
     return half4(color.rgb, 1.0h);
-}
+}*/
 
 // Shadow pass
 // x: global clip space bias, y: normal world space bias

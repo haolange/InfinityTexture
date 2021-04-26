@@ -1,4 +1,5 @@
 using System;
+using UnityEngine;
 using Unity.Mathematics;
 using Unity.Collections;
 using System.Diagnostics;
@@ -10,10 +11,14 @@ namespace Landscape.RuntimeVirtualTexture
 {
     internal struct FPage
     {
-        internal FRectInt rect;
-        internal int mipLevel;
-        internal bool isNull;
-        internal FPagePayload payload;
+        public FRectInt rect;
+
+        public FPagePayload payload;
+
+        public int mipLevel;
+
+        public bool isNull;
+
 
         public FPage(int x, int y, int width, int height, int mipLevel, bool isNull = false)
         {
@@ -23,16 +28,6 @@ namespace Landscape.RuntimeVirtualTexture
             this.payload = new FPagePayload();
             this.payload.pageCoord = new int2(-1, -1);
             this.payload.pageRequestInfo = new FPageRequestInfo(0, 0, 0, true);
-        }
-
-        public static void BuildPage(ref FPage page, int x, int y, int width, int height, int mipLevel, bool isNull = false)
-        {
-            page.rect = new FRectInt(x, y, width, height);
-            page.mipLevel = mipLevel;
-            page.isNull = isNull;
-            page.payload = new FPagePayload();
-            page.payload.pageCoord = new int2(-1, -1);
-            page.payload.pageRequestInfo = new FPageRequestInfo(0, 0, 0, true);
         }
 
         public bool Equals(in FPage Target)
@@ -58,6 +53,7 @@ namespace Landscape.RuntimeVirtualTexture
         internal FPageRequestInfo pageRequestInfo;
         private static readonly int2 s_InvalidTileIndex = new int2(-1, -1);
         internal bool isReady { get { return (!pageCoord.Equals(s_InvalidTileIndex)); } }
+
 
         public void ResetTileIndex()
         {
@@ -173,13 +169,13 @@ namespace Landscape.RuntimeVirtualTexture
 #endif
     internal unsafe struct FPageTable : IDisposable
     {
-        internal int mipLevel;
-        internal int cellSize;
-        internal int cellCount;
+        public int mipLevel;
+        public int cellSize;
+        public int cellCount;
         [NativeDisableUnsafePtrRestriction]
         internal FPage* pageBuffer;
 
-        internal FPageTable(in int mipLevel, in int tableSize)
+        public FPageTable(in int mipLevel, in int tableSize)
         {
             this.mipLevel = mipLevel;
             this.cellSize = (int)math.pow(2, mipLevel);

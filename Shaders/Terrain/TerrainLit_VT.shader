@@ -1,4 +1,4 @@
-Shader "Landscape/TerrainLit_VT"
+Shader "VirtualTexture/TerrainLit_VT"
 {
     Properties
     {
@@ -48,22 +48,22 @@ Shader "Landscape/TerrainLit_VT"
     {
         Tags { "Queue" = "Geometry-100" "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" "IgnoreProjector" = "False"}
 
-		Pass
-		{
-            Name "Feedback"
-			Tags { "LightMode" = "VTFeedback" }
+        Pass
+        {
+            Tags { "LightMode" = "VTFeedback" }
 
-			HLSLPROGRAM
+            HLSLPROGRAM
             #pragma target 4.5
-			#pragma multi_compile_instancing
-			#pragma shader_feature_local _TERRAIN_INSTANCED_PERPIXEL_NORMAL
+            #pragma multi_compile_instancing
+            #pragma enable_d3d11_debug_symbols
+            #pragma shader_feature_local _TERRAIN_INSTANCED_PERPIXEL_NORMAL
             #pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
 
-			#include "FeedbackInclude.hlsl"	
-			#pragma vertex FeedbackVert
-			#pragma fragment FeedbackFrag
-			ENDHLSL
-		}
+            #include "../FeedbackCommon.hlsl"	
+            #pragma vertex VTVertFeedback
+            #pragma fragment VTFragFeedback
+            ENDHLSL
+        }
 
         Pass
         {
@@ -71,9 +71,10 @@ Shader "Landscape/TerrainLit_VT"
             Tags { "LightMode" = "UniversalForward" }
 
             HLSLPROGRAM
+            // Required to compile gles 2.0 with standard srp library
             #pragma prefer_hlslcc gles
             #pragma exclude_renderers d3d11_9x
-            #pragma target 4.5
+            #pragma target 3.0
 
             #pragma vertex SplatmapVert
             #pragma fragment SplatmapFragment
@@ -97,6 +98,7 @@ Shader "Landscape/TerrainLit_VT"
             #pragma multi_compile _ LIGHTMAP_ON
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
+            #pragma enable_d3d11_debug_symbols
             #pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
 
             #pragma shader_feature_local _TERRAIN_BLEND_HEIGHT
@@ -117,10 +119,12 @@ Shader "Landscape/TerrainLit_VT"
             Tags{"LightMode" = "ShadowCaster"}
 
             ZWrite On
-            ColorMask 0
 
             HLSLPROGRAM
-            #pragma target 4.5
+            // Required to compile gles 2.0 with standard srp library
+            #pragma prefer_hlslcc gles
+            #pragma exclude_renderers d3d11_9x
+            #pragma target 2.0
 
             #pragma vertex ShadowPassVertex
             #pragma fragment ShadowPassFragment
@@ -142,7 +146,11 @@ Shader "Landscape/TerrainLit_VT"
             ColorMask 0
 
             HLSLPROGRAM
-            #pragma target 4.5
+            // Required to compile gles 2.0 with standard srp library
+            #pragma prefer_hlslcc gles
+            #pragma enable_d3d11_debug_symbols
+            #pragma exclude_renderers d3d11_9x
+            #pragma target 2.0
 
             #pragma vertex DepthOnlyVertex
             #pragma fragment DepthOnlyFragment
@@ -161,6 +169,9 @@ Shader "Landscape/TerrainLit_VT"
             Tags { "LightMode" = "SceneSelectionPass" }
 
             HLSLPROGRAM
+            // Required to compile gles 2.0 with standard srp library
+            #pragma prefer_hlslcc gles
+            #pragma exclude_renderers d3d11_9x
             #pragma target 2.0
 
             #pragma vertex DepthOnlyVertex
@@ -177,9 +188,7 @@ Shader "Landscape/TerrainLit_VT"
 
         UsePass "Hidden/Nature/Terrain/Utilities/PICKING"
     }
-    //Dependency "AddPassShader" = "Hidden/Universal Render Pipeline/Terrain/Lit (Add Pass)"
-    //Dependency "BaseMapShader" = "Hidden/Universal Render Pipeline/Terrain/Lit (Base Pass)"
-    //Dependency "BaseMapGenShader" = "Hidden/Universal Render Pipeline/Terrain/Lit (Basemap Gen)"
+    
     CustomEditor "UnityEditor.Rendering.Universal.TerrainLitShaderGUI"
 
     Fallback "Hidden/Universal Render Pipeline/FallbackError"

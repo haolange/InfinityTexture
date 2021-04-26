@@ -1,7 +1,9 @@
+﻿using System;
 using UnityEngine;
-using UnityEngine.Rendering;
-using UnityEngine.Rendering.Universal;
+using Unity.Mathematics;
 using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering.Universal;
+using UnityEngine.Rendering;
 
 namespace Landscape.RuntimeVirtualTexture
 {
@@ -16,20 +18,12 @@ namespace Landscape.RuntimeVirtualTexture
 
     internal enum EVirtualTexturePass
     {
+        VirtualTexture,
         DrawFeedback,
         DrawPageTable,
         DrawPageColor,
         CompressPage,
         CopyPageToPhyscis
-    }
-
-    internal static class VirtualTextureShaderID
-    {
-        public static int FeedbackTexture = Shader.PropertyToID("_FeedbackTexture");
-        public static int VTFeedbackParams = Shader.PropertyToID("_VTFeedbackParams");
-        public static int VTFeedbackFactor = Shader.PropertyToID("_VTFeedbackFactor");
-        public static int PageTableBuffer = Shader.PropertyToID("_PageTableBuffer");
-        public static int CameraColorTexture = Shader.PropertyToID("_CameraColorTexture");
     }
 
     internal class FeedbackRenderPass : ScriptableRenderPass
@@ -38,7 +32,10 @@ namespace Landscape.RuntimeVirtualTexture
         ShaderTagId m_ShaderPassID;
         EFeedbackScale m_feedbackScale;
         FilteringSettings m_FilterSetting;
-        ProfilingSampler m_FeedbackSampler;
+        ProfilingSampler m_DrawFeedbackSampler;
+        ProfilingSampler m_DrawPageTableSampler;
+        ProfilingSampler m_DrawPageColorSampler;
+        ProfilingSampler m_VirtualTextureSampler;
         RenderTexture m_FeedbackTexture;
         RenderTargetIdentifier m_FeedbackTextureID;
         FVirtualTextureFeedback m_Feedbacker;
@@ -49,32 +46,35 @@ namespace Landscape.RuntimeVirtualTexture
             m_feedbackScale = feedbackScale;
             m_ShaderPassID = new ShaderTagId("VTFeedback");
             m_FilterSetting = new FilteringSettings(RenderQueueRange.opaque, m_LayerMask);
-            m_FeedbackSampler = ProfilingSampler.Get(EVirtualTexturePass.DrawFeedback);
+            m_DrawFeedbackSampler = ProfilingSampler.Get(EVirtualTexturePass.DrawFeedback);
+            m_DrawPageTableSampler = ProfilingSampler.Get(EVirtualTexturePass.DrawPageTable);
+            m_DrawPageColorSampler = ProfilingSampler.Get(EVirtualTexturePass.DrawPageColor);
+            m_VirtualTextureSampler = ProfilingSampler.Get(EVirtualTexturePass.VirtualTexture);
             m_Feedbacker = new FVirtualTextureFeedback(true);
         }
 
         public override void OnCameraSetup(CommandBuffer cmdBuffer, ref RenderingData renderingData)
         {
             Camera camera = renderingData.cameraData.camera;
-            m_FeedbackTexture = RenderTexture.GetTemporary(camera.pixelWidth / (int)m_feedbackScale, camera.pixelHeight / (int)m_feedbackScale, 1, GraphicsFormat.R8G8B8A8_UNorm, 1);
+            m_FeedbackTexture = RenderTexture.GetTemporary(1920 / (int)m_feedbackScale, 1080 / (int)m_feedbackScale, 1, GraphicsFormat.R8G8B8A8_UNorm, 1);
             m_FeedbackTexture.name = "FeedbackTexture";
             m_FeedbackTextureID = new RenderTargetIdentifier(m_FeedbackTexture);
-            ConfigureTarget(m_FeedbackTextureID);
-            ConfigureClear(ClearFlag.All, Color.black);
+            //ConfigureTarget(m_FeedbackTextureID);
+            //ConfigureClear(ClearFlag.All, Color.black);
         }
 
         public override void Execute(ScriptableRenderContext renderContext, ref RenderingData renderingData)
         {
-            if(!Application.isPlaying) { return; }
+            if (!Application.isPlaying) { return; }
 
             CommandBuffer cmdBuffer = CommandBufferPool.Get();
             Camera camera = renderingData.cameraData.camera;
 
-            using (new ProfilingScope(cmdBuffer, m_FeedbackSampler))
+            using (new ProfilingScope(cmdBuffer, m_VirtualTextureSampler))
             {
                 renderContext.ExecuteCommandBuffer(cmdBuffer);
                 cmdBuffer.Clear();
-                ProcessFeedback(renderContext, cmdBuffer, camera, renderingData);
+                DrawVirtualTexture(renderContext, cmdBuffer, camera, renderingData);
             }
 
             renderContext.ExecuteCommandBuffer(cmdBuffer);
@@ -86,7 +86,7 @@ namespace Landscape.RuntimeVirtualTexture
             RenderTexture.ReleaseTemporary(m_FeedbackTexture);
         }
 
-        public unsafe void ProcessFeedback(ScriptableRenderContext renderContext, CommandBuffer cmdBuffer, Camera camera, in RenderingData renderingData)
+        public unsafe void DrawVirtualTexture(ScriptableRenderContext renderContext, CommandBuffer cmdBuffer, Camera camera, in RenderingData renderingData)
         {
             FPageProducer pageProducer = VirtualTextureVolume.s_VirtualTextureVolume.pageProducer;
             FPageRenderer pageRenderer = VirtualTextureVolume.s_VirtualTextureVolume.pageRenderer;
@@ -94,28 +94,51 @@ namespace Landscape.RuntimeVirtualTexture
 
             if (m_Feedbacker.isReady)
             {
-                //draw pageTable
-                if (m_Feedbacker.readbackDatas.IsCreated)
+                using (new ProfilingScope(cmdBuffer, m_DrawPageTableSampler))
                 {
-                    //Debug.Log(m_Feedbacker.readbackDatas[0]);
-                    pageProducer.ProcessFeedback(m_Feedbacker.readbackDatas, virtualTexture.MaxMipLevel, virtualTexture.tileNum, virtualTexture.pageSize, ref virtualTexture.lruCache, pageRenderer.pageRequests);
-                    pageRenderer.DrawPageTable(renderContext, cmdBuffer, virtualTexture.pageTableTexture, pageProducer);
+                    if (m_Feedbacker.readbackDatas.IsCreated)
+                    {
+                        pageProducer.ProcessFeedbackV2(m_Feedbacker.readbackDatas, virtualTexture.NumMip, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, pageRenderer.pageRequests);
+                        cmdBuffer.SetRenderTarget(virtualTexture.pageTableTexture);
+                        renderContext.ExecuteCommandBuffer(cmdBuffer);
+                        cmdBuffer.Clear();
+                        pageRenderer.DrawPageTable(renderContext, cmdBuffer, pageProducer);
+                    }
                 }
 
-                //draw feedback
-                DrawingSettings drawSetting = new DrawingSettings(m_ShaderPassID, new SortingSettings(camera) { criteria = SortingCriteria.QuantizedFrontToBack })
+                using (new ProfilingScope(cmdBuffer, m_DrawFeedbackSampler))
                 {
-                    enableInstancing = true,
-                    //overrideMaterial = m_FeedbackMaterial,
-                    //overrideMaterialPassIndex = 0
-                };
-                renderContext.DrawRenderers(renderingData.cullResults, ref drawSetting, ref m_FilterSetting);
+                    DrawingSettings drawSetting = new DrawingSettings(m_ShaderPassID, new SortingSettings(camera) { criteria = SortingCriteria.QuantizedFrontToBack })
+                    {
+                        enableInstancing = true,
+                        //overrideMaterial = m_FeedbackMaterial,
+                        //overrideMaterialPassIndex = 0
+                    };
+                    cmdBuffer.SetRenderTarget(m_FeedbackTextureID);
+                    cmdBuffer.ClearRenderTarget(true, true, Color.black);
+                    // x: 页表大小(单位: 页)
+                    // y: 虚拟贴图大小(单位: 像素)
+                    // z: 最大mipmap等级
+                    // w: mipBias
+                    cmdBuffer.SetGlobalVector("_VTFeedbackParams", new Vector4(virtualTexture.pageSize, virtualTexture.pageSize * virtualTexture.tileSize * (1.0f / (float)m_feedbackScale), virtualTexture.NumMip, 0.1f));
+                    renderContext.ExecuteCommandBuffer(cmdBuffer);
+                    cmdBuffer.Clear();
+                    renderContext.DrawRenderers(renderingData.cullResults, ref drawSetting, ref m_FilterSetting);
+                }
 
-                //request readBack
+                //read-back feedback
                 m_Feedbacker.RequestReadback(cmdBuffer, m_FeedbackTexture);
             }
 
-            pageRenderer.DrawPageColor(renderContext, cmdBuffer, virtualTexture.colorBuffers, pageProducer, ref virtualTexture.lruCache, virtualTexture.tileNum, virtualTexture.tileSize);
+            using (new ProfilingScope(cmdBuffer, m_DrawPageColorSampler))
+            {
+                cmdBuffer.SetRenderTarget(virtualTexture.colorBuffers, virtualTexture.colorBuffers[0]);
+                renderContext.ExecuteCommandBuffer(cmdBuffer);
+                cmdBuffer.Clear();
+
+                FDrawPageParameter drawPageParameter = VirtualTextureVolume.s_VirtualTextureVolume.GetDrawPageParamter();
+                pageRenderer.DrawPageColor(renderContext, cmdBuffer, pageProducer, virtualTexture, ref virtualTexture.lruCache[0], drawPageParameter);
+            }
         }
     }
 
@@ -123,8 +146,8 @@ namespace Landscape.RuntimeVirtualTexture
     {
         public LayerMask layerMask;
         public EFeedbackScale feedbackScale;
-        FeedbackRenderPass m_FeedbackRenderPass;
 
+        FeedbackRenderPass m_FeedbackRenderPass;
 
         public override void Create()
         {
@@ -134,7 +157,7 @@ namespace Landscape.RuntimeVirtualTexture
 
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
         {
-            renderer.AddPass(m_FeedbackRenderPass);
+            renderer.EnqueuePass(m_FeedbackRenderPass);
         }
 
         protected override void Dispose(bool disposing)
@@ -143,5 +166,3 @@ namespace Landscape.RuntimeVirtualTexture
         }
     }
 }
-
-

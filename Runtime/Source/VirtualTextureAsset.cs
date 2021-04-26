@@ -1,153 +1,138 @@
+﻿using System;
 using UnityEngine;
 using Unity.Mathematics;
 using Unity.Collections;
 using UnityEngine.Rendering;
+using Object = UnityEngine.Object;
 using System.Runtime.InteropServices;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine.Experimental.Rendering;
 
 namespace Landscape.RuntimeVirtualTexture
 {
-    [CreateAssetMenu(menuName = "Landscape/VirtualTextureAsset", order = 256)]
-    public unsafe class VirtualTextureAsset : ScriptableObject
+    [CreateAssetMenu(menuName = "Landscape/VirtualTextureAsset")]
+    public unsafe class VirtualTextureAsset : ScriptableObject, IDisposable
     {
-        [Header("Size")]
-        [Range(8, 16)]
+        [Range(4, 32)]
         public int tileNum = 16;
-        [Range(64, 2048)]
+        [Range(64, 1024)]
         public int tileSize = 256;
-        [Range(256, 2048)]
+        [Range(0, 4)]
+        public int tileBorder = 4;
+        [Range(256, 1024)]
         public int pageSize = 256;
 
-        [Header("Layout")]
-        public bool enableCompression = true;
+        public int NumMip { get { return (int)math.log2(pageSize) + 1; } }
+        public int TileSizePadding { get { return tileSize + tileBorder * 2; } }
+        public int QuadTileSizePadding { get { return TileSizePadding / 4; } }
 
-        public int MaxMipLevel { get { return (int)math.log2(pageSize) + 1; } }
-        public int QuadTileSize { get { return tileSize / 4; } }
-
-        [HideInInspector]
-        public int LastChangeHash;
-        public int ChangeHash { get { return new int3(tileNum, tileSize, pageSize).GetHashCode(); } }
-
-        [HideInInspector]
-        public RenderTexture renderTextureA;
-        [HideInInspector]
-        public RenderTexture renderTextureB;
-        [HideInInspector]
-        public RenderTexture compressTextureA;
-        [HideInInspector]
-        public RenderTexture compressTextureB;
-        [HideInInspector]
-        public Texture2DArray physcisTextureA;
-        [HideInInspector]
-        public Texture2DArray physcisTextureB;
-        [HideInInspector]
-        public RenderTexture pageTableTexture;
-        [HideInInspector]
-        public RenderTargetIdentifier[] colorBuffers;
-
-        [HideInInspector]
-        internal FLruCache lruCache;
-
+        internal FLruCache* lruCache;
+        internal RenderTexture tileTextureA;
+        internal RenderTexture tileTextureB;
+        internal RenderTexture compressTextureA;
+        internal RenderTexture compressTextureB;
+        internal RenderTexture physicsTextureA;
+        internal RenderTexture physicsTextureB;
+        internal RenderTexture pageTableTexture;
+        internal RenderTargetIdentifier[] colorBuffers;
+        internal int TextureSize { get { return tileNum * TileSizePadding; } }
 
         public VirtualTextureAsset()
         {
 
         }
 
-        void Reset()
-        {
-            //Debug.Log("Reset");
-            //BuildVTAsset();
-        }
-
-        void OnEnable()
-        {
-            //Debug.Log("OnEnable");
-            //Initialize();
-        }
-
-        void OnValidate()
-        {
-            //Debug.Log("OnValidate");
-            //BuildVTAsset();
-        }
-
-        void OnDisable()
-        {
-            //Debug.Log("OnDisable");
-            //Release();
-        }
-
-        void OnDestroy()
-        {
-            //Debug.Log("OnDestroy");
-            //Release();
-        }
-
         public void Initialize()
         {
-            lruCache = new FLruCache(tileNum * tileNum);
+            lruCache = (FLruCache*)UnsafeUtility.Malloc(Marshal.SizeOf(typeof(FLruCache)) * 1, 64, Allocator.Persistent);
+            FLruCache.BuildLruCache(ref lruCache[0], tileNum * tileNum);
 
-            GraphicsFormat graphicsFormat;
-    #if UNITY_ANDROID && !UNITY_EDITOR
-            graphicsFormat = GraphicsFormat.RGBA_ETC2_UNorm;
-    #else
-            graphicsFormat = GraphicsFormat.RGBA_DXT5_UNorm;
-#endif
+            RenderTextureDescriptor textureDesctiptor = new RenderTextureDescriptor { width = TileSizePadding, height = TileSizePadding, volumeDepth = 1, dimension = TextureDimension.Tex2D, graphicsFormat = GraphicsFormat.R8G8B8A8_UNorm, depthBufferBits = 0, mipCount = -1, useMipMap = false, autoGenerateMips = false, bindMS = false, msaaSamples = 1 };
 
-            RenderTextureDescriptor TextureADesc = new RenderTextureDescriptor { width = tileSize, height = tileSize, volumeDepth = 1, dimension = TextureDimension.Tex2D, graphicsFormat = GraphicsFormat.R8G8B8A8_UNorm, depthBufferBits = 0, mipCount = -1, useMipMap = false, autoGenerateMips = false, bindMS = false, msaaSamples = 1 };
-            renderTextureA = new RenderTexture(TextureADesc);
-            renderTextureA.name = "CopyTextureA";
-            renderTextureA.filterMode = FilterMode.Bilinear;
-            renderTextureA.wrapMode = TextureWrapMode.Clamp;
+            //tile texture
+            tileTextureA = new RenderTexture(textureDesctiptor);
+            tileTextureA.name = "TileTextureA";
+            tileTextureA.filterMode = FilterMode.Bilinear;
+            tileTextureA.wrapMode = TextureWrapMode.Clamp;
 
-            RenderTextureDescriptor TextureBDesc = new RenderTextureDescriptor { width = tileSize, height = tileSize, volumeDepth = 1, dimension = TextureDimension.Tex2D, graphicsFormat = GraphicsFormat.R8G8B8A8_UNorm, depthBufferBits = 0, mipCount = -1, useMipMap = false, autoGenerateMips = false, bindMS = false, msaaSamples = 1 };
-            renderTextureB = new RenderTexture(TextureBDesc);
-            renderTextureB.name = "CopyTextureB";
-            renderTextureB.filterMode = FilterMode.Bilinear;
-            renderTextureB.wrapMode = TextureWrapMode.Clamp;
+            tileTextureB = new RenderTexture(textureDesctiptor);
+            tileTextureB.name = "TileTextureB";
+            tileTextureB.filterMode = FilterMode.Bilinear;
+            tileTextureB.wrapMode = TextureWrapMode.Clamp;
 
-            compressTextureA = new RenderTexture(QuadTileSize, QuadTileSize, 0)
+            //compress texture
+            compressTextureA = new RenderTexture(QuadTileSizePadding, QuadTileSizePadding, 0)
             {
+                name = "CompressTextureA",
                 graphicsFormat = GraphicsFormat.R32G32B32A32_UInt,
                 enableRandomWrite = true,
             };
             compressTextureA.Create();
 
-            compressTextureB = new RenderTexture(QuadTileSize, QuadTileSize, 0)
+            compressTextureB = new RenderTexture(QuadTileSizePadding, QuadTileSizePadding, 0)
             {
+                name = "CompressTextureB",
                 graphicsFormat = GraphicsFormat.R32G32B32A32_UInt,
                 enableRandomWrite = true,
             };
             compressTextureB.Create();
 
-            physcisTextureA = new Texture2DArray(tileSize, tileSize, tileNum, graphicsFormat, TextureCreationFlags.None);
-            physcisTextureA.name = "PhyscisTextureA";
+            //physics texture
+            textureDesctiptor.width = TextureSize;
+            textureDesctiptor.height = TextureSize;
 
-            physcisTextureB = new Texture2DArray(tileSize, tileSize, tileNum, graphicsFormat, TextureCreationFlags.None);
-            physcisTextureB.name = "PhyscisTextureB";
+            physicsTextureA = new RenderTexture(textureDesctiptor);
+            physicsTextureA.name = "PhyscisTextureA";
+            physicsTextureA.filterMode = FilterMode.Bilinear;
+            physicsTextureA.wrapMode = TextureWrapMode.Clamp;
+            physicsTextureA.anisoLevel = 8;
 
-            pageTableTexture = new RenderTexture(pageSize, pageSize, 0, GraphicsFormat.R8G8_UInt);
+            physicsTextureB = new RenderTexture(textureDesctiptor);
+            physicsTextureB.name = "PhyscisTextureB";
+            physicsTextureB.filterMode = FilterMode.Bilinear;
+            physicsTextureB.wrapMode = TextureWrapMode.Clamp;
+            physicsTextureB.anisoLevel = 8;
+
+            pageTableTexture = new RenderTexture(pageSize, pageSize, 0, GraphicsFormat.R8G8B8A8_UNorm);
             pageTableTexture.name = "PageTableTexture";
             pageTableTexture.filterMode = FilterMode.Point;
             pageTableTexture.wrapMode = TextureWrapMode.Clamp;
 
             colorBuffers = new RenderTargetIdentifier[2];
-            colorBuffers[0] = new RenderTargetIdentifier(renderTextureA);
-            colorBuffers[1] = new RenderTargetIdentifier(renderTextureB);
+            colorBuffers[0] = new RenderTargetIdentifier(physicsTextureA);
+            colorBuffers[1] = new RenderTargetIdentifier(physicsTextureB);
+
+            // 设置Shader参数
+            // x: padding 偏移量
+            // y: tile 有效区域的尺寸
+            // zw: 1/区域尺寸
+            Shader.SetGlobalTexture("_PhyscisAlbedo", physicsTextureA);
+            Shader.SetGlobalTexture("_PhyscisNormal", physicsTextureB);
+            Shader.SetGlobalTexture("_PageTableTexture", pageTableTexture);
+            Shader.SetGlobalVector("_VTPageParams", new Vector4(pageSize, 1 / pageSize, NumMip - 1, 0));
+            Shader.SetGlobalVector("_VTPageTileParams", new Vector4((float)tileBorder, (float)tileSize, TextureSize, TextureSize));
         }
 
-        public void Release()
+        public void Dispose()
         {
-            if(physcisTextureA != null && physcisTextureB != null && pageTableTexture != null)
-            {
-                lruCache.Dispose();
-                pageTableTexture.Release();
-                Object.DestroyImmediate(physcisTextureA);
-                Object.DestroyImmediate(physcisTextureB);
-                Object.DestroyImmediate(pageTableTexture);
-            }
+            lruCache[0].Dispose();
+            UnsafeUtility.Free((void*)lruCache, Allocator.Persistent);
+
+            tileTextureA.Release();
+            tileTextureB.Release();
+            physicsTextureA.Release();
+            physicsTextureB.Release();
+            compressTextureA.Release();
+            compressTextureB.Release();
+            pageTableTexture.Release();
+
+            Object.DestroyImmediate(tileTextureA);
+            Object.DestroyImmediate(tileTextureB);
+            Object.DestroyImmediate(physicsTextureA);
+            Object.DestroyImmediate(physicsTextureB);
+            Object.DestroyImmediate(compressTextureA);
+            Object.DestroyImmediate(compressTextureB);
+            Object.DestroyImmediate(pageTableTexture);
         }
     }
 }

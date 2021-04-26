@@ -1,4 +1,5 @@
-using UnityEngine;
+﻿using UnityEngine;
+using Unity.Mathematics;
 
 namespace Landscape.RuntimeVirtualTexture
 {
@@ -9,26 +10,41 @@ namespace Landscape.RuntimeVirtualTexture
         X512 = 512,
         X1024 = 1024,
         X2048 = 2048,
-        X4096 = 4096,
     }
 
-    public class VirtualTextureVolume : MonoBehaviour
+    public unsafe class VirtualTextureVolume : MonoBehaviour
     {
-        public VirtualTextureAsset virtualTexture;
-        public EVirtualTextureVolumeSize volumeSize = EVirtualTextureVolumeSize.X1024;
+        [HideInInspector]
+        public Material m_material;
+        private Terrain[] m_terrainList;
 
-        [HideInInspector]
-        public Bounds boundBox;
-        [HideInInspector]
-        public Material material;
-        private float VolumeSize
+        [Header("Texture")]
+        public EVirtualTextureVolumeSize volumeScale;
+        public VirtualTextureAsset virtualTexture;
+
+        private float m_CellSize
         {
             get
             {
-                return (int)volumeSize;
+                return VolumeSize / virtualTexture.pageSize;
             }
         }
-        
+        public float VolumeSize
+        {
+            get
+            {
+                return (int)volumeScale;
+            }
+        }
+        private float m_VolumeRadius
+        {
+            get
+            {
+                return VolumeSize * 0.5f;
+            }
+        }
+
+        internal FRect volumeRect;
         internal FPageProducer pageProducer;
         internal FPageRenderer pageRenderer;
         internal static VirtualTextureVolume s_VirtualTextureVolume;
@@ -36,68 +52,54 @@ namespace Landscape.RuntimeVirtualTexture
 
         void OnEnable()
         {
-            virtualTexture?.Initialize();
-            pageRenderer = new FPageRenderer(virtualTexture.pageSize);
-            pageProducer = new FPageProducer(virtualTexture.pageSize, virtualTexture.MaxMipLevel);
+            SetTerrainMaterial();
 
+            virtualTexture.Initialize();
             s_VirtualTextureVolume = this;
 
-            Terrain[] terrainList = Object.FindObjectsOfType<Terrain>();
-            foreach(Terrain terrain in terrainList)
-            {
-                terrain.materialTemplate = material;
-            }
-        }
+            int2 fixedCenter = GetFixedCenter(GetFixedPos(transform.position));
+            volumeRect = new FRect(fixedCenter.x - m_VolumeRadius, fixedCenter.y - m_VolumeRadius, VolumeSize, VolumeSize);
+            Shader.SetGlobalVector("_VTVolumeRect", new Vector4(volumeRect.xMin, volumeRect.yMin, volumeRect.width, volumeRect.height));
+            Shader.SetGlobalVector("_VTVolumeBound", new Vector4(transform.position.x, transform.position.y, transform.position.z, VolumeSize));
 
-        void Update()
-        {
-            transform.localScale = new Vector3(VolumeSize, transform.localScale.y, VolumeSize);
+            pageProducer = new FPageProducer(virtualTexture.pageSize, virtualTexture.NumMip);
+            pageRenderer = new FPageRenderer(virtualTexture.pageSize, virtualTexture.NumMip);
         }
 
         void OnDisable()
         {
             pageProducer.Dispose();
             pageRenderer.Dispose();
-            virtualTexture?.Release();
+            virtualTexture.Dispose();
         }
 
-#if UNITY_EDITOR
-        protected static void DrawBound(Bounds b, Color DebugColor)
+        void SetTerrainMaterial()
         {
-            // bottom
-            var p1 = new Vector3(b.min.x, b.min.y, b.min.z);
-            var p2 = new Vector3(b.max.x, b.min.y, b.min.z);
-            var p3 = new Vector3(b.max.x, b.min.y, b.max.z);
-            var p4 = new Vector3(b.min.x, b.min.y, b.max.z);
+            m_terrainList = GameObject.FindObjectsOfType<Terrain>();
+            if (m_terrainList.Length == 0) { return; }
 
-            Debug.DrawLine(p1, p2, DebugColor);
-            Debug.DrawLine(p2, p3, DebugColor);
-            Debug.DrawLine(p3, p4, DebugColor);
-            Debug.DrawLine(p4, p1, DebugColor);
-
-            // top
-            var p5 = new Vector3(b.min.x, b.max.y, b.min.z);
-            var p6 = new Vector3(b.max.x, b.max.y, b.min.z);
-            var p7 = new Vector3(b.max.x, b.max.y, b.max.z);
-            var p8 = new Vector3(b.min.x, b.max.y, b.max.z);
-
-            Debug.DrawLine(p5, p6, DebugColor);
-            Debug.DrawLine(p6, p7, DebugColor);
-            Debug.DrawLine(p7, p8, DebugColor);
-            Debug.DrawLine(p8, p5, DebugColor);
-
-            // sides
-            Debug.DrawLine(p1, p5, DebugColor);
-            Debug.DrawLine(p2, p6, DebugColor);
-            Debug.DrawLine(p3, p7, DebugColor);
-            Debug.DrawLine(p4, p8, DebugColor);
+            for (int i = 0; i < m_terrainList.Length; i++)
+            {
+                m_terrainList[i].materialTemplate = m_material;
+            }
         }
 
-        void OnDrawGizmosSelected()
+        int2 GetFixedCenter(int2 pos)
         {
-            boundBox = new Bounds(transform.position, transform.localScale);
-            DrawBound(boundBox, new Color(0.5f, 1, 0.25f));
+            return new int2((int)Mathf.Floor(pos.x / m_VolumeRadius + 0.5f) * (int)m_VolumeRadius, (int)Mathf.Floor(pos.y / m_VolumeRadius + 0.5f) * (int)m_VolumeRadius);
         }
-#endif
+
+        int2 GetFixedPos(Vector3 pos)
+        {
+            return new int2((int)Mathf.Floor(pos.x / m_CellSize + 0.5f) * (int)m_CellSize, (int)Mathf.Floor(pos.z / m_CellSize + 0.5f) * (int)m_CellSize);
+        }
+
+        internal FDrawPageParameter GetDrawPageParamter()
+        {
+            FDrawPageParameter drawPageParameter;
+            drawPageParameter.volumeRect = volumeRect;
+            drawPageParameter.terrainList = m_terrainList;
+            return drawPageParameter;
+        }
     }
 }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Unity.Jobs;
 using UnityEngine;
 using Unity.Mathematics;
@@ -8,10 +8,10 @@ namespace Landscape.RuntimeVirtualTexture
 {
     internal unsafe class FPageProducer : IDisposable
     {
-        internal NativeArray<FPageTable> pageTables;
-        internal NativeHashMap<int2, int3> activePageMap;
+        public NativeArray<FPageTable> pageTables;
+        public NativeHashMap<int2, int3> activePageMap;
 
-        internal FPageProducer(in int pageSize, in int maxMipLevel)
+        public FPageProducer(in int pageSize, in int maxMipLevel)
         {
             pageTables = new NativeArray<FPageTable>(maxMipLevel, Allocator.Persistent);
             activePageMap = new NativeHashMap<int2, int3>(256, Allocator.Persistent);
@@ -20,12 +20,14 @@ namespace Landscape.RuntimeVirtualTexture
             {
                 pageTables[i] = new FPageTable(i, pageSize);
             }
+
+            //ActivatePage(0, 0, pageTexture.MaxMipLevel);
         }
 
-        public void ProcessFeedback(in NativeArray<Color32> readbackDatas, in int maxMip, in int tileNum, in int pageSize, ref FLruCache lruCache, in NativeList<FPageRequestInfo> pageRequests)
+        public void ProcessFeedback(in NativeArray<Color32> readbackDatas, in int maxMip, in int tileNum, in int pageSize, FLruCache* lruCache, ref NativeList<FPageRequestInfo> pageRequests)
         {
             FProcessFeedbackJob processFeedbackJob;
-            processFeedbackJob.maxMip = maxMip;
+            processFeedbackJob.maxMip = maxMip - 1;
             processFeedbackJob.tileNum = tileNum;
             processFeedbackJob.pageSize = pageSize;
             processFeedbackJob.lruCache = lruCache;
@@ -34,17 +36,31 @@ namespace Landscape.RuntimeVirtualTexture
             processFeedbackJob.frameCount = Time.frameCount;
             processFeedbackJob.readbackDatas = readbackDatas;
             processFeedbackJob.Run();
+
+            /*for (int i = 0; i < readbackDatas.Length; ++i)
+            {
+                Color32 readbackData = readbackDatas[i];
+                FVirtualTextureUtility.ActivatePage(readbackData.r, readbackData.g, readbackData.b, maxMip - 1, Time.frameCount, tileNum, pageSize, ref lruCache[0], pageTables, pageRequests);
+            }*/
         }
 
-        public void InvalidatePage(in int2 mapKey)
+        public void ProcessFeedbackV2(in NativeArray<Color32> readbackDatas, in int maxMip, in int tileNum, in int pageSize, FLruCache* lruCache, in NativeList<FPageRequestInfo> pageRequests)
         {
-            if (!activePageMap.TryGetValue(mapKey, out int3 index)) { return; }
-
-            FPageTable pageTable = pageTables[index.z];
-            ref FPage page = ref pageTable.GetPage(index.x, index.y);
-
-            page.payload.ResetTileIndex();
-            activePageMap.Remove(mapKey);
+            FProcessFeedbackJobV2 processFeedbackJob;
+            processFeedbackJob.maxMip = maxMip - 1;
+            processFeedbackJob.tileNum = tileNum;
+            processFeedbackJob.pageSize = pageSize;
+            processFeedbackJob.lruCache = lruCache;
+            processFeedbackJob.pageTables = pageTables;
+            processFeedbackJob.pageRequests = pageRequests;
+            processFeedbackJob.frameCount = Time.frameCount;
+            processFeedbackJob.readbackDatas = readbackDatas;
+            processFeedbackJob.Run();
+            /*for (int i = 0; i < readbackDatas.Length; ++i)
+            {
+                Color32 readbackData = readbackDatas[i];
+                FVirtualTextureUtility.ActivatePage(readbackData.r, readbackData.g, readbackData.b, maxMip - 1, Time.frameCount, tileNum, pageSize, ref lruCache[0], pageTables, pageRequests);
+            }*/
         }
 
         public void Reset()
@@ -64,7 +80,19 @@ namespace Landscape.RuntimeVirtualTexture
             }
             activePageMap.Clear();
         }
+        
+        public void InvalidatePage(in int2 id)
+        {
+            if (!activePageMap.TryGetValue(id, out int3 index))
+                return;
 
+            FPageTable pageTable = pageTables[index.z];
+            ref FPage page = ref pageTable.GetPage(index.x, index.y);
+
+            page.payload.ResetTileIndex();
+            activePageMap.Remove(id);
+        }
+        
         public void Dispose()
         {
             for (int i = 0; i < pageTables.Length; ++i)

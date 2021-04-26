@@ -3,6 +3,7 @@ using UnityEngine;
 using Unity.Collections;
 using Unity.Mathematics;
 using System.Globalization;
+using System.Collections.Generic;
 
 namespace Landscape.RuntimeVirtualTexture
 {
@@ -238,7 +239,7 @@ namespace Landscape.RuntimeVirtualTexture
             }
             num1 = 0;
 
-            label_5:
+        label_5:
             return num1 != 0;
         }
 
@@ -413,31 +414,37 @@ namespace Landscape.RuntimeVirtualTexture
 
     internal static class FVirtualTextureUtility
     {
-        public static void AllocateRquestInfo(in int x, in int y, in int mip, ref FPageRequestInfo pageRequest, in NativeList<FPageRequestInfo> pageRequests)
+        public static Mesh BuildQuadMesh()
         {
-            for (int i = 0; i < pageRequests.Length; ++i)
-            {
-                pageRequest = pageRequests[i];
-                if (pageRequest.pageX == x && pageRequest.pageY == y && pageRequest.mipLevel == mip)
-                {
-                    pageRequest = new FPageRequestInfo(x, y, mip, true);
-                    return;
-                }
-            }
+            List<Vector3> VertexArray = new List<Vector3>();
+            List<int> IndexArray = new List<int>();
+            List<Vector2> UB0Array = new List<Vector2>();
 
-            pageRequest = new FPageRequestInfo(x, y, mip);
-            pageRequests.Add(pageRequest);
-            return;
+            VertexArray.Add(new Vector3(0, 1, 0.1f));
+            VertexArray.Add(new Vector3(0, 0, 0.1f));
+            VertexArray.Add(new Vector3(1, 0, 0.1f));
+            VertexArray.Add(new Vector3(1, 1, 0.1f));
+
+            UB0Array.Add(new Vector2(0, 1));
+            UB0Array.Add(new Vector2(0, 0));
+            UB0Array.Add(new Vector2(1, 0));
+            UB0Array.Add(new Vector2(1, 1));
+
+            IndexArray.Add(0);
+            IndexArray.Add(1);
+            IndexArray.Add(2);
+            IndexArray.Add(2);
+            IndexArray.Add(3);
+            IndexArray.Add(0);
+
+            Mesh mesh = new Mesh();
+            mesh.SetVertices(VertexArray);
+            mesh.SetUVs(0, UB0Array);
+            mesh.SetTriangles(IndexArray, 0);
+            return mesh;
         }
 
-        public static void LoadPage(in int x, in int y, ref FPage page, in NativeList<FPageRequestInfo> pageRequests)
-        {
-            if (page.isNull == true) { return; }
-            if (page.payload.pageRequestInfo.isNull == false) { return; }
-            AllocateRquestInfo(x, y, page.mipLevel, ref page.payload.pageRequestInfo, pageRequests);
-        }
-
-        public static void ActivatePage(in int x, in int y, in int mip, in int maxMip, in int frameCount, in int pageSize, in int tileNum, ref FLruCache lruCache, in NativeArray<FPageTable> pageTables, in NativeList<FPageRequestInfo> pageRequests)
+        public static void ActivatePage(in int x, in int y, in int mip, in int maxMip, in int frameCount, in int tileNum, in int pageSize, ref FLruCache lruCache, ref  NativeArray<FPageTable> pageTables, ref NativeList<FPageRequestInfo> pageRequests)
         {
             if (mip > maxMip || mip < 0 || x < 0 || y < 0 || x >= pageSize || y >= pageSize) { return; }
 
@@ -446,14 +453,15 @@ namespace Landscape.RuntimeVirtualTexture
 
             if (!page.payload.isReady)
             {
-                LoadPage(x, y, ref page, pageRequests);
+                if (page.payload.pageRequestInfo.isNull == false) { return; }
+                page.payload.pageRequestInfo = new FPageRequestInfo(x, y, mip);
+                pageRequests.Add(page.payload.pageRequestInfo);
             }
 
             if (page.payload.isReady)
             {
                 page.payload.activeFrame = frameCount;
                 lruCache.SetActive(page.payload.pageCoord.y * tileNum + page.payload.pageCoord.x);
-                return;
             }
 
             return;

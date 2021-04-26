@@ -3,7 +3,6 @@ using Unity.Burst;
 using UnityEngine;
 using Unity.Collections;
 using Unity.Mathematics;
-using System.Collections.Generic;
 using Unity.Collections.LowLevel.Unsafe;
 
 namespace Landscape.RuntimeVirtualTexture
@@ -19,7 +18,8 @@ namespace Landscape.RuntimeVirtualTexture
 
         internal int frameCount;
 
-        internal FLruCache lruCache;
+        [NativeDisableUnsafePtrRestriction]
+        internal FLruCache* lruCache;
 
         [ReadOnly]
         internal NativeArray<Color32> readbackDatas;
@@ -34,10 +34,72 @@ namespace Landscape.RuntimeVirtualTexture
             for (int i = 0; i < readbackDatas.Length; ++i)
             {
                 Color32 readbackData = readbackDatas[i];
-                FVirtualTextureUtility.ActivatePage(readbackData.r, readbackData.g, readbackData.b, maxMip, frameCount, pageSize, tileNum, ref lruCache, pageTables, pageRequests);
+                FVirtualTextureUtility.ActivatePage(readbackData.r, readbackData.g, readbackData.b, maxMip, frameCount, tileNum, pageSize, ref lruCache[0], ref pageTables, ref pageRequests);
             }
         }
     }
+
+    [BurstCompile]
+    internal unsafe struct FProcessFeedbackJobV2 : IJob
+    {
+        internal int maxMip;
+
+        internal int pageSize;
+
+        internal int tileNum;
+
+        internal int frameCount;
+
+        [NativeDisableUnsafePtrRestriction]
+        internal FLruCache* lruCache;
+
+        [ReadOnly]
+        internal NativeArray<Color32> readbackDatas;
+
+        [ReadOnly]
+        internal NativeArray<FPageTable> pageTables;
+
+        internal NativeList<FPageRequestInfo> pageRequests;
+
+        public void Execute()
+        {
+            int prevValue = -1;
+            for (int i = 0; i < readbackDatas.Length; ++i)
+            {
+                Color32 readbackData = readbackDatas[i];
+                int x = readbackData.r, y = readbackData.g, mip = readbackData.b;
+
+                x -= x % (1 << mip);
+                y -= y % (1 << mip);
+                int value = x + (y << 8) + (mip << 16);
+                if (value == prevValue) //same page
+                    continue;
+                prevValue = value;
+
+                if (mip > maxMip || mip < 0 || x < 0 || y < 0 || x >= pageSize || y >= pageSize)
+                    continue;
+
+                ref FPage page = ref pageTables[mip].GetPage(x, y);
+                if (page.isNull == true)
+                    continue;
+
+                if (!page.payload.isReady)
+                {
+                    if (page.payload.pageRequestInfo.isNull == false)
+                        continue;
+                    page.payload.pageRequestInfo = new FPageRequestInfo(x, y, mip);
+                    pageRequests.Add(page.payload.pageRequestInfo);
+                }
+
+                if (page.payload.isReady)
+                {
+                    page.payload.activeFrame = frameCount;
+                    lruCache[0].SetActive(page.payload.pageCoord.y * tileNum + page.payload.pageCoord.x);
+                }
+            }
+        }
+    }
+
 
     [BurstCompile]
     internal struct FPageDrawInfoBuildJob : IJob
@@ -95,6 +157,31 @@ namespace Landscape.RuntimeVirtualTexture
     }
 
     [BurstCompile]
+    internal struct FPageTableInfoBuildJob : IJob
+    {
+        internal int length;
+
+        internal int pageSize;
+
+        [ReadOnly]
+        internal NativeList<FPageDrawInfo> drawInfos;
+
+        [WriteOnly]
+        internal NativeArray<FPageTableInfo> pageTableInfos;
+
+        public void Execute()
+        {
+            for(int i = 0; i < length; ++i)
+            {
+                FPageTableInfo pageInfo;
+                pageInfo.pageData = new float4(drawInfos[i].drawPos.x, drawInfos[i].drawPos.y, drawInfos[i].mip / 255f, 0);
+                pageInfo.matrix_M = float4x4.TRS(new float3(drawInfos[i].rect.x / pageSize, drawInfos[i].rect.y / pageSize, 0), quaternion.identity, drawInfos[i].rect.width / pageSize);
+                pageTableInfos[i] = pageInfo;
+            }
+        }
+    }
+
+    /*[BurstCompile]
     internal struct FPageTableInfoBuildJob : IJobParallelFor
     {
         internal int pageSize;
@@ -112,7 +199,7 @@ namespace Landscape.RuntimeVirtualTexture
             pageInfo.matrix_M = float4x4.TRS(new float3(drawInfos[i].rect.x / pageSize, drawInfos[i].rect.y / pageSize, 0), quaternion.identity, drawInfos[i].rect.width / pageSize);
             pageTableInfos[i] = pageInfo;
         }
-    }
+    }*/
 
     [BurstCompile]
     internal struct FPageRequestInfoSortJob : IJob

@@ -1,12 +1,12 @@
 fileFormatVersion: 2
-guid: 672fb04506ad57e43bde41521a5a3c1a
+guid: 8a6b7895b4876434aa05edc7c337e905
 MonoImporter:
   externalObjects: {}
   serializedVersion: 2
   defaultReferences:
-  - virtualTexture: {fileID: 11400000, guid: bb92bb3150589594590d4163344a2af8, type: 2}
-  - material: {fileID: 2100000, guid: 9d3b8ffb4a4e01e4ea2ce2442df253f1, type: 2}
-  executionOrder: 0
+  - m_material: {fileID: 2100000, guid: 3a2c150cfa00c9140826163693691a0f, type: 2}
+  - virtualTexture: {fileID: 11400000, guid: b8650e03683bb0844a15d265c3b49a85, type: 2}
+  executionOrder: 100
   icon: {instanceID: 0}
   userData: 
   assetBundleName: 

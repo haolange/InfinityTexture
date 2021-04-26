@@ -1,10 +1,10 @@
-using UnityEngine;
+﻿using UnityEngine;
 using Unity.Collections;
 using UnityEngine.Rendering;
 
 namespace Landscape.RuntimeVirtualTexture
 {
-    internal class FVirtualTextureFeedback
+    internal unsafe class FVirtualTextureFeedback
     {
         internal bool isReady;
         internal NativeArray<Color32> readbackDatas;
