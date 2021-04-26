@@ -15,4 +15,4 @@ MonoBehaviour:
   tileNum: 16
   tileSize: 256
   tileBorder: 4
-  pageSize: 512
+  pageSize: 256
