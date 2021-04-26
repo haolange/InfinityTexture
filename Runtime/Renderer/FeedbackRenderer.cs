@@ -98,7 +98,7 @@ namespace Landscape.RuntimeVirtualTexture
                 {
                     if (m_Feedbacker.readbackDatas.IsCreated)
                     {
-                        pageProducer.ProcessFeedback(m_Feedbacker.readbackDatas, virtualTexture.NumMip, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, pageRenderer.pageRequests);
+                        pageProducer.ProcessFeedbackV2(m_Feedbacker.readbackDatas, virtualTexture.NumMip, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, pageRenderer.pageRequests);
                         cmdBuffer.SetRenderTarget(virtualTexture.pageTableTexture);
                         renderContext.ExecuteCommandBuffer(cmdBuffer);
                         cmdBuffer.Clear();

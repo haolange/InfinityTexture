@@ -48,10 +48,20 @@ namespace Landscape.RuntimeVirtualTexture
         {
             Color32 readbackData = readbackDatas[i];
             int x = readbackData.r, y = readbackData.g, mip = readbackData.b;
-            //x -= x % (1 << mip);
-            //y -= y % (1 << mip);
+            x -= x % (1 << mip);
+            y -= y % (1 << mip);
             int value = x + (y << 8) + (mip << 16);
             processedDatas[i] = value;
+        }
+    }
+
+    [BurstCompile]
+    internal unsafe struct SortFeedbackJob : IJob
+    {
+        internal NativeArray<int> processedDatas;
+        public void Execute()
+        {
+            processedDatas.Sort();
         }
     }
 
@@ -59,10 +69,10 @@ namespace Landscape.RuntimeVirtualTexture
     internal unsafe struct UnifyFeedbackJob : IJob
     {
         internal NativeArray<int> processedDatas;
-        internal NativeArray<int> unifiedCount;
         public void Execute()
         {
-            unifiedCount[0] = NativeExtensions.Unique(processedDatas).Length;
+            //processedDatas.Sort();
+            processedDatas = NativeExtensions.Unique(processedDatas);
         }
     }
 

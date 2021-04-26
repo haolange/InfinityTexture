@@ -45,17 +45,31 @@ namespace Landscape.RuntimeVirtualTexture
         }
         public void ProcessFeedbackV2(in NativeArray<Color32> readbackDatas, in int maxMip, in int tileNum, in int pageSize, FLruCache* lruCache, in NativeList<FPageRequestInfo> pageRequests)
         {
+            NativeArray<int> unifiedCount = new NativeArray<int>(1, Allocator.TempJob);
             PreprocessFeedbackJob preprocessFeedbackJob;
             preprocessFeedbackJob.readbackDatas = readbackDatas;
             NativeArray<int> processedDataArray = new NativeArray<int>(readbackDatas.Length, Allocator.TempJob);
             preprocessFeedbackJob.processedDatas = processedDataArray;
-            var phase1 = preprocessFeedbackJob.Schedule(readbackDatas.Length, 200);
-            var phase2 = NativeSortExtension.Sort(processedDataArray, phase1);
-            NativeArray<int> unifiedCount = new NativeArray<int>(1, Allocator.TempJob);
-            UnifyFeedbackJob unifyFeedbackJob;
-            unifyFeedbackJob.processedDatas = processedDataArray;
-            unifyFeedbackJob.unifiedCount = unifiedCount;
-            var phase3 = unifyFeedbackJob.Schedule(phase2);
+            var phase = preprocessFeedbackJob.Schedule(readbackDatas.Length, 200);
+            phase.Complete();
+            {
+                unifiedCount[0] = readbackDatas.Length;
+                UnifyFeedbackJob unifyFeedbackJob;
+                unifyFeedbackJob.processedDatas = processedDataArray;
+                unifyFeedbackJob.Run();
+                processedDataArray = unifyFeedbackJob.processedDatas;
+            }
+            {
+                SortFeedbackJob sortFeedbackJob;
+                sortFeedbackJob.processedDatas = processedDataArray;
+                sortFeedbackJob.Run();
+            }
+            {
+                UnifyFeedbackJob unifyFeedbackJob;
+                unifyFeedbackJob.processedDatas = processedDataArray;
+                unifyFeedbackJob.Run();
+                processedDataArray = unifyFeedbackJob.processedDatas;
+            }
 
             FProcessFeedbackJobV2 processFeedbackJob;
             processFeedbackJob.maxMip = maxMip - 1;
@@ -67,8 +81,7 @@ namespace Landscape.RuntimeVirtualTexture
             processFeedbackJob.frameCount = Time.frameCount;
             processFeedbackJob.processedDatas = processedDataArray;
             processFeedbackJob.processedDatasCount = unifiedCount;
-            var phase4 = processFeedbackJob.Schedule(phase3);
-            phase4.Complete();
+            processFeedbackJob.Run();
 
             /*for (int i = 0; i < readbackDatas.Length; ++i)
             {
