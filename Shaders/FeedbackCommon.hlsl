@@ -80,7 +80,7 @@ float4 VTFragFeedback(feed_v2f i) : SV_Target
 
     float ComputedLevel = MipLevel(i.uv * _VTFeedbackParams.y) + _VTFeedbackParams.w;
     ComputedLevel = clamp(floor(ComputedLevel), 0, 8);
-	return float4(floor(i.uv * _VTFeedbackParams.x) / 255, ComputedLevel / 255, 1);
+	return half4(floor(i.uv * _VTFeedbackParams.x), ComputedLevel, 1);
 }
 
 #endif

@@ -56,7 +56,7 @@ namespace Landscape.RuntimeVirtualTexture
         public override void OnCameraSetup(CommandBuffer cmdBuffer, ref RenderingData renderingData)
         {
             Camera camera = renderingData.cameraData.camera;
-            m_FeedbackTexture = RenderTexture.GetTemporary(1920 / (int)m_feedbackScale, 1080 / (int)m_feedbackScale, 1, GraphicsFormat.R8G8B8A8_UNorm, 1);
+            m_FeedbackTexture = RenderTexture.GetTemporary(1920 / (int)m_feedbackScale, 1080 / (int)m_feedbackScale, 1, GraphicsFormat.R16G16B16A16_SFloat, 1);
             m_FeedbackTexture.name = "FeedbackTexture";
             m_FeedbackTextureID = new RenderTargetIdentifier(m_FeedbackTexture);
             //ConfigureTarget(m_FeedbackTextureID);
@@ -98,7 +98,7 @@ namespace Landscape.RuntimeVirtualTexture
                 {
                     if (m_Feedbacker.readbackDatas.IsCreated)
                     {
-                        pageProducer.ProcessFeedbackV2(m_Feedbacker.readbackDatas, virtualTexture.NumMip, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, pageRenderer.pageRequests);
+                        pageProducer.ProcessFeedback(m_Feedbacker.readbackDatas, virtualTexture.NumMip, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, pageRenderer.pageRequests);
                         cmdBuffer.SetRenderTarget(virtualTexture.pageTableTexture);
                         renderContext.ExecuteCommandBuffer(cmdBuffer);
                         cmdBuffer.Clear();

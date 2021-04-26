@@ -122,8 +122,8 @@ namespace Landscape.RuntimeVirtualTexture
                 FPageTable pageTable = pageProducer.pageTables[pageUV.z];
                 ref FPage page = ref pageTable.GetPage(pageUV.x, pageUV.y);
 
-                if (page.isNull == true || page.payload.pageRequestInfo.NotEquals(requestInfo)) { continue; }
-                page.payload.pageRequestInfo.isNull = true;
+                if (page.isNull == true) { continue; }
+                page.payload.notLoading = true;
 
                 int2 pageCoord = new int2(lruCache.First % virtualTexture.tileNum, lruCache.First / virtualTexture.tileNum);
                 if (lruCache.SetActive(pageCoord.y * virtualTexture.tileNum + pageCoord.x))

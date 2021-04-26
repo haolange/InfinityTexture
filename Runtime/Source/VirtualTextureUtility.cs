@@ -443,28 +443,5 @@ namespace Landscape.RuntimeVirtualTexture
             mesh.SetTriangles(IndexArray, 0);
             return mesh;
         }
-
-        public static void ActivatePage(in int x, in int y, in int mip, in int maxMip, in int frameCount, in int tileNum, in int pageSize, ref FLruCache lruCache, ref  NativeArray<FPageTable> pageTables, ref NativeList<FPageRequestInfo> pageRequests)
-        {
-            if (mip > maxMip || mip < 0 || x < 0 || y < 0 || x >= pageSize || y >= pageSize) { return; }
-
-            ref FPage page = ref pageTables[mip].GetPage(x, y);
-            if (page.isNull == true) { return; }
-
-            if (!page.payload.isReady)
-            {
-                if (page.payload.pageRequestInfo.isNull == false) { return; }
-                page.payload.pageRequestInfo = new FPageRequestInfo(x, y, mip);
-                pageRequests.Add(page.payload.pageRequestInfo);
-            }
-
-            if (page.payload.isReady)
-            {
-                page.payload.activeFrame = frameCount;
-                lruCache.SetActive(page.payload.pageCoord.y * tileNum + page.payload.pageCoord.x);
-            }
-
-            return;
-        }
     }
 }
