@@ -102,7 +102,7 @@ namespace Landscape.RuntimeVirtualTexture
                         cmdBuffer.SetRenderTarget(virtualTexture.pageTableTexture);
                         renderContext.ExecuteCommandBuffer(cmdBuffer);
                         cmdBuffer.Clear();
-                        pageRenderer.DrawPageTable(renderContext, cmdBuffer, pageProducer, virtualTexture);
+                        pageRenderer.DrawPageTable(renderContext, cmdBuffer, pageProducer);
                     }
                 }
 

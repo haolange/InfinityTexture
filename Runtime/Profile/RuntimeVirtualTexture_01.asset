@@ -12,10 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f0ae849b22a795a4c863c571f46450d6, type: 3}
   m_Name: RuntimeVirtualTexture_01
   m_EditorClassIdentifier: 
-  TileNum: 16
-  TileSize: 256
-  TileBorder: 4
-  PageSize: 256
-  PhyscisTextureA: {fileID: 0}
-  PhyscisTextureB: {fileID: 0}
-  PageTableTexture: {fileID: 0}
+  tileNum: 16
+  tileSize: 256
+  tileBorder: 4
+  pageSize: 512
