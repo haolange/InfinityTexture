@@ -18,12 +18,6 @@ namespace Landscape.RuntimeVirtualTexture
         public Material m_material;
         private Terrain[] m_terrainList;
 
-        [Header("Feedback")]
-        [HideInInspector]
-        public GameObject m_FeedbackPrefab;
-        public int2 feedbackSize = new int2(1920, 1080);
-        public EFeedbackScale feedbackScale = EFeedbackScale.X16;
-
         [Header("Texture")]
         public EVirtualTextureVolumeSize volumeScale;
         public VirtualTextureAsset virtualTexture;

@@ -60,7 +60,7 @@ namespace Landscape.RuntimeVirtualTexture
             this.m_DrawPageMaterial.enableInstancing = true;
         }
 
-        public void DrawPageTable(ScriptableRenderContext renderContext, CommandBuffer cmdBuffer, FPageProducer pageProducer, VirtualTextureAsset virtualTexture)
+        public void DrawPageTable(ScriptableRenderContext renderContext, CommandBuffer cmdBuffer, FPageProducer pageProducer)
         {
             m_Property.Clear();
             m_DrawInfos.Clear();
@@ -151,14 +151,12 @@ namespace Landscape.RuntimeVirtualTexture
             x = x - x % perSize;
             y = y - y % perSize;
 
-            var tableSize = virtualTexture.pageSize;
-
-            var paddingEffect = virtualTexture.tileBorder * perSize * (drawPageParameter.volumeRect.width / tableSize) / virtualTexture.tileSize;
-
-            var realRect = new Rect(drawPageParameter.volumeRect.xMin + (float)x / tableSize * drawPageParameter.volumeRect.width - paddingEffect,
-                                    drawPageParameter.volumeRect.yMin + (float)y / tableSize * drawPageParameter.volumeRect.height - paddingEffect,
-                                    drawPageParameter.volumeRect.width / tableSize * perSize + 2f * paddingEffect,
-                                    drawPageParameter.volumeRect.width / tableSize * perSize + 2f * paddingEffect);
+            var pageSize = virtualTexture.pageSize;
+            var paddingEffect = virtualTexture.tileBorder * perSize * (drawPageParameter.volumeRect.width / pageSize) / virtualTexture.tileSize;
+            var realRect = new Rect(drawPageParameter.volumeRect.xMin + (float)x / pageSize * drawPageParameter.volumeRect.width - paddingEffect,
+                                    drawPageParameter.volumeRect.yMin + (float)y / pageSize * drawPageParameter.volumeRect.height - paddingEffect,
+                                    drawPageParameter.volumeRect.width / pageSize * perSize + 2f * paddingEffect,
+                                    drawPageParameter.volumeRect.width / pageSize * perSize + 2f * paddingEffect);
 
 
             var terRect = Rect.zero;

@@ -338,6 +338,7 @@ float BoxMask(float2 A, float2 B, float2 Size)
 
 half4 TextureSampleVirtual(Varyings IN)
 {
+    //float2 uv = (IN.positionWS.xz + 512) * rcp(4096);
     float2 uv = (IN.positionWS.xz - _VTVolumeRect.xy) / _VTVolumeRect.zw;
     float2 uvInt = uv - frac(uv * _VTPageParams.x) * _VTPageParams.y;
 	float4 page = _PageTableTexture.SampleLevel(Global_point_clamp_sampler, uvInt, 0) * 255;
@@ -351,16 +352,12 @@ half4 TextureSampleVirtual(Varyings IN)
 
     InputData inputData;
     InitializeInputData(IN, normalTS, inputData);
-    half metallic = 0;
-    half smoothness = 0.1;
-    half occlusion = 1;
-    half alpha = 1;
-    half4 color = UniversalFragmentPBR(inputData, albedo, metallic, /* specular */ half3(0.0h, 0.0h, 0.0h), smoothness, occlusion, /* emission */ half3(0, 0, 0), alpha);
+    half4 color = UniversalFragmentPBR(inputData, albedo, 0, /* specular */ 0, 0, 1, /* emission */ 0, 1);
     SplatmapFinalColor(color, inputData.fogCoord);
 
     float Mask = BoxMask(IN.positionWS.xz, _VTVolumeBound.xz, _VTVolumeBound.w);
 
-    //return page;
+    //return page / 255;
     //return float4(uv, 0, 1) * Mask;
     //return half4(albedo, 1) * Mask;
     return half4(color.rgb, 1) * Mask;

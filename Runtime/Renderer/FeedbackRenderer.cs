@@ -98,11 +98,11 @@ namespace Landscape.RuntimeVirtualTexture
                 {
                     if (m_Feedbacker.readbackDatas.IsCreated)
                     {
-                        pageProducer.ProcessFeedback(m_Feedbacker.readbackDatas, virtualTexture.NumMip, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, pageRenderer.pageRequests);
+                        pageProducer.ProcessFeedback(m_Feedbacker.readbackDatas, virtualTexture.NumMip, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, ref pageRenderer.pageRequests);
                         cmdBuffer.SetRenderTarget(virtualTexture.pageTableTexture);
                         renderContext.ExecuteCommandBuffer(cmdBuffer);
                         cmdBuffer.Clear();
-                        pageRenderer.DrawPageTable(renderContext, cmdBuffer, pageProducer, virtualTexture);
+                        pageRenderer.DrawPageTable(renderContext, cmdBuffer, pageProducer);
                     }
                 }
 
