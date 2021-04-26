@@ -40,6 +40,74 @@ namespace Landscape.RuntimeVirtualTexture
     }
 
     [BurstCompile]
+    internal unsafe struct PreprocessFeedbackJob : IJobParallelFor
+    {
+        internal NativeArray<Color32> readbackDatas;
+        internal NativeArray<int> processedDatas;
+        public void Execute(int i)
+        {
+            Color32 readbackData = readbackDatas[i];
+            int x = readbackData.r, y = readbackData.g, mip = readbackData.b;
+            //x -= x % (1 << mip);
+            //y -= y % (1 << mip);
+            int value = x + (y << 8) + (mip << 16);
+            processedDatas[i] = value;
+        }
+    }
+
+    [BurstCompile]
+    internal unsafe struct UnifyFeedbackJob : IJob
+    {
+        internal NativeArray<int> processedDatas;
+        internal NativeArray<int> unifiedCount;
+        public void Execute()
+        {
+            unifiedCount[0] = NativeExtensions.Unique(processedDatas).Length;
+        }
+    }
+
+
+    [BurstCompile]
+    internal unsafe struct FProcessFeedbackJobV2 : IJob
+    {
+        internal int maxMip;
+
+        internal int pageSize;
+
+        internal int tileNum;
+
+        internal int frameCount;
+
+        [NativeDisableUnsafePtrRestriction]
+        internal FLruCache* lruCache;
+
+        [ReadOnly]
+        internal NativeArray<int> processedDatas;
+        [ReadOnly]
+        internal NativeArray<int> processedDatasCount;
+
+        [ReadOnly]
+        internal NativeArray<FPageTable> pageTables;
+
+        internal NativeList<FPageRequestInfo> pageRequests;
+
+        public void Execute()
+        {
+            for (int i = 0; i < processedDatasCount[0]; ++i)
+            {
+                int readbackData = processedDatas[i];
+                int x = readbackData & ((1 << 8) - 1);
+                readbackData >>= 8;
+                int y = readbackData & ((1 << 8) - 1);
+                readbackData >>= 8;
+                int mips = readbackData & ((1 << 8) - 1);
+                FVirtualTextureUtility.ActivatePage(x, y, mips, maxMip, frameCount, tileNum, pageSize, ref lruCache[0], ref pageTables, ref pageRequests);
+            }
+        }
+    }
+
+
+    [BurstCompile]
     internal struct FPageDrawInfoBuildJob : IJob
     {
         internal int pageSize;
