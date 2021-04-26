@@ -52,7 +52,7 @@ namespace Landscape.RuntimeVirtualTexture
             this.m_Property = new MaterialPropertyBlock();
             this.m_DrawInfos = new NativeList<FPageDrawInfo>(256, Allocator.Persistent);
             this.pageRequests = new NativeList<FPageRequestInfo>(256, Allocator.Persistent);
-            this.m_PageTableBuffer = new ComputeBuffer(pageSize / 2, Marshal.SizeOf(typeof(FPageTableInfo)), ComputeBufferType.Constant);
+            this.m_PageTableBuffer = new ComputeBuffer(pageSize / 2, Marshal.SizeOf(typeof(FPageTableInfo)));
 
             this.m_DrawPageMesh = FVirtualTextureUtility.BuildQuadMesh();
             this.m_DrawPageMaterial = new Material(Shader.Find("VirtualTexture/DrawPageTable"));
@@ -80,29 +80,28 @@ namespace Landscape.RuntimeVirtualTexture
             pageDrawInfoSortJob.drawInfos = m_DrawInfos;
             pageDrawInfoSortJob.Run();
 
+            //Get NativeData
+            NativeArray<FPageTableInfo> pageTableInfos = new NativeArray<FPageTableInfo>(m_DrawInfos.Length, Allocator.TempJob);
+
             //Build PageTableInfo
-            NativeArray<Vector4> PageInfos = new NativeArray<Vector4>(m_DrawInfos.Length, Allocator.TempJob);
-            NativeArray<Matrix4x4> Materix_MVP = new NativeArray<Matrix4x4>(m_DrawInfos.Length, Allocator.TempJob);
-            for (int i = 0; i < m_DrawInfos.Length; ++i)
-            {
-                float size = m_DrawInfos[i].rect.width / m_PageSize;
-                PageInfos[i] = new Vector4(m_DrawInfos[i].drawPos.x, m_DrawInfos[i].drawPos.y, m_DrawInfos[i].mip / 255f, 0);
-                Materix_MVP[i] = Matrix4x4.TRS(new Vector3(m_DrawInfos[i].rect.x / m_PageSize, m_DrawInfos[i].rect.y / m_PageSize), Quaternion.identity, new Vector3(size, size, size));
-            }
+            FPageTableInfoBuildJob pageTableInfoBuildJob;
+            pageTableInfoBuildJob.pageSize = m_PageSize;
+            pageTableInfoBuildJob.drawInfos = m_DrawInfos;
+            pageTableInfoBuildJob.pageTableInfos = pageTableInfos;
+            pageTableInfoBuildJob.Schedule(m_DrawInfos.Length, 8).Complete();
 
             //Set PageTableBuffer
             m_Property.Clear();
-            m_Property.SetVectorArray("_PageInfo", PageInfos.ToArray());
-            m_Property.SetMatrixArray("_Matrix_MVP", Materix_MVP.ToArray());
+            m_PageTableBuffer.SetData<FPageTableInfo>(pageTableInfos, 0, 0, pageTableInfos.Length);
+            m_Property.SetBuffer("_PageTableBuffer", m_PageTableBuffer);
 
             //Draw PageTable
-            cmdBuffer.DrawMeshInstanced(m_DrawPageMesh, 0, m_DrawPageMaterial, 0, Materix_MVP.ToArray(), Materix_MVP.Length, m_Property);
+            cmdBuffer.DrawMeshInstancedProcedural(m_DrawPageMesh, 0, m_DrawPageMaterial, 1, pageTableInfos.Length, m_Property);
             renderContext.ExecuteCommandBuffer(cmdBuffer);
             cmdBuffer.Clear();
 
-            //Release
-            PageInfos.Dispose();
-            Materix_MVP.Dispose();
+            //Release NativeData
+            pageTableInfos.Dispose();
         }
 
         public void DrawPageColor(ScriptableRenderContext renderContext, CommandBuffer cmdBuffer, FPageProducer pageProducer, VirtualTextureAsset virtualTexture, ref FLruCache lruCache, in FDrawPageParameter drawPageParameter)
