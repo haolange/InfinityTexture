@@ -40,44 +40,6 @@ namespace Landscape.RuntimeVirtualTexture
     }
 
     [BurstCompile]
-    internal unsafe struct PreprocessFeedbackJob : IJobParallelFor
-    {
-        internal NativeArray<Color32> readbackDatas;
-        internal NativeArray<int> processedDatas;
-        public void Execute(int i)
-        {
-            Color32 readbackData = readbackDatas[i];
-            int x = readbackData.r, y = readbackData.g, mip = readbackData.b;
-            x -= x % (1 << mip);
-            y -= y % (1 << mip);
-            int value = x + (y << 8) + (mip << 16);
-            processedDatas[i] = value;
-        }
-    }
-
-    [BurstCompile]
-    internal unsafe struct SortFeedbackJob : IJob
-    {
-        internal NativeArray<int> processedDatas;
-        public void Execute()
-        {
-            processedDatas.Sort();
-        }
-    }
-
-    [BurstCompile]
-    internal unsafe struct UnifyFeedbackJob : IJob
-    {
-        internal NativeArray<int> processedDatas;
-        public void Execute()
-        {
-            //processedDatas.Sort();
-            processedDatas = NativeExtensions.Unique(processedDatas);
-        }
-    }
-
-
-    [BurstCompile]
     internal unsafe struct FProcessFeedbackJobV2 : IJob
     {
         internal int maxMip;
@@ -92,7 +54,7 @@ namespace Landscape.RuntimeVirtualTexture
         internal FLruCache* lruCache;
 
         [ReadOnly]
-        internal NativeArray<int> processedDatas;
+        internal NativeArray<Color32> readbackDatas;
 
         [ReadOnly]
         internal NativeArray<FPageTable> pageTables;
@@ -101,15 +63,39 @@ namespace Landscape.RuntimeVirtualTexture
 
         public void Execute()
         {
-            for (int i = 0; i < processedDatas.Length; ++i)
+            int prevValue = -1;
+            for (int i = 0; i < readbackDatas.Length; ++i)
             {
-                int readbackData = processedDatas[i];
-                int x = readbackData & ((1 << 8) - 1);
-                readbackData >>= 8;
-                int y = readbackData & ((1 << 8) - 1);
-                readbackData >>= 8;
-                int mips = readbackData & ((1 << 8) - 1);
-                FVirtualTextureUtility.ActivatePage(x, y, mips, maxMip, frameCount, tileNum, pageSize, ref lruCache[0], ref pageTables, ref pageRequests);
+                Color32 readbackData = readbackDatas[i];
+                int x = readbackData.r, y = readbackData.g, mip = readbackData.b;
+
+                x -= x % (1 << mip);
+                y -= y % (1 << mip);
+                int value = x + (y << 8) + (mip << 16);
+                if (value == prevValue) //same page
+                    continue;
+                prevValue = value;
+
+                if (mip > maxMip || mip < 0 || x < 0 || y < 0 || x >= pageSize || y >= pageSize)
+                    continue;
+
+                ref FPage page = ref pageTables[mip].GetPage(x, y);
+                if (page.isNull == true)
+                    continue;
+
+                if (!page.payload.isReady)
+                {
+                    if (page.payload.pageRequestInfo.isNull == false)
+                        continue;
+                    page.payload.pageRequestInfo = new FPageRequestInfo(x, y, mip);
+                    pageRequests.Add(page.payload.pageRequestInfo);
+                }
+
+                if (page.payload.isReady)
+                {
+                    page.payload.activeFrame = frameCount;
+                    lruCache[0].SetActive(page.payload.pageCoord.y * tileNum + page.payload.pageCoord.x);
+                }
             }
         }
     }

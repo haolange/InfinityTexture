@@ -444,30 +444,6 @@ namespace Landscape.RuntimeVirtualTexture
             return mesh;
         }
 
-        public static void AllocateRquestInfo(in int x, in int y, in int mip, ref FPageRequestInfo pageRequest, ref NativeList<FPageRequestInfo> pageRequests)
-        {
-            for (int i = 0; i < pageRequests.Length; ++i)
-            {
-                pageRequest = pageRequests[i];
-                if (pageRequest.pageX == x && pageRequest.pageY == y && pageRequest.mipLevel == mip)
-                {
-                    pageRequest = new FPageRequestInfo(x, y, mip, true);
-                    return;
-                }
-            }
-
-            pageRequest = new FPageRequestInfo(x, y, mip);
-            pageRequests.Add(pageRequest);
-            return;
-        }
-
-        public static void LoadPage(in int x, in int y, ref FPage page, ref NativeList<FPageRequestInfo> pageRequests)
-        {
-            if (page.isNull == true) { return; }
-            if (page.payload.pageRequestInfo.isNull == false) { return; }
-            AllocateRquestInfo(x, y, page.mipLevel, ref page.payload.pageRequestInfo, ref pageRequests);
-        }
-
         public static void ActivatePage(in int x, in int y, in int mip, in int maxMip, in int frameCount, in int tileNum, in int pageSize, ref FLruCache lruCache, ref  NativeArray<FPageTable> pageTables, ref NativeList<FPageRequestInfo> pageRequests)
         {
             if (mip > maxMip || mip < 0 || x < 0 || y < 0 || x >= pageSize || y >= pageSize) { return; }
@@ -477,14 +453,15 @@ namespace Landscape.RuntimeVirtualTexture
 
             if (!page.payload.isReady)
             {
-                LoadPage(x, y, ref page, ref pageRequests);
+                if (page.payload.pageRequestInfo.isNull == false) { return; }
+                page.payload.pageRequestInfo = new FPageRequestInfo(x, y, mip);
+                pageRequests.Add(page.payload.pageRequestInfo);
             }
 
             if (page.payload.isReady)
             {
                 page.payload.activeFrame = frameCount;
                 lruCache.SetActive(page.payload.pageCoord.y * tileNum + page.payload.pageCoord.x);
-                return;
             }
 
             return;

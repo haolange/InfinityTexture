@@ -43,32 +43,9 @@ namespace Landscape.RuntimeVirtualTexture
                 FVirtualTextureUtility.ActivatePage(readbackData.r, readbackData.g, readbackData.b, maxMip - 1, Time.frameCount, tileNum, pageSize, ref lruCache[0], pageTables, pageRequests);
             }*/
         }
+
         public void ProcessFeedbackV2(in NativeArray<Color32> readbackDatas, in int maxMip, in int tileNum, in int pageSize, FLruCache* lruCache, in NativeList<FPageRequestInfo> pageRequests)
         {
-            PreprocessFeedbackJob preprocessFeedbackJob;
-            preprocessFeedbackJob.readbackDatas = readbackDatas;
-            NativeArray<int> processedDataArray = new NativeArray<int>(readbackDatas.Length, Allocator.TempJob);
-            preprocessFeedbackJob.processedDatas = processedDataArray;
-            var phase = preprocessFeedbackJob.Schedule(readbackDatas.Length, 200);
-            phase.Complete();
-            {
-                UnifyFeedbackJob unifyFeedbackJob;
-                unifyFeedbackJob.processedDatas = processedDataArray;
-                unifyFeedbackJob.Run();
-                processedDataArray = unifyFeedbackJob.processedDatas;
-            }
-            {
-                SortFeedbackJob sortFeedbackJob;
-                sortFeedbackJob.processedDatas = processedDataArray;
-                sortFeedbackJob.Run();
-            }
-            {
-                UnifyFeedbackJob unifyFeedbackJob;
-                unifyFeedbackJob.processedDatas = processedDataArray;
-                unifyFeedbackJob.Run();
-                processedDataArray = unifyFeedbackJob.processedDatas;
-            }
-
             FProcessFeedbackJobV2 processFeedbackJob;
             processFeedbackJob.maxMip = maxMip - 1;
             processFeedbackJob.tileNum = tileNum;
@@ -77,9 +54,8 @@ namespace Landscape.RuntimeVirtualTexture
             processFeedbackJob.pageTables = pageTables;
             processFeedbackJob.pageRequests = pageRequests;
             processFeedbackJob.frameCount = Time.frameCount;
-            processFeedbackJob.processedDatas = processedDataArray;
+            processFeedbackJob.readbackDatas = readbackDatas;
             processFeedbackJob.Run();
-            processedDataArray.Dispose();
             /*for (int i = 0; i < readbackDatas.Length; ++i)
             {
                 Color32 readbackData = readbackDatas[i];
