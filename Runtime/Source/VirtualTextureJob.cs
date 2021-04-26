@@ -93,8 +93,6 @@ namespace Landscape.RuntimeVirtualTexture
 
         [ReadOnly]
         internal NativeArray<int> processedDatas;
-        [ReadOnly]
-        internal NativeArray<int> processedDatasCount;
 
         [ReadOnly]
         internal NativeArray<FPageTable> pageTables;
@@ -103,7 +101,7 @@ namespace Landscape.RuntimeVirtualTexture
 
         public void Execute()
         {
-            for (int i = 0; i < processedDatasCount[0]; ++i)
+            for (int i = 0; i < processedDatas.Length; ++i)
             {
                 int readbackData = processedDatas[i];
                 int x = readbackData & ((1 << 8) - 1);

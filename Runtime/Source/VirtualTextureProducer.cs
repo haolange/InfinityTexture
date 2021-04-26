@@ -45,7 +45,6 @@ namespace Landscape.RuntimeVirtualTexture
         }
         public void ProcessFeedbackV2(in NativeArray<Color32> readbackDatas, in int maxMip, in int tileNum, in int pageSize, FLruCache* lruCache, in NativeList<FPageRequestInfo> pageRequests)
         {
-            NativeArray<int> unifiedCount = new NativeArray<int>(1, Allocator.TempJob);
             PreprocessFeedbackJob preprocessFeedbackJob;
             preprocessFeedbackJob.readbackDatas = readbackDatas;
             NativeArray<int> processedDataArray = new NativeArray<int>(readbackDatas.Length, Allocator.TempJob);
@@ -53,7 +52,6 @@ namespace Landscape.RuntimeVirtualTexture
             var phase = preprocessFeedbackJob.Schedule(readbackDatas.Length, 200);
             phase.Complete();
             {
-                unifiedCount[0] = readbackDatas.Length;
                 UnifyFeedbackJob unifyFeedbackJob;
                 unifyFeedbackJob.processedDatas = processedDataArray;
                 unifyFeedbackJob.Run();
@@ -80,9 +78,8 @@ namespace Landscape.RuntimeVirtualTexture
             processFeedbackJob.pageRequests = pageRequests;
             processFeedbackJob.frameCount = Time.frameCount;
             processFeedbackJob.processedDatas = processedDataArray;
-            processFeedbackJob.processedDatasCount = unifiedCount;
             processFeedbackJob.Run();
-
+            processedDataArray.Dispose();
             /*for (int i = 0; i < readbackDatas.Length; ++i)
             {
                 Color32 readbackData = readbackDatas[i];
