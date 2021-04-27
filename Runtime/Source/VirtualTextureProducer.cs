@@ -83,7 +83,6 @@ namespace Landscape.RuntimeVirtualTexture
             }
             pageTables.Dispose();
             activePageMap.Dispose();
-            visited.Dispose();
         }
     }
 }
