@@ -1,7 +1,7 @@
 ﻿#ifndef PageCommon
 #define PageCommon
 
-#include "StochasticSampling.hlsl"
+#include "../Common/StochasticSampling.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 
 

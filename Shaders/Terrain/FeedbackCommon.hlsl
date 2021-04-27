@@ -1,7 +1,9 @@
 ﻿#ifndef VIRTUAL_TEXTURE_FEEDBACK_INCLUDED
 #define VIRTUAL_TEXTURE_FEEDBACK_INCLUDED
 
-#include "VirtualTextureCommon.hlsl"
+//#include "VirtualTextureCommon.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
 #define UNITY_INSTANCING_ENABLED
 
 UNITY_INSTANCING_BUFFER_START(Terrain)
@@ -27,6 +29,23 @@ struct feed_attr
     float2 texcoord : TEXCOORD0;
     UNITY_VERTEX_INPUT_INSTANCE_ID
 };
+
+float4 _VTVolumeRect;
+
+// xy: page count
+// z:  max mipmap level
+float4 _VTPageParams;
+
+// x: page size
+// y: vertual texture size
+// z: max mipmap level
+// w: mipmap level bias
+float4 _VTFeedbackParams;
+
+// x: padding size
+// y: center size
+// zw: 1 / tile count
+float4 _VTPageTileParams;
 
 feed_v2f VTVertFeedback(feed_attr v)
 {

@@ -12,6 +12,7 @@ namespace Landscape.RuntimeVirtualTexture
 {
     public enum EBorder
     {
+        X0 = 0,
         X1 = 1,
         X2 = 2,
         X4 = 4
@@ -37,8 +38,8 @@ namespace Landscape.RuntimeVirtualTexture
         internal RenderTexture tileTextureB;
         internal RenderTexture compressTextureA;
         internal RenderTexture compressTextureB;
-        internal RenderTexture physicsTextureA;
-        internal RenderTexture physicsTextureB;
+        internal Texture2D physicsTextureA;
+        internal Texture2D physicsTextureB;
         internal RenderTexture pageTableTexture;
         internal RenderTargetIdentifier[] colorBuffers;
         internal int TextureSize { get { return tileNum * TileSizePadding; } }
@@ -84,20 +85,17 @@ namespace Landscape.RuntimeVirtualTexture
             compressTextureB.Create();
 
             //physics texture
-            textureDesctiptor.width = TextureSize;
-            textureDesctiptor.height = TextureSize;
-
-            physicsTextureA = new RenderTexture(textureDesctiptor);
+            physicsTextureA = new Texture2D(TextureSize, TextureSize, GraphicsFormat.R8G8B8A8_UNorm, TextureCreationFlags.None);
             physicsTextureA.name = "PhyscisTextureA";
             physicsTextureA.filterMode = FilterMode.Bilinear;
             physicsTextureA.wrapMode = TextureWrapMode.Clamp;
-            physicsTextureA.anisoLevel = 8;
+            //physicsTextureA.anisoLevel = 8;
 
-            physicsTextureB = new RenderTexture(textureDesctiptor);
+            physicsTextureB = new Texture2D(TextureSize, TextureSize, GraphicsFormat.R8G8B8A8_UNorm, TextureCreationFlags.None);
             physicsTextureB.name = "PhyscisTextureB";
             physicsTextureB.filterMode = FilterMode.Bilinear;
             physicsTextureB.wrapMode = TextureWrapMode.Clamp;
-            physicsTextureB.anisoLevel = 8;
+            //physicsTextureB.anisoLevel = 8;
 
             pageTableTexture = new RenderTexture(pageSize, pageSize, 0, GraphicsFormat.R8G8B8A8_UNorm);
             pageTableTexture.name = "PageTableTexture";
@@ -126,8 +124,6 @@ namespace Landscape.RuntimeVirtualTexture
 
             tileTextureA.Release();
             tileTextureB.Release();
-            physicsTextureA.Release();
-            physicsTextureB.Release();
             compressTextureA.Release();
             compressTextureB.Release();
             pageTableTexture.Release();

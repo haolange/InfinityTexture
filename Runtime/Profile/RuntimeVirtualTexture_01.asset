@@ -14,5 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   tileNum: 16
   tileSize: 256
-  tileBorder: 2
+  tileBorder: 0
   pageSize: 256

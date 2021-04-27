@@ -1,9 +1,7 @@
-﻿using System;
-using UnityEngine;
-using Unity.Mathematics;
-using UnityEngine.Experimental.Rendering;
-using UnityEngine.Rendering.Universal;
+﻿using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
+using UnityEngine.Experimental.Rendering;
 
 namespace Landscape.RuntimeVirtualTexture
 {
