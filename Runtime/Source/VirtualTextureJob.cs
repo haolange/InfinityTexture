@@ -50,15 +50,13 @@ namespace Landscape.RuntimeVirtualTexture
                 if (page.isNull)
                     continue;
 
-                if (!page.payload.isReady)
+                if (!page.payload.isReady && page.payload.notLoading)
                 {
-                    if (!page.payload.notLoading)
-                        continue;
                     page.payload.notLoading = false;
                     pageRequests.AddNoResize(new FPageRequestInfo(x, y, mip));
                 }
 
-                if (page.payload.isReady)
+                if (page.payload.isReady && page.payload.activeFrame != frameCount)
                 {
                     page.payload.activeFrame = frameCount;
                     lruCache[0].SetActive(page.payload.pageCoord.y * tileNum + page.payload.pageCoord.x);
@@ -109,15 +107,13 @@ namespace Landscape.RuntimeVirtualTexture
                 if (page.isNull)
                     continue;
 
-                if (!page.payload.isReady)
+                if (!page.payload.isReady && page.payload.notLoading)
                 {
-                    if (!page.payload.notLoading)
-                        continue;
                     page.payload.notLoading = false;
                     pageRequests.AddNoResize(new FPageRequestInfo(x, y, mip));
                 }
 
-                if (page.payload.isReady)
+                if (page.payload.isReady && page.payload.activeFrame != frameCount)
                 {
                     page.payload.activeFrame = frameCount;
                     lruCache[0].SetActive(page.payload.pageCoord.y * tileNum + page.payload.pageCoord.x);
