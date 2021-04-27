@@ -19,14 +19,15 @@
 		_TileOffset4("TileOffset4",Vector) = (1,1,0,0)
 		_BlendTile("Blend Tile",Vector) = (0,0,100,100)
     }
-//
+
     SubShader
     {
         Cull Off ZWrite Off ZTest Always
+
         Pass
         {
             HLSLPROGRAM
-			//#pragma target 3.0
+			#pragma target 4.5
 
             #pragma vertex vert
             #pragma fragment frag
@@ -40,9 +41,37 @@
 		{
 			Blend One One
 			HLSLPROGRAM
-			//#pragma target 3.0
+			#pragma target 4.5
 
 			#pragma vertex vert
+			#pragma fragment frag
+			#define TERRAIN_SPLAT_ADDPASS
+			#pragma enable_d3d11_debug_symbols
+			
+			#include "../Include/DrwaPageCommon.hlsl"
+			ENDHLSL
+		}
+
+		Pass
+        {
+            HLSLPROGRAM
+			#pragma target 4.5
+
+            #pragma vertex vertTriangle
+            #pragma fragment frag
+			#pragma enable_d3d11_debug_symbols
+            
+			#include "../Include/DrwaPageCommon.hlsl"
+            ENDHLSL
+        }
+
+		Pass
+		{
+			Blend One One
+			HLSLPROGRAM
+			#pragma target 4.5
+
+			#pragma vertex vertTriangle
 			#pragma fragment frag
 			#define TERRAIN_SPLAT_ADDPASS
 			#pragma enable_d3d11_debug_symbols
