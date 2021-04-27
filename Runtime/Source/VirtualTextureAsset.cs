@@ -10,20 +10,29 @@ using UnityEngine.Experimental.Rendering;
 
 namespace Landscape.RuntimeVirtualTexture
 {
+    public enum EBorder
+    {
+        X1 = 1,
+        X2 = 2,
+        X4 = 4
+    }
+
     [CreateAssetMenu(menuName = "Landscape/VirtualTextureAsset")]
     public unsafe class VirtualTextureAsset : ScriptableObject, IDisposable
     {
+        [Header("Tile")]
         [Range(4, 32)]
         public int tileNum = 16;
-        [Range(64, 1024)]
+        [Range(64, 512)]
         public int tileSize = 256;
-        [Range(0, 4)]
-        public int tileBorder = 4;
+        public EBorder tileBorder = EBorder.X2;
+
+        [Header("Page")]
         [Range(256, 1024)]
         public int pageSize = 256;
 
         public int NumMip { get { return (int)math.log2(pageSize) + 1; } }
-        public int TileSizePadding { get { return tileSize + tileBorder * 2; } }
+        public int TileSizePadding { get { return tileSize + (int)tileBorder * 2; } }
         public int QuadTileSizePadding { get { return TileSizePadding / 4; } }
 
         internal FLruCache* lruCache;

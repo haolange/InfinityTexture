@@ -153,7 +153,7 @@ namespace Landscape.RuntimeVirtualTexture
             y = y - y % perSize;
 
             var pageSize = virtualTexture.pageSize;
-            var paddingEffect = virtualTexture.tileBorder * perSize * (drawPageParameter.volumeRect.width / pageSize) / virtualTexture.tileSize;
+            var paddingEffect = (int)virtualTexture.tileBorder * perSize * (drawPageParameter.volumeRect.width / pageSize) / virtualTexture.tileSize;
             var realRect = new Rect(drawPageParameter.volumeRect.xMin + (float)x / pageSize * drawPageParameter.volumeRect.width - paddingEffect,
                                     drawPageParameter.volumeRect.yMin + (float)y / pageSize * drawPageParameter.volumeRect.height - paddingEffect,
                                     drawPageParameter.volumeRect.width / pageSize * perSize + 2f * paddingEffect,
