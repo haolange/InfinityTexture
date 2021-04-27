@@ -72,8 +72,7 @@ void ReadBlockRGB(Texture2D<float4> SourceTexture, SamplerState TextureSampler, 
 void CompressAlbedo(uint3 ThreadId : SV_DispatchThreadID)
 {
     uint2 SamplePos = ThreadId.xy * 4;
-    if (any(SamplePos >= _DestRect.zw))
-        return;
+    if (any(SamplePos >= _DestRect.zw)) { return; }
 
     float2 TexelUVSize = 1.0f / float2(_DestRect.zw);
     float2 SampleUV = (float2(SamplePos) + 0.5f) * TexelUVSize;

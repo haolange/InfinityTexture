@@ -444,6 +444,22 @@ namespace Landscape.RuntimeVirtualTexture
             return mesh;
         }
 
+        public static Mesh BuildTriangleMesh()
+        {
+            Mesh mesh = new Mesh { name = "FullScreen Mesh" };
+
+            mesh.vertices = new Vector3[] 
+            {
+                new Vector3(-1f, -1f, 0f),
+                new Vector3(-1f,  3f, 0f),
+                new Vector3( 3f, -1f, 0f)
+            };
+
+            mesh.SetIndices(new int[] { 0, 1, 2 }, MeshTopology.Triangles, 0, false);
+            mesh.UploadMeshData(false);
+            return mesh;
+        }
+
         public static void ActivatePage(in int x, in int y, in int mip, in int maxMip, in int frameCount, in int tileNum, in int pageSize, ref FLruCache lruCache, ref  NativeArray<FPageTable> pageTables, ref NativeList<FPageRequestInfo> pageRequests)
         {
             if (mip > maxMip || mip < 0 || x < 0 || y < 0 || x >= pageSize || y >= pageSize) { return; }
