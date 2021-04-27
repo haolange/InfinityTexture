@@ -102,7 +102,7 @@ namespace Landscape.RuntimeVirtualTexture
                         cmdBuffer.SetRenderTarget(virtualTexture.pageTableTexture);
                         renderContext.ExecuteCommandBuffer(cmdBuffer);
                         cmdBuffer.Clear();
-                        pageRenderer.DrawPageTable(renderContext, cmdBuffer, pageProducer);
+                        pageRenderer.DrawPageTable(cmdBuffer, pageProducer);
                     }
                 }
 
@@ -137,7 +137,7 @@ namespace Landscape.RuntimeVirtualTexture
                 cmdBuffer.Clear();
 
                 FDrawPageParameter drawPageParameter = VirtualTextureVolume.s_VirtualTextureVolume.GetDrawPageParamter();
-                pageRenderer.DrawPageColor(renderContext, cmdBuffer, pageProducer, virtualTexture, ref virtualTexture.lruCache[0], drawPageParameter);
+                pageRenderer.DrawPageColor(cmdBuffer, pageProducer, virtualTexture, ref virtualTexture.lruCache[0], drawPageParameter);
             }
         }
     }

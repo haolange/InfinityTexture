@@ -61,7 +61,7 @@ namespace Landscape.RuntimeVirtualTexture
             this.m_DrawPageMaterial.enableInstancing = true;
         }
 
-        public void DrawPageTable(ScriptableRenderContext renderContext, CommandBuffer cmdBuffer, FPageProducer pageProducer)
+        public void DrawPageTable(CommandBuffer cmdBuffer, FPageProducer pageProducer)
         {
             m_Property.Clear();
             m_DrawInfos.Clear();
@@ -92,21 +92,17 @@ namespace Landscape.RuntimeVirtualTexture
             pageTableInfoBuildJob.pageTableInfos = pageTableInfos;
             pageTableInfoBuildJob.Run();
 
-            //Set PageTableBuffer
+            //Draw PageTable
             m_Property.Clear();
             m_PageTableBuffer.SetData<FPageTableInfo>(pageTableInfos, 0, 0, pageTableInfos.Length);
             m_Property.SetBuffer("_PageTableBuffer", m_PageTableBuffer);
-
-            //Draw PageTable
             cmdBuffer.DrawMeshInstancedProcedural(m_DrawPageMesh, 0, m_DrawPageMaterial, 1, pageTableInfos.Length, m_Property);
-            renderContext.ExecuteCommandBuffer(cmdBuffer);
-            cmdBuffer.Clear();
 
             //Release NativeData
             pageTableInfos.Dispose();
         }
 
-        public void DrawPageColor(ScriptableRenderContext renderContext, CommandBuffer cmdBuffer, FPageProducer pageProducer, VirtualTextureAsset virtualTexture, ref FLruCache lruCache, in FDrawPageParameter drawPageParameter)
+        public void DrawPageColor(CommandBuffer cmdBuffer, FPageProducer pageProducer, VirtualTextureAsset virtualTexture, ref FLruCache lruCache, in FDrawPageParameter drawPageParameter)
         {
             if (pageRequests.Length <= 0) { return; }
             FPageRequestInfoSortJob pageRequestInfoSortJob;
@@ -139,9 +135,6 @@ namespace Landscape.RuntimeVirtualTexture
                 page.payload.pageCoord = pageCoord;
                 pageProducer.activePageMap.Add(pageCoord, pageUV);
             }
-
-            renderContext.ExecuteCommandBuffer(cmdBuffer);
-            cmdBuffer.Clear();
         }
 
         private void RenderPage(CommandBuffer cmdBuffer, VirtualTextureAsset virtualTexture, in FRectInt pageRect, in FPageRequestInfo requestInfo, in FDrawPageParameter drawPageParameter)
