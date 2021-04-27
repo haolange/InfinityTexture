@@ -9,7 +9,7 @@ using System.Threading;
 namespace Landscape.RuntimeVirtualTexture
 {
     [BurstCompile]
-    internal unsafe struct FProcessFeedbackJob : IJob
+    internal unsafe struct FProcessFeedbackJob64 : IJob
     {
         internal int maxMip;
 
@@ -36,7 +36,66 @@ namespace Landscape.RuntimeVirtualTexture
             for (int i = 0; i < readbackDatas.Length; ++i)
             {
                 half4 readbackData = readbackDatas[i];
-                int x = (int)(readbackData.x), y = (int)(readbackData.y), mip = (int)(readbackData.z);
+                int x = (int)(readbackData.x * 255), y = (int)(readbackData.y * 255), mip = (int)(readbackData.z * 255);
+
+                int3 value = new int3(x, y, mip);
+                if (value.Equals(prevValue)) //skip same page
+                    continue;
+                prevValue = value;
+
+                if (mip > maxMip || mip < 0 || x < 0 || y < 0 || x >= pageSize || y >= pageSize)
+                    continue;
+
+                ref FPage page = ref pageTables[mip].GetPage(x, y);
+                if (page.isNull)
+                    continue;
+
+                if (!page.payload.isReady)
+                {
+                    if (!page.payload.notLoading)
+                        continue;
+                    page.payload.notLoading = false;
+                    pageRequests.AddNoResize(new FPageRequestInfo(x, y, mip));
+                }
+
+                if (page.payload.isReady)
+                {
+                    page.payload.activeFrame = frameCount;
+                    lruCache[0].SetActive(page.payload.pageCoord.y * tileNum + page.payload.pageCoord.x);
+                }
+            }
+        }
+    }
+
+    [BurstCompile]
+    internal unsafe struct FProcessFeedbackJob32 : IJob
+    {
+        internal int maxMip;
+
+        internal int pageSize;
+
+        internal int tileNum;
+
+        internal int frameCount;
+
+        [NativeDisableUnsafePtrRestriction]
+        internal FLruCache* lruCache;
+
+        [ReadOnly]
+        internal NativeArray<Color32> readbackDatas;
+
+        [ReadOnly]
+        internal NativeArray<FPageTable> pageTables;
+
+        internal NativeList<FPageRequestInfo> pageRequests;
+
+        public void Execute()
+        {
+            int3 prevValue = -1;
+            for (int i = 0; i < readbackDatas.Length; ++i)
+            {
+                Color32 readbackData = readbackDatas[i];
+                int x = (int)(readbackData.r), y = (int)(readbackData.g), mip = (int)(readbackData.b);
 
                 int3 value = new int3(x, y, mip);
                 if (value.Equals(prevValue)) //skip same page
