@@ -443,5 +443,21 @@ namespace Landscape.RuntimeVirtualTexture
             mesh.SetTriangles(IndexArray, 0);
             return mesh;
         }
+
+        public static Mesh BuildTriangleMesh()
+        {
+            Mesh mesh = new Mesh { name = "FullScreen Mesh" };
+
+            mesh.vertices = new Vector3[] 
+            {
+                new Vector3(-1f, -1f, 0f),
+                new Vector3(-1f,  3f, 0f),
+                new Vector3( 3f, -1f, 0f)
+            };
+
+            mesh.SetIndices(new int[] { 0, 1, 2 }, MeshTopology.Triangles, 0, false);
+            mesh.UploadMeshData(false);
+            return mesh;
+        }
     }
 }

@@ -23,42 +23,43 @@ SAMPLER(Global_bilinear_clamp_sampler);
 SAMPLER(Global_trilinear_repeat_sampler);
 
 
-struct PixelOutput
-{
-    float4 ColorBuffer : SV_Target0;
-    float4 NormalBuffer : SV_Target1;
-};
-
 struct Attributes
 {
-    float2 uv : TEXCOORD0;
-    float4 vertex : POSITION;
+    float2 uv0 : TEXCOORD0;
+    float4 vertexOS : POSITION;
 };
 
 struct Varyings
 {
-    float4 pos : SV_POSITION;
-    float2 uv : TEXCOORD0;
+    float2 uv0 : TEXCOORD0;
+    float4 vertexCS : SV_POSITION;
 };
 
-Varyings vert(Attributes Input)
+Varyings vert(Attributes input)
 {
-    Varyings Out;
-    Out.uv = Input.uv;
-    Out.pos = mul(_Matrix_MVP, Input.vertex);
-
-    return Out;
+    Varyings output;
+    output.uv0 = input.uv0;
+    output.vertexCS = mul(_Matrix_MVP, input.vertexOS);
+    return output;
 }
 
-PixelOutput frag(const Varyings In)
+Varyings vertTriangle(Attributes input)
 {
-    float4 blend = _SplatTexture.Sample(Global_bilinear_clamp_sampler, In.uv * _SplatTileOffset.xy + _SplatTileOffset.zw);
+    Varyings output;
+	output.vertexCS = float4(input.vertexOS.x, -input.vertexOS.y, 0, 1);
+	output.uv0 = (input.vertexOS.xy + 1) * 0.5;
+    return output;
+}
+
+void frag(Varyings input, out float4 ColorBuffer : SV_Target0, out float4 NormalBuffer : SV_Target1)
+{
+    float4 blend = _SplatTexture.SampleLevel(Global_bilinear_clamp_sampler, input.uv0 * _SplatTileOffset.xy + _SplatTileOffset.zw, 0);
     
 #ifdef TERRAIN_SPLAT_ADDPASS
     clip(blend.x + blend.y + blend.z + blend.w <= 0.005h ? -1.0h : 1.0h);
 #endif
     
-    float2 transUv = In.uv * _SurfaceTileOffset.xy + _SurfaceTileOffset.zw;
+    float2 transUv = input.uv0 * _SurfaceTileOffset.xy + _SurfaceTileOffset.zw;
 
     /*float4 Diffuse1 = _AlbedoTexture1.Sample(Global_trilinear_repeat_sampler, transUv);
     float4 Normal1 = _NormalTexture1.Sample(Global_trilinear_repeat_sampler, transUv);
@@ -72,14 +73,14 @@ PixelOutput frag(const Varyings In)
     float4 Diffuse4 = _AlbedoTexture4.Sample(Global_trilinear_repeat_sampler, transUv);
     float4 Normal4 = _NormalTexture4.Sample(Global_trilinear_repeat_sampler, transUv);*/
 
-    half3 cw5 = 0;
+    float3 cw5 = 0;
     float2 uv15 = 0;
     float2 uv25 = 0;
     float2 uv35 = 0;
     float2 dx5 = 0;
     float2 dy5 = 0;
 
-    half3 cw8 = 0;
+    float3 cw8 = 0;
     float2 uv18 = 0;
     float2 uv28 = 0;
     float2 uv38 = 0;
@@ -112,11 +113,8 @@ PixelOutput frag(const Varyings In)
     float4 Diffuse4 = StochasticSample2D(_AlbedoTexture4, Global_trilinear_repeat_sampler, transUv);
     float4 Normal4 = StochasticSample2D(_NormalTexture4, Global_trilinear_repeat_sampler, transUv);*/
 
-    PixelOutput Output;
-    Output.ColorBuffer = blend.r * Diffuse1 + blend.g * Diffuse2 + blend.b * Diffuse3 + blend.a * Diffuse4;
-    Output.NormalBuffer = blend.r * Normal1 + blend.g * Normal2 + blend.b * Normal3 + blend.a * Normal4;
-
-    return Output;
+    ColorBuffer = blend.r * Diffuse1 + blend.g * Diffuse2 + blend.b * Diffuse3 + blend.a * Diffuse4;
+    NormalBuffer = blend.r * Normal1 + blend.g * Normal2 + blend.b * Normal3 + blend.a * Normal4;
 }
 
 #endif
