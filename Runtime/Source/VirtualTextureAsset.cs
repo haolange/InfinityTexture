@@ -21,7 +21,7 @@ namespace Landscape.RuntimeVirtualTexture
     public unsafe class VirtualTextureAsset : ScriptableObject, IDisposable
     {
         [Header("Tile")]
-        [Range(4, 32)]
+        [Range(8, 16)]
         public int tileNum = 16;
         [Range(64, 512)]
         public int tileSize = 256;
