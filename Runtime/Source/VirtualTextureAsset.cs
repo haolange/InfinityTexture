@@ -94,13 +94,13 @@ namespace Landscape.RuntimeVirtualTexture
             physicsTextureA.name = "PhyscisTextureA";
             physicsTextureA.filterMode = FilterMode.Bilinear;
             physicsTextureA.wrapMode = TextureWrapMode.Clamp;
-            physicsTextureA.anisoLevel = 8;
+            //physicsTextureA.anisoLevel = 8;
 
             physicsTextureB = new RenderTexture(textureDesctiptor);
             physicsTextureB.name = "PhyscisTextureB";
             physicsTextureB.filterMode = FilterMode.Bilinear;
             physicsTextureB.wrapMode = TextureWrapMode.Clamp;
-            physicsTextureB.anisoLevel = 8;
+            //physicsTextureB.anisoLevel = 8;
 
             pageTableTexture = new RenderTexture(pageSize, pageSize, 0, GraphicsFormat.R8G8B8A8_UNorm);
             pageTableTexture.name = "PageTableTexture";
@@ -108,8 +108,8 @@ namespace Landscape.RuntimeVirtualTexture
             pageTableTexture.wrapMode = TextureWrapMode.Clamp;
 
             colorBuffers = new RenderTargetIdentifier[2];
-            colorBuffers[0] = new RenderTargetIdentifier(physicsTextureA);
-            colorBuffers[1] = new RenderTargetIdentifier(physicsTextureB);
+            colorBuffers[0] = new RenderTargetIdentifier(tileTextureA);
+            colorBuffers[1] = new RenderTargetIdentifier(tileTextureB);
 
             // 设置Shader参数
             // x: padding 偏移量

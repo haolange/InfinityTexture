@@ -150,8 +150,6 @@ namespace Landscape.RuntimeVirtualTexture
 
             foreach (var terrain in drawPageParameter.terrainList)
             {
-                m_Property.Clear();
-
                 var terrainRect = Rect.zero;
                 terrainRect.xMin = terrain.transform.position.x;
                 terrainRect.yMin = terrain.transform.position.z;
@@ -166,7 +164,7 @@ namespace Landscape.RuntimeVirtualTexture
                 maxRect.xMax = Mathf.Min(volumeRect.xMax, terrainRect.xMax);
                 maxRect.yMax = Mathf.Min(volumeRect.yMax, terrainRect.yMax);
 
-                var scaleFactor = pageRect.width / volumeRect.width;
+                /*var scaleFactor = pageRect.width / volumeRect.width;
                 FRect offsetRect = new FRect(pageRect.x + (maxRect.xMin - volumeRect.xMin) * scaleFactor, pageRect.y + (maxRect.yMin - volumeRect.yMin) * scaleFactor, maxRect.width * scaleFactor, maxRect.height * scaleFactor);
                 float l = offsetRect.x * 2.0f / virtualTexture.TextureSize - 1;
                 float r = (offsetRect.x + offsetRect.width) * 2.0f / virtualTexture.TextureSize - 1;
@@ -178,11 +176,12 @@ namespace Landscape.RuntimeVirtualTexture
                 Matrix_MVP.m11 = t - b;
                 Matrix_MVP.m13 = b;
                 Matrix_MVP.m23 = -1;
-                Matrix_MVP.m33 = 1;
+                Matrix_MVP.m33 = 1;*/
 
                 float4 scaleOffset = new float4(maxRect.width / terrainRect.width, maxRect.height / terrainRect.height, (maxRect.xMin - terrainRect.xMin) / terrainRect.width, (maxRect.yMin - terrainRect.yMin) / terrainRect.height);
+                m_Property.Clear();
                 m_Property.SetVector("_SplatTileOffset", scaleOffset);
-                m_Property.SetMatrix(Shader.PropertyToID("_Matrix_MVP"), GL.GetGPUProjectionMatrix(Matrix_MVP, true));
+                //m_Property.SetMatrix(Shader.PropertyToID("_Matrix_MVP"), GL.GetGPUProjectionMatrix(Matrix_MVP, true));
 
                 int layerIndex = 0;
                 for (int i = 0; i < terrain.terrainData.alphamapTextures.Length; ++i)
@@ -202,8 +201,12 @@ namespace Landscape.RuntimeVirtualTexture
                         index++;
                     }
 
-                    cmdBuffer.DrawMesh(m_DrawPageMesh, Matrix4x4.identity, m_DrawColorMaterial, 0, layerIndex <= 4 ? 0 : 1, m_Property);
+                    cmdBuffer.DrawMesh(m_TriangleMesh, Matrix4x4.identity, m_DrawColorMaterial, 0, layerIndex <= 4 ? 2 : 3, m_Property);
                 }
+
+                int tileSize = virtualTexture.TileSizePadding;
+                cmdBuffer.CopyTexture(virtualTexture.tileTextureA, 0, 0, 0, 0, tileSize, tileSize, virtualTexture.physicsTextureA, 0, 0, pageRect.x, pageRect.y);
+                cmdBuffer.CopyTexture(virtualTexture.tileTextureB, 0, 0, 0, 0, tileSize, tileSize, virtualTexture.physicsTextureB, 0, 0, pageRect.x, pageRect.y);
             }
         }
 
