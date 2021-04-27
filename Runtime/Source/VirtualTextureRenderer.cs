@@ -33,6 +33,17 @@ namespace Landscape.RuntimeVirtualTexture
         public Terrain[] terrainList;
     }
 
+    internal static class FPageShaderID
+    {
+        public static int PageTableBuffer = Shader.PropertyToID("_PageTableBuffer");
+        public static int SplatTileOffset = Shader.PropertyToID("_SplatTileOffset");
+        public static int SplatTexture = Shader.PropertyToID("_SplatTexture");
+        public static int SurfaceTileOffset = Shader.PropertyToID("_SurfaceTileOffset");
+        public static int[] AlbedoTexture = new int[4] { Shader.PropertyToID("_AlbedoTexture1"), Shader.PropertyToID("_AlbedoTexture2"), Shader.PropertyToID("_AlbedoTexture3"), Shader.PropertyToID("_AlbedoTexture4") };
+        public static int[] NormalTexture = new int[4] { Shader.PropertyToID("_NormalTexture1"), Shader.PropertyToID("_NormalTexture2"), Shader.PropertyToID("_NormalTexture3"), Shader.PropertyToID("_NormalTexture4") };
+    }
+
+
     internal class FPageRenderer : IDisposable
     {
         private int m_Limit;
@@ -95,7 +106,7 @@ namespace Landscape.RuntimeVirtualTexture
             //Draw PageTable
             m_Property.Clear();
             m_PageTableBuffer.SetData<FPageTableInfo>(pageTableInfos, 0, 0, pageTableInfos.Length);
-            m_Property.SetBuffer("_PageTableBuffer", m_PageTableBuffer);
+            m_Property.SetBuffer(FPageShaderID.PageTableBuffer, m_PageTableBuffer);
             cmdBuffer.DrawMeshInstancedProcedural(m_DrawPageMesh, 0, m_DrawPageMaterial, 1, pageTableInfos.Length, m_Property);
 
             //Release NativeData
@@ -147,7 +158,7 @@ namespace Landscape.RuntimeVirtualTexture
 
             var padding = (int)virtualTexture.tileBorder * perSize * (drawPageParameter.volumeRect.width / virtualTexture.pageSize) / virtualTexture.tileSize;
             var volumeRect = new Rect(drawPageParameter.volumeRect.xMin + (float)x / virtualTexture.pageSize * drawPageParameter.volumeRect.width - padding, drawPageParameter.volumeRect.yMin + (float)y / virtualTexture.pageSize * drawPageParameter.volumeRect.height - padding, drawPageParameter.volumeRect.width / virtualTexture.pageSize * perSize + 2f * padding, drawPageParameter.volumeRect.width / virtualTexture.pageSize * perSize + 2f * padding);
-
+            
             foreach (var terrain in drawPageParameter.terrainList)
             {
                 var terrainRect = Rect.zero;
@@ -180,25 +191,26 @@ namespace Landscape.RuntimeVirtualTexture
 
                 float4 scaleOffset = new float4(maxRect.width / terrainRect.width, maxRect.height / terrainRect.height, (maxRect.xMin - terrainRect.xMin) / terrainRect.width, (maxRect.yMin - terrainRect.yMin) / terrainRect.height);
                 m_Property.Clear();
-                m_Property.SetVector("_SplatTileOffset", scaleOffset);
+                m_Property.SetVector(FPageShaderID.SplatTileOffset, scaleOffset);
                 //m_Property.SetMatrix(Shader.PropertyToID("_Matrix_MVP"), GL.GetGPUProjectionMatrix(Matrix_MVP, true));
 
                 int layerIndex = 0;
-                for (int i = 0; i < terrain.terrainData.alphamapTextures.Length; ++i)
+                var terrainLayers = terrain.terrainData.terrainLayers;
+                
+                for (int i = 0; i < terrain.terrainData.alphamapTextureCount; ++i)
                 {
-                    var splatMap = terrain.terrainData.alphamapTextures[i];
-                    m_Property.SetTexture("_SplatTexture", splatMap);
+                    m_Property.SetTexture(FPageShaderID.SplatTexture, terrain.terrainData.GetAlphamapTexture(i));
 
                     int index = 1;
-                    for (; layerIndex < terrain.terrainData.terrainLayers.Length && index <= 4; layerIndex++)
+                    for (; layerIndex < terrain.terrainData.alphamapLayers && index <= 4; ++layerIndex)
                     {
-                        var layer = terrain.terrainData.terrainLayers[layerIndex];
-                        float2 tileScale = new float2(terrain.terrainData.size.x / layer.tileSize.x, terrain.terrainData.size.z / layer.tileSize.y);
+                        var terrainLayer = terrainLayers[layerIndex];
+                        float2 tileScale = new float2(terrain.terrainData.size.x / terrainLayer.tileSize.x, terrain.terrainData.size.z / terrainLayer.tileSize.y);
                         float4 tileOffset = new float4(tileScale.x * scaleOffset.x, tileScale.y * scaleOffset.y, scaleOffset.z * tileScale.x, scaleOffset.w * tileScale.y);
-                        m_Property.SetVector("_SurfaceTileOffset", tileOffset);
-                        m_Property.SetTexture($"_AlbedoTexture{index}", layer.diffuseTexture);
-                        m_Property.SetTexture($"_NormalTexture{index}", layer.normalMapTexture);
-                        index++;
+                        m_Property.SetVector(FPageShaderID.SurfaceTileOffset, tileOffset);
+                        m_Property.SetTexture(FPageShaderID.AlbedoTexture[index - 1], terrainLayer.diffuseTexture);
+                        m_Property.SetTexture(FPageShaderID.NormalTexture[index - 1], terrainLayer.normalMapTexture);
+                        ++index;
                     }
 
                     cmdBuffer.DrawMesh(m_TriangleMesh, Matrix4x4.identity, m_DrawColorMaterial, 0, layerIndex <= 4 ? 2 : 3, m_Property);
