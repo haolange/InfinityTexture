@@ -50,9 +50,9 @@ Varyings vert(Attributes Input)
     return Out;
 }
 
-PixelOutput frag(const Varyings In)
+PixelOutput frag(Varyings In)
 {
-    float4 blend = _SplatTexture.Sample(Global_bilinear_clamp_sampler, In.uv * _SplatTileOffset.xy + _SplatTileOffset.zw);
+    float4 blend = _SplatTexture.SampleLevel(Global_bilinear_clamp_sampler, In.uv * _SplatTileOffset.xy + _SplatTileOffset.zw, 0);
     
 #ifdef TERRAIN_SPLAT_ADDPASS
     clip(blend.x + blend.y + blend.z + blend.w <= 0.005h ? -1.0h : 1.0h);
@@ -72,14 +72,14 @@ PixelOutput frag(const Varyings In)
     float4 Diffuse4 = _AlbedoTexture4.Sample(Global_trilinear_repeat_sampler, transUv);
     float4 Normal4 = _NormalTexture4.Sample(Global_trilinear_repeat_sampler, transUv);*/
 
-    half3 cw5 = 0;
+    float3 cw5 = 0;
     float2 uv15 = 0;
     float2 uv25 = 0;
     float2 uv35 = 0;
     float2 dx5 = 0;
     float2 dy5 = 0;
 
-    half3 cw8 = 0;
+    float3 cw8 = 0;
     float2 uv18 = 0;
     float2 uv28 = 0;
     float2 uv38 = 0;

@@ -179,12 +179,12 @@ namespace Landscape.RuntimeVirtualTexture
 
                 var scaleFactor = pageRect.width / realRect.width;
 
-                var position = new Rect(pageRect.x + (needDrawRect.xMin - realRect.xMin) * scaleFactor,
+                var position = new FRect(pageRect.x + (needDrawRect.xMin - realRect.xMin) * scaleFactor,
                                         pageRect.y + (needDrawRect.yMin - realRect.yMin) * scaleFactor,
                                         needDrawRect.width * scaleFactor,
                                         needDrawRect.height * scaleFactor);
 
-                var scaleOffset = new Vector4(needDrawRect.width / terRect.width,
+                float4 scaleOffset = new float4(needDrawRect.width / terRect.width,
                                               needDrawRect.height / terRect.height,
                                               (needDrawRect.xMin - terRect.xMin) / terRect.width,
                                               (needDrawRect.yMin - terRect.yMin) / terRect.height);
@@ -215,8 +215,8 @@ namespace Landscape.RuntimeVirtualTexture
                     for (; layerIndex < terrain.terrainData.terrainLayers.Length && index <= 4; layerIndex++)
                     {
                         var layer = terrain.terrainData.terrainLayers[layerIndex];
-                        var tileScale = new Vector2(terrain.terrainData.size.x / layer.tileSize.x, terrain.terrainData.size.z / layer.tileSize.y);
-                        var tileOffset = new Vector4(tileScale.x * scaleOffset.x, tileScale.y * scaleOffset.y, scaleOffset.z * tileScale.x, scaleOffset.w * tileScale.y);
+                        float2 tileScale = new float2(terrain.terrainData.size.x / layer.tileSize.x, terrain.terrainData.size.z / layer.tileSize.y);
+                        float4 tileOffset = new float4(tileScale.x * scaleOffset.x, tileScale.y * scaleOffset.y, scaleOffset.z * tileScale.x, scaleOffset.w * tileScale.y);
                         m_Property.SetVector("_SurfaceTileOffset", tileOffset);
                         m_Property.SetTexture($"_AlbedoTexture{index}", layer.diffuseTexture);
                         m_Property.SetTexture($"_NormalTexture{index}", layer.normalMapTexture);
