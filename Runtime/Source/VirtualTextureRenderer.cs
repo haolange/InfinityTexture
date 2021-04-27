@@ -145,48 +145,33 @@ namespace Landscape.RuntimeVirtualTexture
             x = x - x % perSize;
             y = y - y % perSize;
 
-            var pageSize = virtualTexture.pageSize;
-            var paddingEffect = (int)virtualTexture.tileBorder * perSize * (drawPageParameter.volumeRect.width / pageSize) / virtualTexture.tileSize;
-            var realRect = new Rect(drawPageParameter.volumeRect.xMin + (float)x / pageSize * drawPageParameter.volumeRect.width - paddingEffect,
-                                    drawPageParameter.volumeRect.yMin + (float)y / pageSize * drawPageParameter.volumeRect.height - paddingEffect,
-                                    drawPageParameter.volumeRect.width / pageSize * perSize + 2f * paddingEffect,
-                                    drawPageParameter.volumeRect.width / pageSize * perSize + 2f * paddingEffect);
+            var padding = (int)virtualTexture.tileBorder * perSize * (drawPageParameter.volumeRect.width / virtualTexture.pageSize) / virtualTexture.tileSize;
+            var volumeRect = new Rect(drawPageParameter.volumeRect.xMin + (float)x / virtualTexture.pageSize * drawPageParameter.volumeRect.width - padding, drawPageParameter.volumeRect.yMin + (float)y / virtualTexture.pageSize * drawPageParameter.volumeRect.height - padding, drawPageParameter.volumeRect.width / virtualTexture.pageSize * perSize + 2f * padding, drawPageParameter.volumeRect.width / virtualTexture.pageSize * perSize + 2f * padding);
 
-
-            var terRect = Rect.zero;
             foreach (var terrain in drawPageParameter.terrainList)
             {
                 m_Property.Clear();
 
-                terRect.xMin = terrain.transform.position.x;
-                terRect.yMin = terrain.transform.position.z;
-                terRect.width = terrain.terrainData.size.x;
-                terRect.height = terrain.terrainData.size.z;
+                var terrainRect = Rect.zero;
+                terrainRect.xMin = terrain.transform.position.x;
+                terrainRect.yMin = terrain.transform.position.z;
+                terrainRect.width = terrain.terrainData.size.x;
+                terrainRect.height = terrain.terrainData.size.z;
 
-                if (!realRect.Overlaps(terRect)) { continue; }
+                if (!volumeRect.Overlaps(terrainRect)) { continue; }
 
-                var needDrawRect = realRect;
-                needDrawRect.xMin = Mathf.Max(realRect.xMin, terRect.xMin);
-                needDrawRect.yMin = Mathf.Max(realRect.yMin, terRect.yMin);
-                needDrawRect.xMax = Mathf.Min(realRect.xMax, terRect.xMax);
-                needDrawRect.yMax = Mathf.Min(realRect.yMax, terRect.yMax);
+                var maxRect = volumeRect;
+                maxRect.xMin = Mathf.Max(volumeRect.xMin, terrainRect.xMin);
+                maxRect.yMin = Mathf.Max(volumeRect.yMin, terrainRect.yMin);
+                maxRect.xMax = Mathf.Min(volumeRect.xMax, terrainRect.xMax);
+                maxRect.yMax = Mathf.Min(volumeRect.yMax, terrainRect.yMax);
 
-                var scaleFactor = pageRect.width / realRect.width;
-
-                var position = new FRect(pageRect.x + (needDrawRect.xMin - realRect.xMin) * scaleFactor,
-                                        pageRect.y + (needDrawRect.yMin - realRect.yMin) * scaleFactor,
-                                        needDrawRect.width * scaleFactor,
-                                        needDrawRect.height * scaleFactor);
-
-                float4 scaleOffset = new float4(needDrawRect.width / terRect.width,
-                                              needDrawRect.height / terRect.height,
-                                              (needDrawRect.xMin - terRect.xMin) / terRect.width,
-                                              (needDrawRect.yMin - terRect.yMin) / terRect.height);
-                // 构建变换矩阵
-                float l = position.x * 2.0f / virtualTexture.TextureSize - 1;
-                float r = (position.x + position.width) * 2.0f / virtualTexture.TextureSize - 1;
-                float b = position.y * 2.0f / virtualTexture.TextureSize - 1;
-                float t = (position.y + position.height) * 2.0f / virtualTexture.TextureSize - 1;
+                var scaleFactor = pageRect.width / volumeRect.width;
+                FRect offsetRect = new FRect(pageRect.x + (maxRect.xMin - volumeRect.xMin) * scaleFactor, pageRect.y + (maxRect.yMin - volumeRect.yMin) * scaleFactor, maxRect.width * scaleFactor, maxRect.height * scaleFactor);
+                float l = offsetRect.x * 2.0f / virtualTexture.TextureSize - 1;
+                float r = (offsetRect.x + offsetRect.width) * 2.0f / virtualTexture.TextureSize - 1;
+                float b = offsetRect.y * 2.0f / virtualTexture.TextureSize - 1;
+                float t = (offsetRect.y + offsetRect.height) * 2.0f / virtualTexture.TextureSize - 1;
                 Matrix4x4 Matrix_MVP = new Matrix4x4();
                 Matrix_MVP.m00 = r - l;
                 Matrix_MVP.m03 = l;
@@ -195,7 +180,7 @@ namespace Landscape.RuntimeVirtualTexture
                 Matrix_MVP.m23 = -1;
                 Matrix_MVP.m33 = 1;
 
-                // 绘制贴图
+                float4 scaleOffset = new float4(maxRect.width / terrainRect.width, maxRect.height / terrainRect.height, (maxRect.xMin - terrainRect.xMin) / terrainRect.width, (maxRect.yMin - terrainRect.yMin) / terrainRect.height);
                 m_Property.SetVector("_SplatTileOffset", scaleOffset);
                 m_Property.SetMatrix(Shader.PropertyToID("_Matrix_MVP"), GL.GetGPUProjectionMatrix(Matrix_MVP, true));
 
