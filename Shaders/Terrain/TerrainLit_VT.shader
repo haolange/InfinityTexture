@@ -59,7 +59,7 @@ Shader "VirtualTexture/TerrainLit_VT"
             #pragma shader_feature_local _TERRAIN_INSTANCED_PERPIXEL_NORMAL
             #pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
 
-            #include "../FeedbackCommon.hlsl"	
+            #include "../Include/FeedbackCommon.hlsl"	
             #pragma vertex VTVertFeedback
             #pragma fragment VTFragFeedback
             ENDHLSL
@@ -109,7 +109,7 @@ Shader "VirtualTexture/TerrainLit_VT"
 			#define _NORMALMAP
 
             #include "Packages/com.unity.render-pipelines.universal/Shaders/Terrain/TerrainLitInput.hlsl"
-            #include "TerrainLitInclude.hlsl"
+            #include "../Include/TerrainLitInclude.hlsl"
             ENDHLSL
         }
 
