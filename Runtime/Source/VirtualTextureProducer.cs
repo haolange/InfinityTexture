@@ -44,35 +44,6 @@ namespace Landscape.RuntimeVirtualTexture
             }*/
         }
 
-        public void ProcessFeedbackV3(in NativeArray<half4> readbackDatas, in int maxMip, in int tileNum, in int pageSize, FLruCache* lruCache, NativeList<FPageRequestInfo> pageRequests)
-        {
-            int size = 0;
-            for (int i = 0; i < 9; ++i)
-                size += (pageSize >> i) * (pageSize >> i);
-            NativeArray<int> visited = new NativeArray<int>(size, Allocator.TempJob, NativeArrayOptions.ClearMemory);
-            NativeArray<int3> threadPrev = new NativeArray<int3>(128, Allocator.TempJob, NativeArrayOptions.ClearMemory);
-            FProcessFeedbackJobV3 processFeedbackJob = new FProcessFeedbackJobV3();
-            processFeedbackJob.maxMip = maxMip - 1;
-            processFeedbackJob.tileNum = tileNum;
-            processFeedbackJob.pageSize = pageSize;
-            processFeedbackJob.lruCache = lruCache;
-            processFeedbackJob.pageTables = pageTables;
-            processFeedbackJob.pageRequests = pageRequests;
-            processFeedbackJob.frameCount = Time.frameCount;
-            processFeedbackJob.readbackDatas = readbackDatas;
-            processFeedbackJob.visited = visited;
-            processFeedbackJob.threadPrev = threadPrev;
-            processFeedbackJob.Schedule(readbackDatas.Length, 200).Complete();
-            visited.Dispose();
-            threadPrev.Dispose();
-
-            /*for (int i = 0; i < readbackDatas.Length; ++i)
-            {
-                Color32 readbackData = readbackDatas[i];
-                FVirtualTextureUtility.ActivatePage(readbackData.r, readbackData.g, readbackData.b, maxMip - 1, Time.frameCount, tileNum, pageSize, ref lruCache[0], pageTables, pageRequests);
-            }*/
-        }
-
         public void Reset()
         {
             for (int i = 0; i < pageTables.Length; ++i)
@@ -112,6 +83,7 @@ namespace Landscape.RuntimeVirtualTexture
             }
             pageTables.Dispose();
             activePageMap.Dispose();
+            visited.Dispose();
         }
     }
 }

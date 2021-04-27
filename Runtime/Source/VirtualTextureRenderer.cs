@@ -51,7 +51,7 @@ namespace Landscape.RuntimeVirtualTexture
             this.m_PageSize = pageSize;
             this.m_Property = new MaterialPropertyBlock();
             this.m_DrawInfos = new NativeList<FPageDrawInfo>(256, Allocator.Persistent);
-            this.pageRequests = new NativeList<FPageRequestInfo>(256, Allocator.Persistent);
+            this.pageRequests = new NativeList<FPageRequestInfo>(4096 * 2, Allocator.Persistent);
             this.m_PageTableBuffer = new ComputeBuffer(pageSize / 2, Marshal.SizeOf(typeof(FPageTableInfo)));
 
             this.m_DrawPageMesh = FVirtualTextureUtility.BuildQuadMesh();
@@ -88,7 +88,7 @@ namespace Landscape.RuntimeVirtualTexture
             pageTableInfoBuildJob.pageSize = m_PageSize;
             pageTableInfoBuildJob.drawInfos = m_DrawInfos;
             pageTableInfoBuildJob.pageTableInfos = pageTableInfos;
-            pageTableInfoBuildJob.Schedule(m_DrawInfos.Length, 8).Complete();
+            pageTableInfoBuildJob.Run(m_DrawInfos.Length);
 
             //Set PageTableBuffer
             m_Property.Clear();

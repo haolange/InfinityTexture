@@ -8,81 +8,6 @@ using System.Threading;
 
 namespace Landscape.RuntimeVirtualTexture
 {
-
-    [BurstCompile]
-    internal unsafe struct FProcessFeedbackJobV3 : IJobParallelFor
-    {
-        internal int maxMip;
-
-        internal int pageSize;
-
-        internal int tileNum;
-
-        internal int frameCount;
-
-        [NativeDisableUnsafePtrRestriction]
-        internal FLruCache* lruCache;
-
-        [ReadOnly]
-        internal NativeArray<half4> readbackDatas;
-
-        [ReadOnly]
-        internal NativeArray<FPageTable> pageTables;
-
-        [NativeDisableContainerSafetyRestriction]
-        internal NativeList<FPageRequestInfo> pageRequests;
-
-        [NativeDisableContainerSafetyRestriction]
-        internal NativeArray<int> visited;
-
-        [NativeDisableContainerSafetyRestriction]
-        internal NativeArray<int3> threadPrev;
-
-        [NativeSetThreadIndex]
-        int threadIndex;
-
-        public void Execute(int i)
-        {
-            half4 readbackData = readbackDatas[i];
-            int x = (int)(readbackData.x), y = (int)(readbackData.y), mip = (int)(readbackData.z);
-
-            int3 value = new int3(x, y, mip + 1);
-            if (value.Equals(threadPrev[threadIndex])) //skip same page
-                return;
-            threadPrev[threadIndex] = value;
-            if (mip > maxMip || mip < 0 || x < 0 || y < 0 || x >= pageSize || y >= pageSize)
-                return;
-            int ps = 0;
-            for (int j = 0; j < mip; ++j)
-                ps += (pageSize >> j) * (pageSize >> j);
-            ps += (x >> mip) * (pageSize >> mip) + (y >> mip);
-            ref int count = ref ((int*)visited.GetUnsafePtr())[ps];
-            if (count > 0)
-                return;
-            if (Interlocked.Increment(ref count) > 1)
-                return;
-            //Debug.Log($"{ps}, {x}, {y}, {mip}, {count}");
-
-            ref FPage page = ref pageTables[mip].GetPage(x, y);
-            if (page.isNull)
-                return;
-
-            if (!page.payload.isReady)
-            {
-                if (!page.payload.notLoading)
-                    return;
-                page.payload.notLoading = false;
-                pageRequests.Add(new FPageRequestInfo(x, y, mip));
-            }
-
-            if (page.payload.isReady)
-            {
-                page.payload.activeFrame = frameCount;
-                lruCache[0].SetActive(page.payload.pageCoord.y * tileNum + page.payload.pageCoord.x);
-            }
-        }
-    }
-
     [BurstCompile]
     internal unsafe struct FProcessFeedbackJob : IJob
     {
@@ -130,7 +55,7 @@ namespace Landscape.RuntimeVirtualTexture
                     if (!page.payload.notLoading)
                         continue;
                     page.payload.notLoading = false;
-                    pageRequests.Add(new FPageRequestInfo(x, y, mip));
+                    pageRequests.AddNoResize(new FPageRequestInfo(x, y, mip));
                 }
 
                 if (page.payload.isReady)
