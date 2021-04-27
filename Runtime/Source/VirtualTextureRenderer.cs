@@ -56,7 +56,7 @@ namespace Landscape.RuntimeVirtualTexture
         private NativeList<FPageDrawInfo> m_DrawInfos;
         internal NativeList<FPageRequestInfo> pageRequests;
 
-        public FPageRenderer(in int pageSize, in int limit = 12)
+        public FPageRenderer(in int pageSize, in int limit = 16)
         {
             this.m_Limit = limit;
             this.m_PageSize = pageSize;
