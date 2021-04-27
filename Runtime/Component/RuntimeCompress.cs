@@ -16,7 +16,7 @@ public class RuntimeCompress : MonoBehaviour
     Texture2D m_DscTexture;
     GraphicsFormat m_DscFormat;
     RenderTexture m_CompressTexture;
-    public Texture NoneCompressTexture;
+    public Texture2D NoneCompressTexture;
     public ComputeShader shader;
 
 
