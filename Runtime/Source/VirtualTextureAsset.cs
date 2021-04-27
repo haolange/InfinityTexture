@@ -85,17 +85,23 @@ namespace Landscape.RuntimeVirtualTexture
             compressTextureB.Create();
 
             //physics texture
-            physicsTextureA = new Texture2D(TextureSize, TextureSize, GraphicsFormat.R8G8B8A8_UNorm, TextureCreationFlags.None);
+            physicsTextureA = new Texture2D(TextureSize, TextureSize, GraphicsFormat.R8G8B8A8_UNorm, 1, TextureCreationFlags.None);
+            physicsTextureA.Apply(false, true);
             physicsTextureA.name = "PhyscisTextureA";
             physicsTextureA.filterMode = FilterMode.Bilinear;
             physicsTextureA.wrapMode = TextureWrapMode.Clamp;
             //physicsTextureA.anisoLevel = 8;
 
-            physicsTextureB = new Texture2D(TextureSize, TextureSize, GraphicsFormat.R8G8B8A8_UNorm, TextureCreationFlags.None);
+            physicsTextureB = new Texture2D(TextureSize, TextureSize, GraphicsFormat.R8G8B8A8_UNorm, 1, TextureCreationFlags.None);
+            physicsTextureB.Apply(false, true);
             physicsTextureB.name = "PhyscisTextureB";
             physicsTextureB.filterMode = FilterMode.Bilinear;
             physicsTextureB.wrapMode = TextureWrapMode.Clamp;
             //physicsTextureB.anisoLevel = 8;
+
+            Resources.UnloadUnusedAssets();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
 
             pageTableTexture = new RenderTexture(pageSize, pageSize, 0, GraphicsFormat.R8G8B8A8_UNorm);
             pageTableTexture.name = "PageTableTexture";
