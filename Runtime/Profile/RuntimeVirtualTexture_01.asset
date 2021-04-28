@@ -13,6 +13,6 @@ MonoBehaviour:
   m_Name: RuntimeVirtualTexture_01
   m_EditorClassIdentifier: 
   tileNum: 16
-  tileSize: 256
-  tileBorder: 1
+  tileSize: 128
+  tileBorder: 2
   pageSize: 256
