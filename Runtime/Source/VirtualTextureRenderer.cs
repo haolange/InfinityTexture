@@ -176,7 +176,7 @@ namespace Landscape.RuntimeVirtualTexture
                 maxRect.xMax = Mathf.Min(volumeRect.xMax, terrainRect.xMax);
                 maxRect.yMax = Mathf.Min(volumeRect.yMax, terrainRect.yMax);
 
-                /*var scaleFactor = pageRect.width / volumeRect.width;
+                var scaleFactor = pageRect.width / volumeRect.width;
                 FRect offsetRect = new FRect(pageRect.x + (maxRect.xMin - volumeRect.xMin) * scaleFactor, pageRect.y + (maxRect.yMin - volumeRect.yMin) * scaleFactor, maxRect.width * scaleFactor, maxRect.height * scaleFactor);
                 float l = offsetRect.x * 2.0f / virtualTexture.TextureSize - 1;
                 float r = (offsetRect.x + offsetRect.width) * 2.0f / virtualTexture.TextureSize - 1;
@@ -188,12 +188,12 @@ namespace Landscape.RuntimeVirtualTexture
                 Matrix_MVP.m11 = t - b;
                 Matrix_MVP.m13 = b;
                 Matrix_MVP.m23 = -1;
-                Matrix_MVP.m33 = 1;*/
+                Matrix_MVP.m33 = 1;
 
                 float4 scaleOffset = new float4(maxRect.width / terrainRect.width, maxRect.height / terrainRect.height, (maxRect.xMin - terrainRect.xMin) / terrainRect.width, (maxRect.yMin - terrainRect.yMin) / terrainRect.height);
                 m_Property.Clear();
                 m_Property.SetVector(FPageShaderID.SplatTileOffset, scaleOffset);
-                //m_Property.SetMatrix(Shader.PropertyToID("_Matrix_MVP"), GL.GetGPUProjectionMatrix(Matrix_MVP, true));
+                m_Property.SetMatrix(Shader.PropertyToID("_Matrix_MVP"), GL.GetGPUProjectionMatrix(Matrix_MVP, true));
 
                 int layerIndex = 0;
                 var terrainLayers = terrain.terrainData.terrainLayers;
@@ -214,30 +214,8 @@ namespace Landscape.RuntimeVirtualTexture
                         ++index;
                     }
 
-                    cmdBuffer.DrawMesh(m_TriangleMesh, Matrix4x4.identity, m_DrawColorMaterial, 0, layerIndex <= 4 ? 2 : 3, m_Property);
+                    cmdBuffer.DrawMesh(m_DrawPageMesh, Matrix4x4.identity, m_DrawColorMaterial, 0, layerIndex <= 4 ? 0 : 1, m_Property);
                 }
-
-                int tileSize = virtualTexture.TileSizePadding;
-                int quadSize = virtualTexture.QuadTileSizePadding;
-                ComputeShader shader = virtualTexture.m_Shader;
-
-                cmdBuffer.CopyTexture(virtualTexture.renderTextureA, virtualTexture.tileTextureA);
-                cmdBuffer.CopyTexture(virtualTexture.renderTextureB, virtualTexture.tileTextureB);
-
-                cmdBuffer.SetComputeIntParam(shader, FPageShaderID.Size, tileSize);
-                cmdBuffer.SetComputeTextureParam(shader, 0, FPageShaderID.SrcTexture, virtualTexture.tileTextureA);
-                cmdBuffer.SetComputeTextureParam(shader, 0, FPageShaderID.DscTexture, virtualTexture.compressTextureA);
-                cmdBuffer.DispatchCompute(shader, 0, (quadSize + 7) / 8, (quadSize + 7) / 8, 1);
-                cmdBuffer.CopyTexture(virtualTexture.compressTextureA, 0, 0, 0, 0, quadSize, quadSize, virtualTexture.decodeTextureA, 0, 0, 0, 0);
-
-                cmdBuffer.SetComputeIntParam(shader, FPageShaderID.Size, tileSize);
-                cmdBuffer.SetComputeTextureParam(shader, 0, FPageShaderID.SrcTexture, virtualTexture.tileTextureB);
-                cmdBuffer.SetComputeTextureParam(shader, 0, FPageShaderID.DscTexture, virtualTexture.compressTextureB);
-                cmdBuffer.DispatchCompute(shader, 0, (quadSize + 7) / 8, (quadSize + 7) / 8, 1);
-                cmdBuffer.CopyTexture(virtualTexture.compressTextureB, 0, 0, 0, 0, quadSize, quadSize, virtualTexture.decodeTextureB, 0, 0, 0, 0);
-
-                cmdBuffer.CopyTexture(virtualTexture.decodeTextureA, 0, 0, 0, 0, tileSize, tileSize, virtualTexture.physicsTextureA, 0, 0, pageRect.x, pageRect.y);
-                cmdBuffer.CopyTexture(virtualTexture.decodeTextureB, 0, 0, 0, 0, tileSize, tileSize, virtualTexture.physicsTextureB, 0, 0, pageRect.x, pageRect.y);
             }
         }
 
