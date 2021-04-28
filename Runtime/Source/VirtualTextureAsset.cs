@@ -33,13 +33,20 @@ namespace Landscape.RuntimeVirtualTexture
         public int TileSizePadding { get { return tileSize + (int)tileBorder * 2; } }
         public int QuadTileSizePadding { get { return TileSizePadding / 4; } }
 
+        [HideInInspector]
+        public ComputeShader m_Shader;
+
         internal FLruCache* lruCache;
+        internal RenderTexture renderTextureA;
+        internal RenderTexture renderTextureB;
         internal RenderTexture tileTextureA;
         internal RenderTexture tileTextureB;
         internal RenderTexture compressTextureA;
         internal RenderTexture compressTextureB;
         internal Texture2D physicsTextureA;
         internal Texture2D physicsTextureB;
+        internal Texture2D decodeTextureA;
+        internal Texture2D decodeTextureB;
         internal RenderTexture pageTableTexture;
         internal RenderTargetIdentifier[] colorBuffers;
         internal int TextureSize { get { return tileNum * TileSizePadding; } }
@@ -55,6 +62,17 @@ namespace Landscape.RuntimeVirtualTexture
             FLruCache.BuildLruCache(ref lruCache[0], tileNum * tileNum);
 
             RenderTextureDescriptor textureDesctiptor = new RenderTextureDescriptor { width = TileSizePadding, height = TileSizePadding, volumeDepth = 1, dimension = TextureDimension.Tex2D, graphicsFormat = GraphicsFormat.R8G8B8A8_UNorm, depthBufferBits = 0, mipCount = -1, useMipMap = false, autoGenerateMips = false, bindMS = false, msaaSamples = 1 };
+
+            //rende texture
+            renderTextureA = new RenderTexture(textureDesctiptor);
+            renderTextureA.name = "RenderTextureA";
+            renderTextureA.filterMode = FilterMode.Bilinear;
+            renderTextureA.wrapMode = TextureWrapMode.Clamp;
+
+            renderTextureB = new RenderTexture(textureDesctiptor);
+            renderTextureB.name = "RenderTextureB";
+            renderTextureB.filterMode = FilterMode.Bilinear;
+            renderTextureB.wrapMode = TextureWrapMode.Clamp;
 
             //tile texture
             tileTextureA = new RenderTexture(textureDesctiptor);
@@ -84,15 +102,40 @@ namespace Landscape.RuntimeVirtualTexture
             };
             compressTextureB.Create();
 
+
+            GraphicsFormat textureFormat;
+            #if UNITY_ANDROID && !UNITY_EDITOR
+                    textureFormat = GraphicsFormat.RGBA_ETC2_UNorm;
+                    m_Shader.DisableKeyword("_COMPRESS_BC3");
+                    m_Shader.EnableKeyword("_COMPRESS_ETC2");
+            #else
+                    textureFormat = GraphicsFormat.RGBA_DXT5_UNorm;
+                    m_Shader.DisableKeyword("_COMPRESS_ETC2");
+                    m_Shader.EnableKeyword("_COMPRESS_BC3");
+            #endif
+
+            //decode texture
+            decodeTextureA = new Texture2D(TileSizePadding, TileSizePadding, textureFormat, TextureCreationFlags.None);
+            decodeTextureA.Apply(false, true);
+            decodeTextureA.name = "DecodeTextureA";
+            decodeTextureA.filterMode = FilterMode.Bilinear;
+            decodeTextureA.wrapMode = TextureWrapMode.Clamp;
+
+            decodeTextureB = new Texture2D(TileSizePadding, TileSizePadding, textureFormat, TextureCreationFlags.None);
+            decodeTextureB.Apply(false, true);
+            decodeTextureB.name = "DecodeTextureB";
+            decodeTextureB.filterMode = FilterMode.Bilinear;
+            decodeTextureB.wrapMode = TextureWrapMode.Clamp;
+
             //physics texture
-            physicsTextureA = new Texture2D(TextureSize, TextureSize, GraphicsFormat.R8G8B8A8_UNorm, 1, TextureCreationFlags.None);
+            physicsTextureA = new Texture2D(TextureSize, TextureSize, textureFormat, 1, TextureCreationFlags.None);
             physicsTextureA.Apply(false, true);
             physicsTextureA.name = "PhyscisTextureA";
             physicsTextureA.filterMode = FilterMode.Bilinear;
             physicsTextureA.wrapMode = TextureWrapMode.Clamp;
             //physicsTextureA.anisoLevel = 8;
 
-            physicsTextureB = new Texture2D(TextureSize, TextureSize, GraphicsFormat.R8G8B8A8_UNorm, 1, TextureCreationFlags.None);
+            physicsTextureB = new Texture2D(TextureSize, TextureSize, textureFormat, 1, TextureCreationFlags.None);
             physicsTextureB.Apply(false, true);
             physicsTextureB.name = "PhyscisTextureB";
             physicsTextureB.filterMode = FilterMode.Bilinear;
@@ -109,8 +152,8 @@ namespace Landscape.RuntimeVirtualTexture
             pageTableTexture.wrapMode = TextureWrapMode.Clamp;
 
             colorBuffers = new RenderTargetIdentifier[2];
-            colorBuffers[0] = new RenderTargetIdentifier(tileTextureA);
-            colorBuffers[1] = new RenderTargetIdentifier(tileTextureB);
+            colorBuffers[0] = new RenderTargetIdentifier(renderTextureA);
+            colorBuffers[1] = new RenderTargetIdentifier(renderTextureB);
 
             // 设置Shader参数
             // x: padding 偏移量
@@ -130,6 +173,8 @@ namespace Landscape.RuntimeVirtualTexture
 
             tileTextureA.Release();
             tileTextureB.Release();
+            renderTextureA.Release();
+            renderTextureB.Release();
             compressTextureA.Release();
             compressTextureB.Release();
             pageTableTexture.Release();
