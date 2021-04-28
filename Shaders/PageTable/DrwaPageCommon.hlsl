@@ -61,7 +61,7 @@ void frag(Varyings input, out float4 ColorBuffer : SV_Target0, out float4 Normal
     
     float2 transUv = input.uv0 * _SurfaceTileOffset.xy + _SurfaceTileOffset.zw;
 
-    float4 Diffuse1 = _AlbedoTexture1.Sample(Global_trilinear_repeat_sampler, transUv);
+    /*float4 Diffuse1 = _AlbedoTexture1.Sample(Global_trilinear_repeat_sampler, transUv);
     float4 Normal1 = _NormalTexture1.Sample(Global_trilinear_repeat_sampler, transUv);
 
     float4 Diffuse2 = _AlbedoTexture2.Sample(Global_trilinear_repeat_sampler, transUv);
@@ -71,9 +71,9 @@ void frag(Varyings input, out float4 ColorBuffer : SV_Target0, out float4 Normal
     float4 Normal3 = _NormalTexture3.Sample(Global_trilinear_repeat_sampler, transUv);
 
     float4 Diffuse4 = _AlbedoTexture4.Sample(Global_trilinear_repeat_sampler, transUv);
-    float4 Normal4 = _NormalTexture4.Sample(Global_trilinear_repeat_sampler, transUv);
+    float4 Normal4 = _NormalTexture4.Sample(Global_trilinear_repeat_sampler, transUv);*/
 
-    /*float3 cw5 = 0;
+    float3 cw5 = 0;
     float2 uv15 = 0;
     float2 uv25 = 0;
     float2 uv35 = 0;
@@ -99,7 +99,7 @@ void frag(Varyings input, out float4 ColorBuffer : SV_Target0, out float4 Normal
     float4 Normal3 = StochasticSample2DWeightsLum(_NormalTexture3, Global_trilinear_repeat_sampler, transUv, cw8, uv18, uv28, uv38, dx8, dy8, StochasticScale, 0.15);
 
     float4 Diffuse4 = StochasticSample2DWeightsR(_AlbedoTexture4, Global_trilinear_repeat_sampler, transUv, cw5, uv15, uv25, uv35, dx5, dy5, StochasticScale, 0.15);
-    float4 Normal4 = StochasticSample2DWeightsLum(_NormalTexture4, Global_trilinear_repeat_sampler, transUv, cw8, uv18, uv28, uv38, dx8, dy8, StochasticScale, 0.15);*/
+    float4 Normal4 = StochasticSample2DWeightsLum(_NormalTexture4, Global_trilinear_repeat_sampler, transUv, cw8, uv18, uv28, uv38, dx8, dy8, StochasticScale, 0.15);
 
     /*float4 Diffuse1 = StochasticSample2D(_AlbedoTexture1, Global_trilinear_repeat_sampler, transUv);
     float4 Normal1 = StochasticSample2D(_NormalTexture1, Global_trilinear_repeat_sampler, transUv);
