@@ -61,7 +61,7 @@ namespace Landscape.RuntimeVirtualTexture
             lruCache = (FLruCache*)UnsafeUtility.Malloc(Marshal.SizeOf(typeof(FLruCache)) * 1, 64, Allocator.Persistent);
             FLruCache.BuildLruCache(ref lruCache[0], tileNum * tileNum);
 
-            RenderTextureDescriptor textureDesctiptor = new RenderTextureDescriptor { width = TileSizePadding, height = TileSizePadding, volumeDepth = 1, dimension = TextureDimension.Tex2D, graphicsFormat = GraphicsFormat.B5G6R5_UNormPack16, depthBufferBits = 0, mipCount = -1, useMipMap = false, autoGenerateMips = false, bindMS = false, msaaSamples = 1 };
+            RenderTextureDescriptor textureDesctiptor = new RenderTextureDescriptor { width = TileSizePadding, height = TileSizePadding, volumeDepth = 1, dimension = TextureDimension.Tex2D, colorFormat = RenderTextureFormat.ARGB32, depthBufferBits = 0, mipCount = -1, useMipMap = false, autoGenerateMips = false, bindMS = false, msaaSamples = 1 };
 
             //rende texture
             renderTextureA = new RenderTexture(textureDesctiptor);
@@ -103,39 +103,39 @@ namespace Landscape.RuntimeVirtualTexture
             compressTextureB.Create();
 
 
-            GraphicsFormat textureFormat;
+            TextureFormat textureFormat;
             #if UNITY_ANDROID && !UNITY_EDITOR
-                    textureFormat = GraphicsFormat.RGBA_ETC2_UNorm;
+                    textureFormat = TextureFormat.ETC2_RGBA8;
                     m_Shader.DisableKeyword("_COMPRESS_BC3");
                     m_Shader.EnableKeyword("_COMPRESS_ETC2");
             #else
-                    textureFormat = GraphicsFormat.RGBA_DXT5_UNorm;
+                    textureFormat = TextureFormat.DXT5;
                     m_Shader.DisableKeyword("_COMPRESS_ETC2");
                     m_Shader.EnableKeyword("_COMPRESS_BC3");
             #endif
 
             //decode texture
-            decodeTextureA = new Texture2D(TileSizePadding, TileSizePadding, textureFormat, TextureCreationFlags.None);
+            decodeTextureA = new Texture2D(TileSizePadding, TileSizePadding, textureFormat, false, true);
             decodeTextureA.Apply(false, true);
             decodeTextureA.name = "DecodeTextureA";
             decodeTextureA.filterMode = FilterMode.Bilinear;
             decodeTextureA.wrapMode = TextureWrapMode.Clamp;
 
-            decodeTextureB = new Texture2D(TileSizePadding, TileSizePadding, textureFormat, TextureCreationFlags.None);
+            decodeTextureB = new Texture2D(TileSizePadding, TileSizePadding, textureFormat, false, true);
             decodeTextureB.Apply(false, true);
             decodeTextureB.name = "DecodeTextureB";
             decodeTextureB.filterMode = FilterMode.Bilinear;
             decodeTextureB.wrapMode = TextureWrapMode.Clamp;
 
             //physics texture
-            physicsTextureA = new Texture2D(TextureSize, TextureSize, textureFormat, 1, TextureCreationFlags.None);
+            physicsTextureA = new Texture2D(TextureSize, TextureSize, textureFormat, false, true);
             physicsTextureA.Apply(false, true);
             physicsTextureA.name = "PhyscisTextureA";
             physicsTextureA.filterMode = FilterMode.Bilinear;
             physicsTextureA.wrapMode = TextureWrapMode.Clamp;
             //physicsTextureA.anisoLevel = 8;
 
-            physicsTextureB = new Texture2D(TextureSize, TextureSize, textureFormat, 1, TextureCreationFlags.None);
+            physicsTextureB = new Texture2D(TextureSize, TextureSize, textureFormat, false, true);
             physicsTextureB.Apply(false, true);
             physicsTextureB.name = "PhyscisTextureB";
             physicsTextureB.filterMode = FilterMode.Bilinear;
