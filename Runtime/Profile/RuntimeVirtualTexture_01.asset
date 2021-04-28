@@ -14,6 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   tileNum: 16
   tileSize: 256
-  tileBorder: 2
+  tileBorder: 1
   pageSize: 256
   m_Shader: {fileID: 7200000, guid: e34776c72005e1e488fbdc217f4556c5, type: 3}
