@@ -66,7 +66,7 @@ namespace Landscape.RuntimeVirtualTexture
             this.m_Property = new MaterialPropertyBlock();
             this.m_DrawInfos = new NativeList<FPageDrawInfo>(256, Allocator.Persistent);
             this.pageRequests = new NativeList<FPageRequestInfo>(4096 * 2, Allocator.Persistent);
-            this.m_PageTableBuffer = new ComputeBuffer(pageSize / 2, Marshal.SizeOf(typeof(FPageTableInfo)));
+            this.m_PageTableBuffer = new ComputeBuffer(pageSize, Marshal.SizeOf(typeof(FPageTableInfo)));
             this.m_DrawPageMesh = FVirtualTextureUtility.BuildQuadMesh();
             this.m_TriangleMesh = FVirtualTextureUtility.BuildTriangleMesh();
             this.m_DrawPageMaterial = new Material(Shader.Find("VirtualTexture/DrawPageTable"));
