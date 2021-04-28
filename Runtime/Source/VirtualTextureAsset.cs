@@ -142,10 +142,6 @@ namespace Landscape.RuntimeVirtualTexture
             physicsTextureB.wrapMode = TextureWrapMode.Clamp;
             //physicsTextureB.anisoLevel = 8;
 
-            Resources.UnloadUnusedAssets();
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-
             pageTableTexture = new RenderTexture(pageSize, pageSize, 0, GraphicsFormat.R8G8B8A8_UNorm);
             pageTableTexture.name = "PageTableTexture";
             pageTableTexture.filterMode = FilterMode.Point;
