@@ -57,12 +57,12 @@ namespace Landscape.RuntimeVirtualTexture
 
             //physics texture
             physicsTextureA = new RenderTexture(textureDesctiptor);
-            physicsTextureA.name = "RenderTextureA";
+            physicsTextureA.name = "PhysicsTextureA";
             physicsTextureA.filterMode = FilterMode.Bilinear;
             physicsTextureA.wrapMode = TextureWrapMode.Clamp;
 
             physicsTextureB = new RenderTexture(textureDesctiptor);
-            physicsTextureB.name = "RenderTextureB";
+            physicsTextureB.name = "PhysicsTextureB";
             physicsTextureB.filterMode = FilterMode.Bilinear;
             physicsTextureB.wrapMode = TextureWrapMode.Clamp;
 
