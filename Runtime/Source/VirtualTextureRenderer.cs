@@ -41,8 +41,10 @@ namespace Landscape.RuntimeVirtualTexture
         public static int SurfaceTileOffset = Shader.PropertyToID("_SurfaceTileOffset");
         public static int[] AlbedoTexture = new int[4] { Shader.PropertyToID("_AlbedoTexture1"), Shader.PropertyToID("_AlbedoTexture2"), Shader.PropertyToID("_AlbedoTexture3"), Shader.PropertyToID("_AlbedoTexture4") };
         public static int[] NormalTexture = new int[4] { Shader.PropertyToID("_NormalTexture1"), Shader.PropertyToID("_NormalTexture2"), Shader.PropertyToID("_NormalTexture3"), Shader.PropertyToID("_NormalTexture4") };
+        public static int Size = Shader.PropertyToID("_Size");
+        public static int SrcTexture = Shader.PropertyToID("_SrcTexture");
+        public static int DscTexture = Shader.PropertyToID("_DscTexture");   
     }
-
 
     internal class FPageRenderer : IDisposable
     {
@@ -63,7 +65,7 @@ namespace Landscape.RuntimeVirtualTexture
             this.m_PageSize = pageSize;
             this.m_Property = new MaterialPropertyBlock();
             this.m_DrawInfos = new NativeList<FPageDrawInfo>(256, Allocator.Persistent);
-            this.pageRequests = new NativeList<FPageRequestInfo>(256, Allocator.Persistent);
+            this.pageRequests = new NativeList<FPageRequestInfo>(4096 * 2, Allocator.Persistent);
             this.m_PageTableBuffer = new ComputeBuffer(pageSize, Marshal.SizeOf(typeof(FPageTableInfo)));
             this.m_DrawPageMesh = FVirtualTextureUtility.BuildQuadMesh();
             this.m_TriangleMesh = FVirtualTextureUtility.BuildTriangleMesh();
@@ -72,7 +74,7 @@ namespace Landscape.RuntimeVirtualTexture
             this.m_DrawPageMaterial.enableInstancing = true;
         }
 
-        public void DrawPageTable(CommandBuffer cmdBuffer, FPageProducer pageProducer)
+        public void DrawPageTable(ScriptableRenderContext renderContext, CommandBuffer cmdBuffer, FPageProducer pageProducer)
         {
             m_Property.Clear();
             m_DrawInfos.Clear();
@@ -97,11 +99,10 @@ namespace Landscape.RuntimeVirtualTexture
 
             //Build PageTableInfo
             FPageTableInfoBuildJob pageTableInfoBuildJob;
-            pageTableInfoBuildJob.length = m_DrawInfos.Length;
             pageTableInfoBuildJob.pageSize = m_PageSize;
             pageTableInfoBuildJob.drawInfos = m_DrawInfos;
             pageTableInfoBuildJob.pageTableInfos = pageTableInfos;
-            pageTableInfoBuildJob.Run();
+            pageTableInfoBuildJob.Run(m_DrawInfos.Length);
 
             //Draw PageTable
             m_Property.Clear();
@@ -113,7 +114,7 @@ namespace Landscape.RuntimeVirtualTexture
             pageTableInfos.Dispose();
         }
 
-        public void DrawPageColor(CommandBuffer cmdBuffer, FPageProducer pageProducer, VirtualTextureAsset virtualTexture, ref FLruCache lruCache, in FDrawPageParameter drawPageParameter)
+        public void DrawPageColor(ScriptableRenderContext renderContext, CommandBuffer cmdBuffer, FPageProducer pageProducer, VirtualTextureAsset virtualTexture, ref FLruCache lruCache, in FDrawPageParameter drawPageParameter)
         {
             if (pageRequests.Length <= 0) { return; }
             FPageRequestInfoSortJob pageRequestInfoSortJob;
@@ -131,8 +132,8 @@ namespace Landscape.RuntimeVirtualTexture
                 FPageTable pageTable = pageProducer.pageTables[pageUV.z];
                 ref FPage page = ref pageTable.GetPage(pageUV.x, pageUV.y);
 
-                if (page.isNull == true || page.payload.pageRequestInfo.NotEquals(requestInfo)) { continue; }
-                page.payload.pageRequestInfo.isNull = true;
+                if (page.isNull == true) { continue; }
+                page.payload.notLoading = true;
 
                 int2 pageCoord = new int2(lruCache.First % virtualTexture.tileNum, lruCache.First / virtualTexture.tileNum);
                 if (lruCache.SetActive(pageCoord.y * virtualTexture.tileNum + pageCoord.x))
@@ -196,7 +197,7 @@ namespace Landscape.RuntimeVirtualTexture
 
                 int layerIndex = 0;
                 var terrainLayers = terrain.terrainData.terrainLayers;
-                
+
                 for (int i = 0; i < terrain.terrainData.alphamapTextureCount; ++i)
                 {
                     m_Property.SetTexture(FPageShaderID.SplatTexture, terrain.terrainData.GetAlphamapTexture(i));
@@ -217,8 +218,26 @@ namespace Landscape.RuntimeVirtualTexture
                 }
 
                 int tileSize = virtualTexture.TileSizePadding;
-                cmdBuffer.CopyTexture(virtualTexture.tileTextureA, 0, 0, 0, 0, tileSize, tileSize, virtualTexture.physicsTextureA, 0, 0, pageRect.x, pageRect.y);
-                cmdBuffer.CopyTexture(virtualTexture.tileTextureB, 0, 0, 0, 0, tileSize, tileSize, virtualTexture.physicsTextureB, 0, 0, pageRect.x, pageRect.y);
+                int quadSize = virtualTexture.QuadTileSizePadding;
+                ComputeShader shader = virtualTexture.m_Shader;
+
+                cmdBuffer.CopyTexture(virtualTexture.renderTextureA, virtualTexture.tileTextureA);
+                cmdBuffer.CopyTexture(virtualTexture.renderTextureB, virtualTexture.tileTextureB);
+
+                cmdBuffer.SetComputeIntParam(shader, FPageShaderID.Size, tileSize);
+                cmdBuffer.SetComputeTextureParam(shader, 0, FPageShaderID.SrcTexture, virtualTexture.tileTextureA);
+                cmdBuffer.SetComputeTextureParam(shader, 0, FPageShaderID.DscTexture, virtualTexture.compressTextureA);
+                cmdBuffer.DispatchCompute(shader, 0, (quadSize + 7) / 8, (quadSize + 7) / 8, 1);
+                cmdBuffer.CopyTexture(virtualTexture.compressTextureA, 0, 0, 0, 0, quadSize, quadSize, virtualTexture.decodeTextureA, 0, 0, 0, 0);
+
+                cmdBuffer.SetComputeIntParam(shader, FPageShaderID.Size, tileSize);
+                cmdBuffer.SetComputeTextureParam(shader, 0, FPageShaderID.SrcTexture, virtualTexture.tileTextureB);
+                cmdBuffer.SetComputeTextureParam(shader, 0, FPageShaderID.DscTexture, virtualTexture.compressTextureB);
+                cmdBuffer.DispatchCompute(shader, 0, (quadSize + 7) / 8, (quadSize + 7) / 8, 1);
+                cmdBuffer.CopyTexture(virtualTexture.compressTextureB, 0, 0, 0, 0, quadSize, quadSize, virtualTexture.decodeTextureB, 0, 0, 0, 0);
+
+                cmdBuffer.CopyTexture(virtualTexture.decodeTextureA, 0, 0, 0, 0, tileSize, tileSize, virtualTexture.physicsTextureA, 0, 0, pageRect.x, pageRect.y);
+                cmdBuffer.CopyTexture(virtualTexture.decodeTextureB, 0, 0, 0, 0, tileSize, tileSize, virtualTexture.physicsTextureB, 0, 0, pageRect.x, pageRect.y);
             }
         }
 

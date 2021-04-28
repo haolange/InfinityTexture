@@ -1,9 +1,7 @@
-﻿using System;
-using UnityEngine;
-using Unity.Mathematics;
-using UnityEngine.Experimental.Rendering;
-using UnityEngine.Rendering.Universal;
+﻿using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
+using UnityEngine.Experimental.Rendering;
 
 namespace Landscape.RuntimeVirtualTexture
 {
@@ -56,7 +54,14 @@ namespace Landscape.RuntimeVirtualTexture
         public override void OnCameraSetup(CommandBuffer cmdBuffer, ref RenderingData renderingData)
         {
             Camera camera = renderingData.cameraData.camera;
-            m_FeedbackTexture = RenderTexture.GetTemporary(1920 / (int)m_feedbackScale, 1080 / (int)m_feedbackScale, 1, GraphicsFormat.R8G8B8A8_UNorm, 1);
+            GraphicsFormat format;
+            switch(FVirtualTextureFeedback.bits)
+            {
+                case FeedbackBits.B8: format = GraphicsFormat.R8G8B8A8_UNorm; break;
+                case FeedbackBits.B16: format = GraphicsFormat.R16G16B16A16_SFloat; break;
+                default: format = GraphicsFormat.R8G8B8A8_SNorm; break;
+            }
+            m_FeedbackTexture = RenderTexture.GetTemporary(1920 / (int)m_feedbackScale, 1080 / (int)m_feedbackScale, 1, format, 1);
             m_FeedbackTexture.name = "FeedbackTexture";
             m_FeedbackTextureID = new RenderTargetIdentifier(m_FeedbackTexture);
             //ConfigureTarget(m_FeedbackTextureID);
@@ -98,11 +103,11 @@ namespace Landscape.RuntimeVirtualTexture
                 {
                     if (m_Feedbacker.readbackDatas.IsCreated)
                     {
-                        pageProducer.ProcessFeedbackV2(m_Feedbacker.readbackDatas, virtualTexture.NumMip, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, pageRenderer.pageRequests);
+                        pageProducer.ProcessFeedback(m_Feedbacker.readbackDatas, FVirtualTextureFeedback.bits, virtualTexture.NumMip, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, pageRenderer.pageRequests);
                         cmdBuffer.SetRenderTarget(virtualTexture.pageTableTexture);
                         renderContext.ExecuteCommandBuffer(cmdBuffer);
                         cmdBuffer.Clear();
-                        pageRenderer.DrawPageTable(cmdBuffer, pageProducer);
+                        pageRenderer.DrawPageTable(renderContext, cmdBuffer, pageProducer);
                     }
                 }
 
@@ -137,7 +142,7 @@ namespace Landscape.RuntimeVirtualTexture
                 cmdBuffer.Clear();
 
                 FDrawPageParameter drawPageParameter = VirtualTextureVolume.s_VirtualTextureVolume.GetDrawPageParamter();
-                pageRenderer.DrawPageColor(cmdBuffer, pageProducer, virtualTexture, ref virtualTexture.lruCache[0], drawPageParameter);
+                pageRenderer.DrawPageColor(renderContext, cmdBuffer, pageProducer, virtualTexture, ref virtualTexture.lruCache[0], drawPageParameter);
             }
         }
     }

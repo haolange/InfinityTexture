@@ -13,10 +13,10 @@ public class RuntimeCompress : MonoBehaviour
     }
 
     Material m_Material;
-    Texture2D m_DscTexture;
+    Texture2D m_DecodeTexture;
     GraphicsFormat m_DscFormat;
     RenderTexture m_CompressTexture;
-    public Texture NoneCompressTexture;
+    public Texture2D NoneCompressTexture;
     public ComputeShader shader;
 
 
@@ -37,19 +37,19 @@ public class RuntimeCompress : MonoBehaviour
             enableRandomWrite = true,
         };
         m_CompressTexture.Create();
-        m_DscTexture = new Texture2D(Size, Size, m_DscFormat, TextureCreationFlags.None);
+        m_DecodeTexture = new Texture2D(Size, Size, m_DscFormat, TextureCreationFlags.None);
 
         m_Material = GetComponent<MeshRenderer>().sharedMaterial;
     }
 
     void Update()
     {
-        shader.SetInts("_DestRect", 0, 0, Size, Size);
+        shader.SetInt("_Size", Size);
         shader.SetTexture(0, "_SrcTexture", NoneCompressTexture);
-        shader.SetTexture(0, "_DstTexture", m_CompressTexture);
+        shader.SetTexture(0, "_DscTexture", m_CompressTexture);
         shader.Dispatch(0, (m_QuadSize + 7) / 8, (m_QuadSize + 7) / 8, 1);
 
-        Graphics.CopyTexture(m_CompressTexture, 0, 0, 0, 0, m_QuadSize, m_QuadSize, m_DscTexture, 0, 0, 0, 0);
-        m_Material.mainTexture = m_DscTexture;
+        Graphics.CopyTexture(m_CompressTexture, 0, 0, 0, 0, m_QuadSize, m_QuadSize, m_DecodeTexture, 0, 0, 0, 0);
+        m_Material.mainTexture = m_DecodeTexture;
     }
 }

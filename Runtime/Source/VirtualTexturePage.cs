@@ -9,6 +9,7 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Landscape.RuntimeVirtualTexture
 {
+
     internal struct FPage
     {
         public FRectInt rect;
@@ -27,7 +28,7 @@ namespace Landscape.RuntimeVirtualTexture
             this.isNull = isNull;
             this.payload = new FPagePayload();
             this.payload.pageCoord = new int2(-1, -1);
-            this.payload.pageRequestInfo = new FPageRequestInfo(0, 0, 0, true);
+            this.payload.notLoading = true;
         }
 
         public bool Equals(in FPage Target)
@@ -42,7 +43,10 @@ namespace Landscape.RuntimeVirtualTexture
 
         public override int GetHashCode()
         {
-            return rect.GetHashCode() + payload.GetHashCode() + mipLevel.GetHashCode() + (isNull ? 0 : 1);
+            int hash = NativeExtensions.Combine(rect.GetHashCode(), payload.GetHashCode());
+            hash = NativeExtensions.Combine(hash, mipLevel.GetHashCode());
+            hash += (isNull ? 0 : 1);
+            return hash;
         }
     }
 
@@ -50,7 +54,7 @@ namespace Landscape.RuntimeVirtualTexture
     {
         internal int2 pageCoord;
         internal int activeFrame;
-        internal FPageRequestInfo pageRequestInfo;
+        internal bool notLoading;
         private static readonly int2 s_InvalidTileIndex = new int2(-1, -1);
         internal bool isReady { get { return (!pageCoord.Equals(s_InvalidTileIndex)); } }
 
@@ -62,7 +66,7 @@ namespace Landscape.RuntimeVirtualTexture
 
         public bool Equals(in FPagePayload target)
         {
-            return isReady.Equals(target.isReady) && activeFrame.Equals(target.activeFrame) && pageCoord.Equals(target.pageCoord) && pageRequestInfo.Equals(target.pageRequestInfo);
+            return isReady.Equals(target.isReady) && activeFrame.Equals(target.activeFrame) && pageCoord.Equals(target.pageCoord) && notLoading.Equals(target.notLoading);
         }
 
         public override bool Equals(object target)
@@ -72,7 +76,10 @@ namespace Landscape.RuntimeVirtualTexture
 
         public override int GetHashCode()
         {
-            return pageCoord.GetHashCode() + activeFrame.GetHashCode() + pageRequestInfo.GetHashCode() + (isReady ? 0 : 1);
+            int hash = NativeExtensions.Combine(pageCoord.GetHashCode(), activeFrame.GetHashCode());
+            hash = NativeExtensions.Combine(hash, notLoading.GetHashCode());
+            hash += (isReady ? 0 : 1);
+            return hash;
         }
     }
 
@@ -81,24 +88,22 @@ namespace Landscape.RuntimeVirtualTexture
         internal int pageX;
         internal int pageY;
         internal int mipLevel;
-        internal bool isNull;
 
-        public FPageRequestInfo(in int pageX, in int pageY, in int mipLevel, in bool isNull = false)
+        public FPageRequestInfo(in int pageX, in int pageY, in int mipLevel)
         {
             this.pageX = pageX;
             this.pageY = pageY;
-            this.isNull = isNull;
             this.mipLevel = mipLevel;
         }
 
         public bool Equals(in FPageRequestInfo obj)
         {
-            return obj.pageX == pageX && obj.pageY == pageY && obj.mipLevel == mipLevel && obj.isNull == isNull;
+            return obj.pageX == pageX && obj.pageY == pageY && obj.mipLevel == mipLevel;
         }
 
         public bool NotEquals(FPageRequestInfo obj)
         {
-            return obj.pageX != pageX || obj.pageY != pageY || obj.mipLevel != mipLevel && obj.isNull != isNull;
+            return obj.pageX != pageX || obj.pageY != pageY || obj.mipLevel != mipLevel;
         }
 
         public override bool Equals(object obj)
@@ -108,7 +113,7 @@ namespace Landscape.RuntimeVirtualTexture
 
         public override int GetHashCode()
         {
-            return pageX.GetHashCode() + pageY.GetHashCode() + mipLevel.GetHashCode() + (isNull ? 0 : 1);
+            return pageX.GetHashCode() + pageY.GetHashCode() + mipLevel.GetHashCode();
         }
 
         public int CompareTo(FPageRequestInfo target)

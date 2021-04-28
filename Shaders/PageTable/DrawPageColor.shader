@@ -33,7 +33,7 @@
             #pragma fragment frag
 			#pragma enable_d3d11_debug_symbols
             
-			#include "../Include/DrwaPageCommon.hlsl"
+			#include "DrwaPageCommon.hlsl"
             ENDHLSL
         }
 
@@ -48,7 +48,7 @@
 			#define TERRAIN_SPLAT_ADDPASS
 			#pragma enable_d3d11_debug_symbols
 			
-			#include "../Include/DrwaPageCommon.hlsl"
+			#include "DrwaPageCommon.hlsl"
 			ENDHLSL
 		}
 
@@ -61,7 +61,7 @@
             #pragma fragment frag
 			#pragma enable_d3d11_debug_symbols
             
-			#include "../Include/DrwaPageCommon.hlsl"
+			#include "DrwaPageCommon.hlsl"
             ENDHLSL
         }
 
@@ -76,7 +76,7 @@
 			#define TERRAIN_SPLAT_ADDPASS
 			#pragma enable_d3d11_debug_symbols
 			
-			#include "../Include/DrwaPageCommon.hlsl"
+			#include "DrwaPageCommon.hlsl"
 			ENDHLSL
 		}
     }

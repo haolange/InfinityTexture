@@ -1,7 +1,7 @@
 ﻿#ifndef PageCommon
 #define PageCommon
 
-#include "StochasticSampling.hlsl"
+#include "../Common/StochasticSampling.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 
 
@@ -21,6 +21,7 @@ TEXTURE2D(_NormalTexture4);
 
 SAMPLER(Global_bilinear_clamp_sampler);
 SAMPLER(Global_trilinear_repeat_sampler);
+
 
 struct Attributes
 {

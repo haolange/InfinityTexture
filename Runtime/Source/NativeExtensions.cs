@@ -53,6 +53,11 @@ namespace Landscape.RuntimeVirtualTexture
         {
             return array.GetSubArray(0, Unique((T*)array.GetUnsafePtr(), array.Length, new DefaultComparer<T>()));
         }
+
+        public static int Combine(int newKey, int currentKey)
+        {
+            return unchecked((currentKey * (int)0xA5555529) + newKey);
+        }
     }
 
     [BurstCompatible]

@@ -4,9 +4,9 @@
 #pragma enable_d3d11_debug_symbols
 #pragma multi_compile _COMPRESS_BC3 _COMPRESS_ETC2
 
-uint4 _DestRect;
+uint _Size;
 Texture2D<float4> _SrcTexture; SamplerState sampler_SrcTexture;
-RWTexture2D<uint4> _DstTexture;
+RWTexture2D<uint4> _DscTexture;
 
 void ReadBlockRGB(Texture2D<float4> SourceTexture, SamplerState TextureSampler, float2 UV, float2 TexelUVSize, out float3 Block[16])
 {
@@ -67,14 +67,14 @@ void ReadBlockRGB(Texture2D<float4> SourceTexture, SamplerState TextureSampler, 
     }
 }
 
-#pragma kernel CompressAlbedo
+#pragma kernel Compress
 [numthreads(8, 8, 1)]
-void CompressAlbedo(uint3 ThreadId : SV_DispatchThreadID)
+void Compress(uint3 ThreadId : SV_DispatchThreadID)
 {
     uint2 SamplePos = ThreadId.xy * 4;
-    if (any(SamplePos >= _DestRect.zw)) { return; }
+    if (any(SamplePos >= _Size.xx)) { return; }
 
-    float2 TexelUVSize = 1.0f / float2(_DestRect.zw);
+    float2 TexelUVSize = 1.0f / _Size;
     float2 SampleUV = (float2(SamplePos) + 0.5f) * TexelUVSize;
 
     float BlockA[16];
@@ -87,8 +87,46 @@ void CompressAlbedo(uint3 ThreadId : SV_DispatchThreadID)
     }
 
 #ifdef _COMPRESS_BC3
-    _DstTexture[ThreadId.xy] = CompressBC3Block_SRGB(BlockRGB, BlockA);
+    _DscTexture[ThreadId.xy] = CompressBC3Block_SRGB(BlockRGB, BlockA);
 #else
-    _DstTexture[ThreadId.xy] = CompressBlock_ETC2_RGBA(BlockRGB, BlockA);
+    _DscTexture[ThreadId.xy] = CompressBlock_ETC2_RGBA(BlockRGB, BlockA);
 #endif
 }
+
+
+/*Texture2D<float4> _SrcAlbedo; SamplerState sampler_SrcAlbedo;
+Texture2D<float4> _SrcNormal; SamplerState sampler_SrcNormal;
+RWTexture2D<uint4> _DscAlbedo, _DscNormal;
+
+#pragma kernel CompressPacked
+[numthreads(8, 8, 1)]
+void CompressPacked(uint3 ThreadId : SV_DispatchThreadID)
+{
+    uint2 SamplePos = ThreadId.xy * 4;
+    if (any(SamplePos >= _Size.xx)) { return; }
+
+    float2 TexelUVSize = 1.0f / _Size;
+    float2 SampleUV = (float2(SamplePos) + 0.5f) * TexelUVSize;
+
+    float AlbedoBlockA[16];
+    float3 AlbedoBlockRGB[16];
+    ReadBlockRGB(_SrcAlbedo, sampler_SrcAlbedo, SampleUV, TexelUVSize, AlbedoBlockRGB);
+
+    float NormalBlockA[16];
+    float3 NormalBlockRGB[16];
+    ReadBlockRGB(_SrcNormal, sampler_SrcNormal, SampleUV, TexelUVSize, NormalBlockRGB);
+
+    for (int i = 0; i < 16; ++i)
+    {
+        AlbedoBlockA[i] = 1;
+        NormalBlockA[i] = 1;
+    }
+
+#ifdef _COMPRESS_BC3
+    _DscAlbedo[ThreadId.xy] = CompressBC3Block_SRGB(AlbedoBlockRGB, AlbedoBlockA);
+    _DscNormal[ThreadId.xy] = CompressBC3Block_SRGB(NormalBlockRGB, NormalBlockA);
+#else
+    _DscAlbedo[ThreadId.xy] = CompressBlock_ETC2_RGBA(AlbedoBlockRGB, AlbedoBlockA);
+    _DscNormal[ThreadId.xy] = CompressBlock_ETC2_RGBA(NormalBlockRGB, NormalBlockA);
+#endif
+}*/
