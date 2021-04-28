@@ -79,7 +79,7 @@ namespace Landscape.RuntimeVirtualTexture
             {
                 renderContext.ExecuteCommandBuffer(cmdBuffer);
                 cmdBuffer.Clear();
-                DrawVirtualTexture(renderContext, cmdBuffer, camera, renderingData);
+                DrawVirtualTexture(renderContext, cmdBuffer, camera, ref renderingData);
             }
 
             renderContext.ExecuteCommandBuffer(cmdBuffer);
@@ -91,8 +91,11 @@ namespace Landscape.RuntimeVirtualTexture
             RenderTexture.ReleaseTemporary(m_FeedbackTexture);
         }
 
-        public unsafe void DrawVirtualTexture(ScriptableRenderContext renderContext, CommandBuffer cmdBuffer, Camera camera, in RenderingData renderingData)
+        public unsafe void DrawVirtualTexture(ScriptableRenderContext renderContext, CommandBuffer cmdBuffer, Camera camera, ref RenderingData renderingData)
         {
+            ref CameraData cameraData = ref renderingData.cameraData;
+            Rect pixelRect = renderingData.cameraData.camera.pixelRect;
+            float cameraAspect = (float) pixelRect.width / (float) pixelRect.height;
             FPageProducer pageProducer = VirtualTextureVolume.s_VirtualTextureVolume.pageProducer;
             FPageRenderer pageRenderer = VirtualTextureVolume.s_VirtualTextureVolume.pageRenderer;
             VirtualTextureAsset virtualTexture = VirtualTextureVolume.s_VirtualTextureVolume.virtualTexture;
@@ -126,9 +129,17 @@ namespace Landscape.RuntimeVirtualTexture
                     // z: 最大mipmap等级
                     // w: mipBias
                     cmdBuffer.SetGlobalVector("_VTFeedbackParams", new Vector4(virtualTexture.pageSize, virtualTexture.pageSize * virtualTexture.tileSize * (1.0f / (float)m_feedbackScale), virtualTexture.NumMip, 0.1f));
+                    
+                    Matrix4x4 projectionMatrix = Matrix4x4.Perspective(80, cameraAspect, camera.nearClipPlane, camera.farClipPlane);
+                    projectionMatrix = GL.GetGPUProjectionMatrix(projectionMatrix, cameraData.IsCameraProjectionMatrixFlipped());
+                    RenderingUtils.SetViewAndProjectionMatrices(cmdBuffer, cameraData.GetViewMatrix(), projectionMatrix, false);
                     renderContext.ExecuteCommandBuffer(cmdBuffer);
                     cmdBuffer.Clear();
+
                     renderContext.DrawRenderers(renderingData.cullResults, ref drawSetting, ref m_FilterSetting);
+                    RenderingUtils.SetViewAndProjectionMatrices(cmdBuffer, cameraData.GetViewMatrix(), cameraData.GetGPUProjectionMatrix(), false);
+                    renderContext.ExecuteCommandBuffer(cmdBuffer);
+                    cmdBuffer.Clear();
                 }
 
                 //read-back feedback
