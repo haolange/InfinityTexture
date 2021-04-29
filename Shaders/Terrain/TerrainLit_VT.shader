@@ -53,9 +53,9 @@ Shader "VirtualTexture/TerrainLit_VT"
             Tags { "LightMode" = "VTFeedback" }
 
             HLSLPROGRAM
-            #pragma target 4.5
+            //#pragma target 4.5
             #pragma multi_compile_instancing
-            #pragma enable_d3d11_debug_symbols
+            //#pragma enable_d3d11_debug_symbols
             #pragma shader_feature_local _TERRAIN_INSTANCED_PERPIXEL_NORMAL
             #pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
 
@@ -84,21 +84,21 @@ Shader "VirtualTexture/TerrainLit_VT"
 
             // -------------------------------------
             // Universal Pipeline keywords
+            #pragma multi_compile _ _SHADOWS_SOFT
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS_CASCADE
             #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
             #pragma multi_compile _ _ADDITIONAL_LIGHT_SHADOWS
-            #pragma multi_compile _ _SHADOWS_SOFT
             #pragma multi_compile _ _MIXED_LIGHTING_SUBTRACTIVE
 			//#pragma multi_compile _ _RVT
 
             // -------------------------------------
             // Unity defined keywords
-            #pragma multi_compile _ DIRLIGHTMAP_COMBINED
-            #pragma multi_compile _ LIGHTMAP_ON
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
-            #pragma enable_d3d11_debug_symbols
+            #pragma multi_compile _ LIGHTMAP_ON
+            #pragma multi_compile _ DIRLIGHTMAP_COMBINED
+            //#pragma enable_d3d11_debug_symbols
             #pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
 
             #pragma shader_feature_local _TERRAIN_BLEND_HEIGHT
@@ -148,7 +148,7 @@ Shader "VirtualTexture/TerrainLit_VT"
             HLSLPROGRAM
             // Required to compile gles 2.0 with standard srp library
             #pragma prefer_hlslcc gles
-            #pragma enable_d3d11_debug_symbols
+            //#pragma enable_d3d11_debug_symbols
             #pragma exclude_renderers d3d11_9x
             #pragma target 2.0
 
