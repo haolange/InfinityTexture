@@ -60,8 +60,8 @@ Shader "VirtualTexture/TerrainLit_VT"
             #pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
 
             #include "FeedbackCommon.hlsl"	
-            #pragma vertex VTVertFeedback
-            #pragma fragment VTFragFeedback
+            #pragma vertex FeedbackVert
+            #pragma fragment FeedbackFrag
             ENDHLSL
         }
 

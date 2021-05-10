@@ -17,17 +17,18 @@ UNITY_INSTANCING_BUFFER_END(Terrain)
     SAMPLER(sampler_TerrainNormalmapTexture);
 #endif
 
-struct feed_v2f
+struct Attributes
 {
-    float4 pos : SV_POSITION;
-    float2 uv : TEXCOORD0;
+    float4 vertexOS : POSITION;
+    float2 texcoord0 : TEXCOORD0;
+    UNITY_VERTEX_INPUT_INSTANCE_ID
 };
 
-struct feed_attr
+struct Varyings
 {
-    float4 vertex : POSITION;
-    float2 texcoord : TEXCOORD0;
-    UNITY_VERTEX_INPUT_INSTANCE_ID
+    float4 vertexCS : SV_POSITION;
+    float2 texcoord0 : TEXCOORD0;
+    float2 texcoord1 : TEXCOORD1;
 };
 
 float4 _VTVolumeRect;
@@ -47,33 +48,43 @@ float4 _VTFeedbackParams;
 // zw: 1 / tile count
 float4 _VTPageTileParams;
 
-feed_v2f VTVertFeedback(feed_attr v)
+#ifdef _ALPHATEST_ON
+TEXTURE2D(_TerrainHolesTexture);
+SAMPLER(sampler_TerrainHolesTexture);
+
+void ClipHoles(float2 uv)
 {
-    feed_v2f o;
-    UNITY_SETUP_INSTANCE_ID(v);
-    
-#if defined(UNITY_INSTANCING_ENABLED)
-    float2 patchVertex = v.vertex.xy;
-    float4 instanceData = UNITY_ACCESS_INSTANCED_PROP(Terrain, _TerrainPatchInstanceData);
-
-    float2 sampleCoords = (patchVertex.xy + instanceData.xy) * instanceData.z; // (xy + float2(xBase,yBase)) * skipScale
-    float height = UnpackHeightmap(_TerrainHeightmapTexture.Load(int3(sampleCoords, 0)));
-
-    v.vertex.xz = sampleCoords * _TerrainHeightmapScale.xz;
-    v.vertex.y = height * _TerrainHeightmapScale.y;
-    
-    v.texcoord = sampleCoords * _TerrainHeightmapRecipSize.zw;
+	float hole = SAMPLE_TEXTURE2D(_TerrainHolesTexture, sampler_TerrainHolesTexture, uv).r;
+	clip(hole == 0.0f ? -1 : 1);
+}
 #endif
+
+Varyings FeedbackVert(Attributes input)
+{
+    Varyings output;
+    UNITY_SETUP_INSTANCE_ID(input);
     
-    VertexPositionInputs Attributes = GetVertexPositionInputs(v.vertex.xyz);
+    #if defined(UNITY_INSTANCING_ENABLED)
+        float2 patchVertex = input.vertexOS.xy;
+        float4 instanceData = UNITY_ACCESS_INSTANCED_PROP(Terrain, _TerrainPatchInstanceData);
+
+        float2 sampleCoords = (patchVertex.xy + instanceData.xy) * instanceData.z; // (xy + float2(xBase,yBase)) * skipScale
+        float height = UnpackHeightmap(_TerrainHeightmapTexture.Load(int3(sampleCoords, 0)));
+
+        input.vertexOS.xz = sampleCoords * _TerrainHeightmapScale.xz;
+        input.vertexOS.y = height * _TerrainHeightmapScale.y;
+        
+        input.texcoord0 = sampleCoords * _TerrainHeightmapRecipSize.zw;
+    #endif
     
-    o.pos = Attributes.positionCS;
-    float2 posWS = Attributes.positionWS.xz;
-    //o.uv = (posWS + 256) * rcp(256);
-    //o.uv = (posWS + 512) * rcp(1024);
-    o.uv = (posWS - _VTVolumeRect.xy) * rcp(_VTVolumeRect.zw);
-    
-    return o;
+    VertexPositionInputs Attributes = GetVertexPositionInputs(input.vertexOS.xyz);
+    output.vertexCS = Attributes.positionCS;
+    float2 vertexWS = Attributes.positionWS.xz;
+    //output.texcoord0 = (vertexWS + 256) * rcp(256);
+    //output.texcoord0 = (vertexWS + 512) * rcp(1024);
+    output.texcoord1 = sampleCoords * _TerrainHeightmapRecipSize.xy;
+    output.texcoord0 = (vertexWS - _VTVolumeRect.xy) * rcp(_VTVolumeRect.zw);
+    return output;
 }
 
 float MipLevel(float2 UV)
@@ -90,16 +101,22 @@ float BoxMask(float2 A, float2 B, float2 Size)
     return 1 - saturate(ceil(length(max(0, abs(A - B) - (Size * 0.5)))));
 }
 
-float4 VTFragFeedback(feed_v2f i) : SV_Target
+float4 FeedbackFrag(Varyings input) : SV_Target
 {
-    /*float ComputedLevel = floor(MipLevel(i.uv * 4224));//4224
-    ComputedLevel = clamp(ComputedLevel, 0, 8);
-    return float4(floor(i.uv * 256) / 255, ComputedLevel / 255, 1) * BoxMask(i.uv, 0.5, 1);*/
-    //return float4(floor(i.uv * 1024) / (255 * 1), ComputedLevel / 255, 1) * BoxMask(i.uv, 0.5, 1);
+    #ifdef _ALPHATEST_ON
+        ClipHoles(input.texcoord1);
+    #endif
 
-    float ComputedLevel = MipLevel(i.uv * _VTFeedbackParams.y) + _VTFeedbackParams.w;
+    float ComputedLevel = MipLevel(input.texcoord0 * _VTFeedbackParams.y) + _VTFeedbackParams.w;
     ComputedLevel = clamp(floor(ComputedLevel), 0, 8);
-	return half4(floor(i.uv * _VTFeedbackParams.x)/255, ComputedLevel/255, 1);
+	return float4(floor(input.texcoord0 * _VTFeedbackParams.x)/255, ComputedLevel/255, 1);
+    
+    /*float ComputedLevel = floor(MipLevel(input.texcoord0 * 4224));//4224
+    ComputedLevel = clamp(ComputedLevel, 0, 8);
+    return float4(floor(input.texcoord0 * 256) / 255, ComputedLevel / 255, 1) * BoxMask(input.texcoord0, 0.5, 1);*/
+    //return float4(floor(input.texcoord0 * 1024) / (255 * 1), ComputedLevel / 255, 1) * BoxMask(input.texcoord0, 0.5, 1);
+
+    //return float4(input.texcoord1, 0, 1);
 }
 
 #endif

@@ -15,7 +15,7 @@ MonoBehaviour:
   m_Active: 1
   layerMask:
     serializedVersion: 2
-    m_Bits: 8
+    m_Bits: 256
   feedbackScale: 16
 --- !u!114 &11400000
 MonoBehaviour:
