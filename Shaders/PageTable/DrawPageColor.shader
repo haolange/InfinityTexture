@@ -31,7 +31,7 @@
 
             #pragma vertex vert
             #pragma fragment frag
-			#pragma enable_d3d11_debug_symbols
+			//#pragma enable_d3d11_debug_symbols
             
 			#include "DrwaPageCommon.hlsl"
             ENDHLSL
@@ -46,20 +46,20 @@
 			#pragma vertex vert
 			#pragma fragment frag
 			#define TERRAIN_SPLAT_ADDPASS
-			#pragma enable_d3d11_debug_symbols
+			//#pragma enable_d3d11_debug_symbols
 			
 			#include "DrwaPageCommon.hlsl"
 			ENDHLSL
 		}
 
-		Pass
+		/*Pass
         {
             HLSLPROGRAM
 			#pragma target 4.5
 
             #pragma vertex vertTriangle
             #pragma fragment frag
-			#pragma enable_d3d11_debug_symbols
+			//#pragma enable_d3d11_debug_symbols
             
 			#include "DrwaPageCommon.hlsl"
             ENDHLSL
@@ -74,10 +74,10 @@
 			#pragma vertex vertTriangle
 			#pragma fragment frag
 			#define TERRAIN_SPLAT_ADDPASS
-			#pragma enable_d3d11_debug_symbols
+			//#pragma enable_d3d11_debug_symbols
 			
 			#include "DrwaPageCommon.hlsl"
 			ENDHLSL
-		}
+		}*/
     }
 }
