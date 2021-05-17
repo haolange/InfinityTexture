@@ -109,7 +109,7 @@ namespace Landscape.RuntimeVirtualTexture
                 {
                     if (m_Feedbacker.readbackDatas.IsCreated)
                     {
-                        pageProducer.ProcessFeedback(m_Feedbacker.readbackDatas, FVirtualTextureFeedback.bits, virtualTexture.NumMip, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, pageRenderer.pageRequests);
+                        pageProducer.ProcessFeedback(m_Feedbacker.readbackDatas, FVirtualTextureFeedback.bits, virtualTexture.NumMip, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, pageRenderer.loadRequests);
                         cmdBuffer.SetRenderTarget(virtualTexture.pageTableTexture);
                         renderContext.ExecuteCommandBuffer(cmdBuffer);
                         cmdBuffer.Clear();
@@ -171,7 +171,7 @@ namespace Landscape.RuntimeVirtualTexture
         public override void Create()
         {
             m_FeedbackRenderPass = new FeedbackRenderPass(layerMask, feedbackScale);
-            m_FeedbackRenderPass.renderPassEvent = RenderPassEvent.BeforeRenderingPrepasses;
+            m_FeedbackRenderPass.renderPassEvent = RenderPassEvent.BeforeRenderingPrePasses;
         }
 
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)

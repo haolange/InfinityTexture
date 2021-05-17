@@ -83,32 +83,32 @@ namespace Landscape.RuntimeVirtualTexture
         }
     }
 
-    internal struct FPageRequestInfo : IComparable<FPageRequestInfo>
+    internal struct FPageLoadInfo : IComparable<FPageLoadInfo>
     {
         internal int pageX;
         internal int pageY;
         internal int mipLevel;
 
-        public FPageRequestInfo(in int pageX, in int pageY, in int mipLevel)
+        public FPageLoadInfo(in int pageX, in int pageY, in int mipLevel)
         {
             this.pageX = pageX;
             this.pageY = pageY;
             this.mipLevel = mipLevel;
         }
 
-        public bool Equals(in FPageRequestInfo obj)
+        public bool Equals(in FPageLoadInfo target)
         {
-            return obj.pageX == pageX && obj.pageY == pageY && obj.mipLevel == mipLevel;
+            return target.pageX == pageX && target.pageY == pageY && target.mipLevel == mipLevel;
         }
 
-        public bool NotEquals(FPageRequestInfo obj)
+        public bool NotEquals(FPageLoadInfo target)
         {
-            return obj.pageX != pageX || obj.pageY != pageY || obj.mipLevel != mipLevel;
+            return target.pageX != pageX || target.pageY != pageY || target.mipLevel != mipLevel;
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object target)
         {
-            return Equals((FPageRequestInfo)obj);
+            return Equals((FPageLoadInfo)target);
         }
 
         public override int GetHashCode()
@@ -116,7 +116,7 @@ namespace Landscape.RuntimeVirtualTexture
             return pageX.GetHashCode() + pageY.GetHashCode() + mipLevel.GetHashCode();
         }
 
-        public int CompareTo(FPageRequestInfo target)
+        public int CompareTo(FPageLoadInfo target)
         {
             return mipLevel.CompareTo(target.mipLevel);
         }

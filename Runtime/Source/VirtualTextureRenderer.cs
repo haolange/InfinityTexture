@@ -57,7 +57,7 @@ namespace Landscape.RuntimeVirtualTexture
         private ComputeBuffer m_PageTableBuffer;
         private MaterialPropertyBlock m_Property;
         private NativeList<FPageDrawInfo> m_DrawInfos;
-        internal NativeList<FPageRequestInfo> pageRequests;
+        internal NativeList<FPageLoadInfo> loadRequests;
 
         public FPageRenderer(in int pageSize, in int limit = 16)
         {
@@ -65,7 +65,7 @@ namespace Landscape.RuntimeVirtualTexture
             this.m_PageSize = pageSize;
             this.m_Property = new MaterialPropertyBlock();
             this.m_DrawInfos = new NativeList<FPageDrawInfo>(256, Allocator.Persistent);
-            this.pageRequests = new NativeList<FPageRequestInfo>(4096 * 2, Allocator.Persistent);
+            this.loadRequests = new NativeList<FPageLoadInfo>(4096 * 2, Allocator.Persistent);
             this.m_PageTableBuffer = new ComputeBuffer(pageSize, Marshal.SizeOf(typeof(FPageTableInfo)));
             this.m_DrawPageMesh = FVirtualTextureUtility.BuildQuadMesh();
             this.m_TriangleMesh = FVirtualTextureUtility.BuildTriangleMesh();
@@ -116,19 +116,19 @@ namespace Landscape.RuntimeVirtualTexture
 
         public void DrawPageColor(ScriptableRenderContext renderContext, CommandBuffer cmdBuffer, FPageProducer pageProducer, VirtualTextureAsset virtualTexture, ref FLruCache lruCache, in FDrawPageParameter drawPageParameter)
         {
-            if (pageRequests.Length <= 0) { return; }
+            if (loadRequests.Length <= 0) { return; }
             FPageRequestInfoSortJob pageRequestInfoSortJob;
-            pageRequestInfoSortJob.pageRequests = pageRequests;
+            pageRequestInfoSortJob.loadRequests = loadRequests;
             pageRequestInfoSortJob.Run();
 
             int count = m_Limit;
-            while (count > 0 && pageRequests.Length > 0)
+            while (count > 0 && loadRequests.Length > 0)
             {
                 count--;
-                FPageRequestInfo requestInfo = pageRequests[pageRequests.Length - 1];
-                pageRequests.RemoveAt(pageRequests.Length - 1);
+                FPageLoadInfo loadRequest = loadRequests[loadRequests.Length - 1];
+                loadRequests.RemoveAt(loadRequests.Length - 1);
 
-                int3 pageUV = new int3(requestInfo.pageX, requestInfo.pageY, requestInfo.mipLevel);
+                int3 pageUV = new int3(loadRequest.pageX, loadRequest.pageY, loadRequest.mipLevel);
                 FPageTable pageTable = pageProducer.pageTables[pageUV.z];
                 ref FPage page = ref pageTable.GetPage(pageUV.x, pageUV.y);
 
@@ -141,7 +141,7 @@ namespace Landscape.RuntimeVirtualTexture
                     pageProducer.InvalidatePage(pageCoord);
 
                     FRectInt pageRect = new FRectInt(pageCoord.x * virtualTexture.TileSizePadding, pageCoord.y * virtualTexture.TileSizePadding, virtualTexture.TileSizePadding, virtualTexture.TileSizePadding);
-                    RenderPage(cmdBuffer, virtualTexture, pageRect, requestInfo, drawPageParameter);
+                    RenderPage(cmdBuffer, virtualTexture, pageRect, loadRequest, drawPageParameter);
                 }
 
                 page.payload.pageCoord = pageCoord;
@@ -149,11 +149,11 @@ namespace Landscape.RuntimeVirtualTexture
             }
         }
 
-        private void RenderPage(CommandBuffer cmdBuffer, VirtualTextureAsset virtualTexture, in FRectInt pageRect, in FPageRequestInfo requestInfo, in FDrawPageParameter drawPageParameter)
+        private void RenderPage(CommandBuffer cmdBuffer, VirtualTextureAsset virtualTexture, in FRectInt pageRect, in FPageLoadInfo loadRequest, in FDrawPageParameter drawPageParameter)
         {
-            int x = requestInfo.pageX;
-            int y = requestInfo.pageY;
-            int perSize = (int)Mathf.Pow(2, requestInfo.mipLevel);
+            int x = loadRequest.pageX;
+            int y = loadRequest.pageY;
+            int perSize = (int)Mathf.Pow(2, loadRequest.mipLevel);
             x = x - x % perSize;
             y = y - y % perSize;
 
@@ -222,7 +222,7 @@ namespace Landscape.RuntimeVirtualTexture
         public void Dispose()
         {
             m_DrawInfos.Dispose();
-            pageRequests.Dispose();
+            loadRequests.Dispose();
             m_PageTableBuffer.Dispose();
             Object.DestroyImmediate(m_DrawPageMesh);
             Object.DestroyImmediate(m_TriangleMesh);

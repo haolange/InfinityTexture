@@ -28,7 +28,7 @@ namespace Landscape.RuntimeVirtualTexture
         [ReadOnly]
         internal NativeArray<FPageTable> pageTables;
 
-        internal NativeList<FPageRequestInfo> pageRequests;
+        internal NativeList<FPageLoadInfo> loadRequests;
 
         public void Execute()
         {
@@ -53,7 +53,7 @@ namespace Landscape.RuntimeVirtualTexture
                 if (!page.payload.isReady && page.payload.notLoading)
                 {
                     page.payload.notLoading = false;
-                    pageRequests.AddNoResize(new FPageRequestInfo(x, y, mip));
+                    loadRequests.AddNoResize(new FPageLoadInfo(x, y, mip));
                 }
 
                 if (page.payload.isReady && page.payload.activeFrame != frameCount)
@@ -85,7 +85,7 @@ namespace Landscape.RuntimeVirtualTexture
         [ReadOnly]
         internal NativeArray<FPageTable> pageTables;
 
-        internal NativeList<FPageRequestInfo> pageRequests;
+        internal NativeList<FPageLoadInfo> loadRequests;
 
         public void Execute()
         {
@@ -110,7 +110,7 @@ namespace Landscape.RuntimeVirtualTexture
                 if (!page.payload.isReady && page.payload.notLoading)
                 {
                     page.payload.notLoading = false;
-                    pageRequests.AddNoResize(new FPageRequestInfo(x, y, mip));
+                    loadRequests.AddNoResize(new FPageLoadInfo(x, y, mip));
                 }
 
                 if (page.payload.isReady && page.payload.activeFrame != frameCount)
@@ -201,11 +201,11 @@ namespace Landscape.RuntimeVirtualTexture
     [BurstCompile]
     internal struct FPageRequestInfoSortJob : IJob
     {
-        internal NativeList<FPageRequestInfo> pageRequests;
+        internal NativeList<FPageLoadInfo> loadRequests;
 
         public void Execute()
         {
-            pageRequests.Sort();
+            loadRequests.Sort();
         }
     }
 }

@@ -24,7 +24,7 @@ namespace Landscape.RuntimeVirtualTexture
             //ActivatePage(0, 0, pageTexture.MaxMipLevel);
         }
 
-        public void ProcessFeedback(in NativeArray<byte> readbackDatas, FeedbackBits bits, in int maxMip, in int tileNum, in int pageSize, FLruCache* lruCache, NativeList<FPageRequestInfo> pageRequests)
+        public void ProcessFeedback(in NativeArray<byte> readbackDatas, FeedbackBits bits, in int maxMip, in int tileNum, in int pageSize, FLruCache* lruCache, NativeList<FPageLoadInfo> loadRequests)
         {
             if(bits == FeedbackBits.B16)
             {
@@ -34,7 +34,7 @@ namespace Landscape.RuntimeVirtualTexture
                 processFeedbackJob.pageSize = pageSize;
                 processFeedbackJob.lruCache = lruCache;
                 processFeedbackJob.pageTables = pageTables;
-                processFeedbackJob.pageRequests = pageRequests;
+                processFeedbackJob.loadRequests = loadRequests;
                 processFeedbackJob.frameCount = Time.frameCount;
                 processFeedbackJob.readbackDatas = readbackDatas.Reinterpret<half4>(1);
                 processFeedbackJob.Run();
@@ -47,17 +47,11 @@ namespace Landscape.RuntimeVirtualTexture
                 processFeedbackJob.pageSize = pageSize;
                 processFeedbackJob.lruCache = lruCache;
                 processFeedbackJob.pageTables = pageTables;
-                processFeedbackJob.pageRequests = pageRequests;
+                processFeedbackJob.loadRequests = loadRequests;
                 processFeedbackJob.frameCount = Time.frameCount;
                 processFeedbackJob.readbackDatas = readbackDatas.Reinterpret<Color32>(1);
                 processFeedbackJob.Run();
             }
-
-            /*for (int i = 0; i < readbackDatas.Length; ++i)
-            {
-                Color32 readbackData = readbackDatas[i];
-                FVirtualTextureUtility.ActivatePage(readbackData.r, readbackData.g, readbackData.b, maxMip - 1, Time.frameCount, tileNum, pageSize, ref lruCache[0], pageTables, pageRequests);
-            }*/
         }
 
         public void Reset()
