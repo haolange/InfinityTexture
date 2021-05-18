@@ -37,11 +37,13 @@ namespace Landscape.RuntimeVirtualTexture
         public ComputeShader m_Shader;
 
         internal FLruCache* lruCache;
-        internal RenderTexture physicsTextureA;
-        internal RenderTexture physicsTextureB;
-        internal RenderTexture pageTableTexture;
-        internal RenderTargetIdentifier[] colorBuffers;
+        internal RenderTargetIdentifier tableTextureID;
+        internal RenderTargetIdentifier[] colorTextureIDs;
         internal int TextureSize { get { return tileNum * TileSizePadding; } }
+
+        private RenderTexture m_physicsTextureA;
+        private RenderTexture m_physicsTextureB;
+        private RenderTexture m_pageTableTexture;
 
         public VirtualTextureAsset()
         {
@@ -56,32 +58,34 @@ namespace Landscape.RuntimeVirtualTexture
             RenderTextureDescriptor textureDesctiptor = new RenderTextureDescriptor { width = TextureSize, height = TextureSize, volumeDepth = 1, dimension = TextureDimension.Tex2D, colorFormat = RenderTextureFormat.RGB565, depthBufferBits = 0, mipCount = -1, useMipMap = false, autoGenerateMips = false, bindMS = false, msaaSamples = 1 };
 
             //physics texture
-            physicsTextureA = new RenderTexture(textureDesctiptor);
-            physicsTextureA.name = "PhysicsTextureA";
-            physicsTextureA.filterMode = FilterMode.Bilinear;
-            physicsTextureA.wrapMode = TextureWrapMode.Clamp;
+            m_physicsTextureA = new RenderTexture(textureDesctiptor);
+            m_physicsTextureA.name = "PhysicsTextureA";
+            m_physicsTextureA.filterMode = FilterMode.Bilinear;
+            m_physicsTextureA.wrapMode = TextureWrapMode.Clamp;
 
-            physicsTextureB = new RenderTexture(textureDesctiptor);
-            physicsTextureB.name = "PhysicsTextureB";
-            physicsTextureB.filterMode = FilterMode.Bilinear;
-            physicsTextureB.wrapMode = TextureWrapMode.Clamp;
+            m_physicsTextureB = new RenderTexture(textureDesctiptor);
+            m_physicsTextureB.name = "PhysicsTextureB";
+            m_physicsTextureB.filterMode = FilterMode.Bilinear;
+            m_physicsTextureB.wrapMode = TextureWrapMode.Clamp;
 
-            colorBuffers = new RenderTargetIdentifier[2];
-            colorBuffers[0] = new RenderTargetIdentifier(physicsTextureA);
-            colorBuffers[1] = new RenderTargetIdentifier(physicsTextureB);
+            colorTextureIDs = new RenderTargetIdentifier[2];
+            colorTextureIDs[0] = new RenderTargetIdentifier(m_physicsTextureA);
+            colorTextureIDs[1] = new RenderTargetIdentifier(m_physicsTextureB);
 
-            pageTableTexture = new RenderTexture(pageSize, pageSize, 0, GraphicsFormat.R8G8B8A8_UNorm);
-            pageTableTexture.name = "PageTableTexture";
-            pageTableTexture.filterMode = FilterMode.Point;
-            pageTableTexture.wrapMode = TextureWrapMode.Clamp;
+            m_pageTableTexture = new RenderTexture(pageSize, pageSize, 0, GraphicsFormat.R8G8B8A8_UNorm);
+            m_pageTableTexture.name = "PageTableTexture";
+            m_pageTableTexture.filterMode = FilterMode.Point;
+            m_pageTableTexture.wrapMode = TextureWrapMode.Clamp;
+
+            tableTextureID = new RenderTargetIdentifier(m_pageTableTexture);
 
             // 设置Shader参数
             // x: padding 偏移量
             // y: tile 有效区域的尺寸
             // zw: 1/区域尺寸
-            Shader.SetGlobalTexture("_PhyscisAlbedo", physicsTextureA);
-            Shader.SetGlobalTexture("_PhyscisNormal", physicsTextureB);
-            Shader.SetGlobalTexture("_PageTableTexture", pageTableTexture);
+            Shader.SetGlobalTexture("_PhyscisAlbedo", m_physicsTextureA);
+            Shader.SetGlobalTexture("_PhyscisNormal", m_physicsTextureB);
+            Shader.SetGlobalTexture("_PageTableTexture", m_pageTableTexture);
             Shader.SetGlobalVector("_VTPageParams", new Vector4(pageSize, 1 / pageSize, NumMip - 1, 0));
             Shader.SetGlobalVector("_VTPageTileParams", new Vector4((float)tileBorder, (float)tileSize, TextureSize, TextureSize));
         }
@@ -91,12 +95,12 @@ namespace Landscape.RuntimeVirtualTexture
             lruCache[0].Dispose();
             UnsafeUtility.Free((void*)lruCache, Allocator.Persistent);
 
-            physicsTextureA.Release();
-            physicsTextureB.Release();
-            pageTableTexture.Release();
-            Object.DestroyImmediate(physicsTextureA);
-            Object.DestroyImmediate(physicsTextureB);
-            Object.DestroyImmediate(pageTableTexture);
+            m_physicsTextureA.Release();
+            m_physicsTextureB.Release();
+            m_pageTableTexture.Release();
+            Object.DestroyImmediate(m_physicsTextureA);
+            Object.DestroyImmediate(m_physicsTextureB);
+            Object.DestroyImmediate(m_pageTableTexture);
         }
     }
 }

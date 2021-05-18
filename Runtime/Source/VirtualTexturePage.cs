@@ -1,5 +1,4 @@
 using System;
-using UnityEngine;
 using Unity.Mathematics;
 using Unity.Collections;
 using System.Diagnostics;
@@ -9,23 +8,18 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Landscape.RuntimeVirtualTexture
 {
-
     internal struct FPage
     {
-        public FRectInt rect;
-
-        public FPagePayload payload;
-
-        public int mipLevel;
-
         public bool isNull;
-
+        public int mipLevel;
+        public FRectInt rect;
+        public FPagePayload payload;
 
         public FPage(int x, int y, int width, int height, int mipLevel, bool isNull = false)
         {
             this.rect = new FRectInt(x, y, width, height);
-            this.mipLevel = mipLevel;
             this.isNull = isNull;
+            this.mipLevel = mipLevel;
             this.payload = new FPagePayload();
             this.payload.pageCoord = new int2(-1, -1);
             this.payload.notLoading = true;
@@ -52,9 +46,9 @@ namespace Landscape.RuntimeVirtualTexture
 
     internal struct FPagePayload
     {
-        internal int2 pageCoord;
         internal int activeFrame;
         internal bool notLoading;
+        internal int2 pageCoord;
         private static readonly int2 s_InvalidTileIndex = new int2(-1, -1);
         internal bool isReady { get { return (!pageCoord.Equals(s_InvalidTileIndex)); } }
 
@@ -85,25 +79,25 @@ namespace Landscape.RuntimeVirtualTexture
 
     internal struct FPageLoadInfo : IComparable<FPageLoadInfo>
     {
-        internal int pageX;
-        internal int pageY;
+        internal int x;
+        internal int y;
         internal int mipLevel;
 
-        public FPageLoadInfo(in int pageX, in int pageY, in int mipLevel)
+        public FPageLoadInfo(in int x, in int y, in int mipLevel)
         {
-            this.pageX = pageX;
-            this.pageY = pageY;
+            this.x = x;
+            this.y = y;
             this.mipLevel = mipLevel;
         }
 
         public bool Equals(in FPageLoadInfo target)
         {
-            return target.pageX == pageX && target.pageY == pageY && target.mipLevel == mipLevel;
+            return target.x == x && target.y == y && target.mipLevel == mipLevel;
         }
 
         public bool NotEquals(FPageLoadInfo target)
         {
-            return target.pageX != pageX || target.pageY != pageY || target.mipLevel != mipLevel;
+            return target.x != x || target.y != y || target.mipLevel != mipLevel;
         }
 
         public override bool Equals(object target)
@@ -113,7 +107,7 @@ namespace Landscape.RuntimeVirtualTexture
 
         public override int GetHashCode()
         {
-            return pageX.GetHashCode() + pageY.GetHashCode() + mipLevel.GetHashCode();
+            return x.GetHashCode() + y.GetHashCode() + mipLevel.GetHashCode();
         }
 
         public int CompareTo(FPageLoadInfo target)
@@ -174,9 +168,9 @@ namespace Landscape.RuntimeVirtualTexture
 #endif
     internal unsafe struct FPageTable : IDisposable
     {
-        public int mipLevel;
-        public int cellSize;
-        public int cellCount;
+        internal int mipLevel;
+        internal int cellSize;
+        internal int cellCount;
         [NativeDisableUnsafePtrRestriction]
         internal FPage* pageBuffer;
 

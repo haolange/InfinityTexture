@@ -37,7 +37,7 @@ namespace Landscape.RuntimeVirtualTexture
         ProfilingSampler m_VirtualTextureSampler;
         RenderTexture m_FeedbackTexture;
         RenderTargetIdentifier m_FeedbackTextureID;
-        FVirtualTextureFeedback m_Feedbacker;
+        FVirtualTextureFeedback m_FeedbackProcessor;
 
         public FeedbackRenderPass(in LayerMask layerMask, in EFeedbackScale feedbackScale)
         {
@@ -49,7 +49,7 @@ namespace Landscape.RuntimeVirtualTexture
             m_DrawPageTableSampler = ProfilingSampler.Get(EVirtualTexturePass.DrawPageTable);
             m_DrawPageColorSampler = ProfilingSampler.Get(EVirtualTexturePass.DrawPageColor);
             m_VirtualTextureSampler = ProfilingSampler.Get(EVirtualTexturePass.VirtualTexture);
-            m_Feedbacker = new FVirtualTextureFeedback(true);
+            m_FeedbackProcessor = new FVirtualTextureFeedback(true);
         }
 
         public override void OnCameraSetup(CommandBuffer cmdBuffer, ref RenderingData renderingData)
@@ -103,14 +103,14 @@ namespace Landscape.RuntimeVirtualTexture
             FPageRenderer pageRenderer = VirtualTextureVolume.s_VirtualTextureVolume.pageRenderer;
             VirtualTextureAsset virtualTexture = VirtualTextureVolume.s_VirtualTextureVolume.virtualTexture;
 
-            if (m_Feedbacker.isReady)
+            if (m_FeedbackProcessor.isReady)
             {
                 using (new ProfilingScope(cmdBuffer, m_DrawPageTableSampler))
                 {
-                    if (m_Feedbacker.readbackDatas.IsCreated)
+                    if (m_FeedbackProcessor.readbackDatas.IsCreated)
                     {
-                        pageProducer.ProcessFeedback(m_Feedbacker.readbackDatas, FVirtualTextureFeedback.bits, virtualTexture.NumMip, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, pageRenderer.loadRequests);
-                        cmdBuffer.SetRenderTarget(virtualTexture.pageTableTexture);
+                        pageProducer.ProcessFeedback(m_FeedbackProcessor.readbackDatas, FVirtualTextureFeedback.bits, virtualTexture.NumMip, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, pageRenderer.loadRequests);
+                        cmdBuffer.SetRenderTarget(virtualTexture.tableTextureID);
                         renderContext.ExecuteCommandBuffer(cmdBuffer);
                         cmdBuffer.Clear();
                         pageRenderer.DrawPageTable(renderContext, cmdBuffer, pageProducer);
@@ -146,12 +146,12 @@ namespace Landscape.RuntimeVirtualTexture
                 }
 
                 //read-back feedback
-                m_Feedbacker.RequestReadback(cmdBuffer, m_FeedbackTexture);
+                m_FeedbackProcessor.RequestReadback(cmdBuffer, m_FeedbackTexture);
             }
 
             using (new ProfilingScope(cmdBuffer, m_DrawPageColorSampler))
             {
-                cmdBuffer.SetRenderTarget(virtualTexture.colorBuffers, virtualTexture.colorBuffers[0]);
+                cmdBuffer.SetRenderTarget(virtualTexture.colorTextureIDs, virtualTexture.colorTextureIDs[0]);
                 renderContext.ExecuteCommandBuffer(cmdBuffer);
                 cmdBuffer.Clear();
 

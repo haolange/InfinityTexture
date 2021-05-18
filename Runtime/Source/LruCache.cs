@@ -24,38 +24,38 @@ namespace Landscape.RuntimeVirtualTexture
             m_Target = target;
         }
 
-        public int m_Length
+        public int Length
         {
             get
             {
-                return m_Target.m_Length;
+                return m_Target.length;
             }
         }
 
-        public FNodeInfo m_HeadNodeInfo
+        public FNodeInfo HeadNode
         {
             get
             {
-                return m_Target.m_HeadNodeInfo;
+                return m_Target.headNodeInfo;
             }
         }
 
-        public FNodeInfo m_TailNodeInfo
+        public FNodeInfo TailNode
         {
             get
             {
-                return m_Target.m_TailNodeInfo;
+                return m_Target.tailNodeInfo;
             }
         }
 
-        public List<FNodeInfo> m_NodeInfoList
+        public List<FNodeInfo> NodeInfos
         {
             get
             {
                 var result = new List<FNodeInfo>();
-                for (int i = 0; i < m_Target.m_Length; ++i)
+                for (int i = 0; i < m_Target.length; ++i)
                 {
-                    result.Add(m_Target.m_NodeInfoList[i]);
+                    result.Add(m_Target.nodeInfoList[i]);
                 }
                 return result;
             }
@@ -66,66 +66,66 @@ namespace Landscape.RuntimeVirtualTexture
 #endif
     internal unsafe struct FLruCache : IDisposable
     {
-        internal int m_Length;
-        internal FNodeInfo m_HeadNodeInfo;
-        internal FNodeInfo m_TailNodeInfo;
+        internal int length;
+        internal FNodeInfo headNodeInfo;
+        internal FNodeInfo tailNodeInfo;
         [NativeDisableUnsafePtrRestriction]
-        internal FNodeInfo* m_NodeInfoList;
-        internal int First { get { return m_HeadNodeInfo.id; } }
+        internal FNodeInfo* nodeInfoList;
+        internal int First { get { return headNodeInfo.id; } }
 
-        public FLruCache(in int count)
+        public FLruCache(in int length)
         {
-            m_Length = count;
-            m_NodeInfoList = (FNodeInfo*)UnsafeUtility.Malloc(Marshal.SizeOf(typeof(FNodeInfo)) * count, 64, Allocator.Persistent);
+            this.length = length;
+            this.nodeInfoList = (FNodeInfo*)UnsafeUtility.Malloc(Marshal.SizeOf(typeof(FNodeInfo)) * length, 64, Allocator.Persistent);
 
-            for (int i = 0; i < count; ++i)
+            for (int i = 0; i < length; ++i)
             {
-                m_NodeInfoList[i] = new FNodeInfo()
+                nodeInfoList[i] = new FNodeInfo()
                 {
                     id = i,
                 };
             }
-            for (int j = 0; j < count; ++j)
+            for (int j = 0; j < length; ++j)
             {
-                m_NodeInfoList[j].prevID = (j != 0) ? m_NodeInfoList[j - 1].id : 0;
-                m_NodeInfoList[j].nextID = (j + 1 < count) ? m_NodeInfoList[j + 1].id : count - 1;
+                nodeInfoList[j].prevID = (j != 0) ? nodeInfoList[j - 1].id : 0;
+                nodeInfoList[j].nextID = (j + 1 < length) ? nodeInfoList[j + 1].id : length - 1;
             }
-            m_HeadNodeInfo = m_NodeInfoList[0];
-            m_TailNodeInfo = m_NodeInfoList[count - 1];
+            this.headNodeInfo = nodeInfoList[0];
+            this.tailNodeInfo = nodeInfoList[length - 1];
         }
 
         public static void BuildLruCache(ref FLruCache lruCache, in int count)
         {
-            lruCache.m_Length = count;
-            lruCache.m_NodeInfoList = (FNodeInfo*)UnsafeUtility.Malloc(Marshal.SizeOf(typeof(FNodeInfo)) * count, 64, Allocator.Persistent);
+            lruCache.length = count;
+            lruCache.nodeInfoList = (FNodeInfo*)UnsafeUtility.Malloc(Marshal.SizeOf(typeof(FNodeInfo)) * count, 64, Allocator.Persistent);
 
             for (int i = 0; i < count; ++i)
             {
-                lruCache.m_NodeInfoList[i] = new FNodeInfo()
+                lruCache.nodeInfoList[i] = new FNodeInfo()
                 {
                     id = i,
                 };
             }
             for (int j = 0; j < count; ++j)
             {
-                lruCache.m_NodeInfoList[j].prevID = (j != 0) ? lruCache.m_NodeInfoList[j - 1].id : 0;
-                lruCache.m_NodeInfoList[j].nextID = (j + 1 < count) ? lruCache.m_NodeInfoList[j + 1].id : count - 1;
+                lruCache.nodeInfoList[j].prevID = (j != 0) ? lruCache.nodeInfoList[j - 1].id : 0;
+                lruCache.nodeInfoList[j].nextID = (j + 1 < count) ? lruCache.nodeInfoList[j + 1].id : count - 1;
             }
-            lruCache.m_HeadNodeInfo = lruCache.m_NodeInfoList[0];
-            lruCache.m_TailNodeInfo = lruCache.m_NodeInfoList[count - 1];
+            lruCache.headNodeInfo = lruCache.nodeInfoList[0];
+            lruCache.tailNodeInfo = lruCache.nodeInfoList[count - 1];
         }
 
         public void Dispose()
         {
-            UnsafeUtility.Free((void*)m_NodeInfoList, Allocator.Persistent);
+            UnsafeUtility.Free((void*)nodeInfoList, Allocator.Persistent);
         }
 
         public bool SetActive(in int id)
         {
-            if (id < 0 || id >= m_Length) { return false; }
+            if (id < 0 || id >= length) { return false; }
 
-            ref FNodeInfo nodeInfo = ref m_NodeInfoList[id];
-            if (nodeInfo.id == m_TailNodeInfo.id) { return true; }
+            ref FNodeInfo nodeInfo = ref nodeInfoList[id];
+            if (nodeInfo.id == tailNodeInfo.id) { return true; }
 
             Remove(ref nodeInfo);
             AddLast(ref nodeInfo);
@@ -134,30 +134,30 @@ namespace Landscape.RuntimeVirtualTexture
 
         private void AddLast(ref FNodeInfo nodeInfo)
         {
-            ref FNodeInfo lastNodeInfo = ref m_NodeInfoList[m_TailNodeInfo.id];
-            m_TailNodeInfo = nodeInfo;
+            ref FNodeInfo lastNodeInfo = ref nodeInfoList[tailNodeInfo.id];
+            tailNodeInfo = nodeInfo;
 
             lastNodeInfo.nextID = nodeInfo.id;
-            m_NodeInfoList[lastNodeInfo.nextID] = nodeInfo;
+            nodeInfoList[lastNodeInfo.nextID] = nodeInfo;
 
             nodeInfo.prevID = lastNodeInfo.id;
-            m_NodeInfoList[nodeInfo.prevID] = lastNodeInfo;
+            nodeInfoList[nodeInfo.prevID] = lastNodeInfo;
         }
 
         private void Remove(ref FNodeInfo nodeInfo)
         {
-            if (m_HeadNodeInfo.id == nodeInfo.id)
+            if (headNodeInfo.id == nodeInfo.id)
             {
-                m_HeadNodeInfo = m_NodeInfoList[nodeInfo.nextID];
+                headNodeInfo = nodeInfoList[nodeInfo.nextID];
             }
             else
             {
-                ref FNodeInfo prevNodeInfo = ref m_NodeInfoList[nodeInfo.prevID];
-                ref FNodeInfo nextNodeInfo = ref m_NodeInfoList[nodeInfo.nextID];
+                ref FNodeInfo prevNodeInfo = ref nodeInfoList[nodeInfo.prevID];
+                ref FNodeInfo nextNodeInfo = ref nodeInfoList[nodeInfo.nextID];
                 prevNodeInfo.nextID = nodeInfo.nextID;
                 nextNodeInfo.prevID = nodeInfo.prevID;
-                m_NodeInfoList[prevNodeInfo.nextID] = nextNodeInfo;
-                m_NodeInfoList[nextNodeInfo.prevID] = prevNodeInfo;
+                nodeInfoList[prevNodeInfo.nextID] = nextNodeInfo;
+                nodeInfoList[nextNodeInfo.prevID] = prevNodeInfo;
             }
         }
     }

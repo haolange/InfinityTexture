@@ -106,8 +106,8 @@ namespace Landscape.RuntimeVirtualTexture
 
             //Draw PageTable
             m_Property.Clear();
-            m_PageTableBuffer.SetData<FPageTableInfo>(pageTableInfos, 0, 0, pageTableInfos.Length);
             m_Property.SetBuffer(FPageShaderID.PageTableBuffer, m_PageTableBuffer);
+            m_PageTableBuffer.SetData<FPageTableInfo>(pageTableInfos, 0, 0, pageTableInfos.Length);
             cmdBuffer.DrawMeshInstancedProcedural(m_DrawPageMesh, 0, m_DrawPageMaterial, 1, pageTableInfos.Length, m_Property);
 
             //Release NativeData
@@ -128,7 +128,7 @@ namespace Landscape.RuntimeVirtualTexture
                 FPageLoadInfo loadRequest = loadRequests[loadRequests.Length - 1];
                 loadRequests.RemoveAt(loadRequests.Length - 1);
 
-                int3 pageUV = new int3(loadRequest.pageX, loadRequest.pageY, loadRequest.mipLevel);
+                int3 pageUV = new int3(loadRequest.x, loadRequest.y, loadRequest.mipLevel);
                 FPageTable pageTable = pageProducer.pageTables[pageUV.z];
                 ref FPage page = ref pageTable.GetPage(pageUV.x, pageUV.y);
 
@@ -151,8 +151,8 @@ namespace Landscape.RuntimeVirtualTexture
 
         private void RenderPage(CommandBuffer cmdBuffer, VirtualTextureAsset virtualTexture, in FRectInt pageRect, in FPageLoadInfo loadRequest, in FDrawPageParameter drawPageParameter)
         {
-            int x = loadRequest.pageX;
-            int y = loadRequest.pageY;
+            int x = loadRequest.x;
+            int y = loadRequest.y;
             int perSize = (int)Mathf.Pow(2, loadRequest.mipLevel);
             x = x - x % perSize;
             y = y - y % perSize;
