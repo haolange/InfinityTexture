@@ -336,31 +336,29 @@ float BoxMask(float2 A, float2 B, float2 Size)
     return 1 - saturate(ceil(length(max(0, abs(A - B) - (Size * 0.5)))));
 }
 
-half4 TextureSampleVirtual(Varyings IN)
+float4 TextureSampleVirtual(Varyings IN)
 {
     //float2 uv = (IN.positionWS.xz + 512) * rcp(4096);
     float2 uv = (IN.positionWS.xz - _VTVolumeRect.xy) / _VTVolumeRect.zw;
     float2 uvInt = uv - frac(uv * _VTPageParams.x) * _VTPageParams.y;
-	float4 page = _PageTableTexture.SampleLevel(Global_point_clamp_sampler, uvInt, 0) * 255;
-    #ifdef _SHOWRVTMIPMAP
-        return float4(clamp(1 - page.b * 0.1 , 0, 1), 0, 0, 1);
-    #endif
-	float2 inPageOffset = frac(uv * exp2(_VTPageParams.z - page.b));
-    uv = (page.rg * (_VTPageTileParams.y + _VTPageTileParams.x * 2) + inPageOffset * _VTPageTileParams.y + _VTPageTileParams.x) / _VTPageTileParams.zw;
-    half3 albedo = _PhyscisAlbedo.SampleLevel(Global_bilinear_clamp_sampler, uv, 0).rgb;
-    half3 normalTS = UnpackNormalScale(_PhyscisNormal.SampleLevel(Global_bilinear_clamp_sampler, uv, 0), 1);
+	float4 pageTable = _PageTableTexture.SampleLevel(Global_point_clamp_sampler, uvInt, 0) * 255;
+
+	float2 pageOffset = frac(uv * exp2(_VTPageParams.z - pageTable.b));
+    uv = (pageTable.rg * (_VTPageTileParams.y + _VTPageTileParams.x * 2) + pageOffset * _VTPageTileParams.y + _VTPageTileParams.x) / _VTPageTileParams.zw;
+    float3 albedo = _PhyscisAlbedo.SampleLevel(Global_bilinear_clamp_sampler, uv, 0).rgb;
+    float3 normalTS = UnpackNormalScale(_PhyscisNormal.SampleLevel(Global_bilinear_clamp_sampler, uv, 0), 1);
 
     InputData inputData;
     InitializeInputData(IN, normalTS, inputData);
-    half4 color = UniversalFragmentPBR(inputData, albedo, 0, /* specular */ 0, 0, 1, /* emission */ 0, 1);
+    float4 color = UniversalFragmentPBR(inputData, albedo, 0, /* specular */ 0, 0, 1, /* emission */ 0, 1);
     SplatmapFinalColor(color, inputData.fogCoord);
-
     float Mask = BoxMask(IN.positionWS.xz, _VTVolumeBound.xz, _VTVolumeBound.w);
 
-    //return page / 255;
+    //return pageTable / 255;
     //return float4(uv, 0, 1) * Mask;
-    //return half4(albedo, 1) * Mask;
-    return half4(color.rgb, 1) * Mask;
+    //return float4(albedo, 1) * Mask;
+    return float4(color.rgb, 1) * Mask;
+    //return float4(clamp(1 - pageTable.b * 0.1 , 0, 1), 0, 0, 1);
 }
 #endif
 
