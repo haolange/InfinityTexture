@@ -1,4 +1,4 @@
-Shader "Landscape/TerrainLit_VT"
+Shader "Landscape/TerrainLit"
 {
     Properties
     {
@@ -7,7 +7,7 @@ Shader "Landscape/TerrainLit_VT"
         // Layer count is passed down to guide height-blend enable/disable, due
         // to the fact that heigh-based blend will be broken with multipass.
         [HideInInspector] [PerRendererData] _NumLayersCount ("Total Layer Count", Float) = 1.0
-    
+
         // set by terrain engine
         [HideInInspector] _Control("Control (RGBA)", 2D) = "red" {}
         [HideInInspector] _Splat3("Layer 3 (A)", 2D) = "grey" {}
@@ -34,42 +34,26 @@ Shader "Landscape/TerrainLit_VT"
         // used in fallback on old cards & base map
         [HideInInspector] _MainTex("BaseMap (RGB)", 2D) = "grey" {}
         [HideInInspector] _BaseColor("Main Color", Color) = (1,1,1,1)
-		
-		[HideInInspector] _TerrainHolesTexture("Holes Map (RGB)", 2D) = "white" {} 
+
+        [HideInInspector] _TerrainHolesTexture("Holes Map (RGB)", 2D) = "white" {}
 
         [ToggleUI] _EnableInstancedPerPixelNormal("Enable Instanced per-pixel normal", Float) = 1.0
     }
 
-	HLSLINCLUDE
-	    #pragma multi_compile __ _ALPHATEST_ON
-	ENDHLSL 
-	
+    HLSLINCLUDE
+
+    #pragma multi_compile_fragment __ _ALPHATEST_ON
+
+    ENDHLSL
+
     SubShader
     {
-        Tags { "Queue" = "Geometry-100" "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" "IgnoreProjector" = "False"}
-
-        Pass
-        {
-            Tags { "LightMode" = "VTFeedback" }
-
-            HLSLPROGRAM
-            //#pragma target 4.5
-            #pragma multi_compile_instancing
-            //#pragma enable_d3d11_debug_symbols
-            #pragma shader_feature_local _TERRAIN_INSTANCED_PERPIXEL_NORMAL
-            #pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
-
-            #include "FeedbackCommon.hlsl"	
-            #pragma vertex FeedbackVert
-            #pragma fragment FeedbackFrag
-            ENDHLSL
-        }
+        Tags { "Queue" = "Geometry-100" "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" "UniversalMaterialType" = "Lit" "IgnoreProjector" = "False" "TerrainCompatible" = "True"}
 
         Pass
         {
             Name "ForwardLit"
             Tags { "LightMode" = "UniversalForward" }
-
             HLSLPROGRAM
             #pragma target 3.0
 
@@ -78,17 +62,33 @@ Shader "Landscape/TerrainLit_VT"
 
             #define _METALLICSPECGLOSSMAP 1
             #define _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A 1
-            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _SHADOWS_SOFT 
-            
+
+            // -------------------------------------
+            // Universal Pipeline keywords
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+            //#pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
+            //#pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT
+            //#pragma multi_compile _ LIGHTMAP_SHADOW_MIXING
+            //#pragma multi_compile _ SHADOWS_SHADOWMASK
+            //#pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
+
+            // -------------------------------------
+            // Unity defined keywords
+            //#pragma multi_compile _ DIRLIGHTMAP_COMBINED
+            //#pragma multi_compile _ LIGHTMAP_ON
+            //#pragma multi_compile_fog
             #pragma multi_compile_instancing
             #pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
 
-			#define _NORMALMAP
-            #pragma shader_feature_local _MASKMAP
+            #pragma shader_feature_local_fragment _TERRAIN_BLEND_HEIGHT
+            #pragma shader_feature_local _NORMALMAP
+            #pragma shader_feature_local_fragment _MASKMAP
+            // Sample normal in pixel shader when doing instancing
             #pragma shader_feature_local _TERRAIN_INSTANCED_PERPIXEL_NORMAL
 
             #include "Packages/com.unity.render-pipelines.universal/Shaders/Terrain/TerrainLitInput.hlsl"
-            #include "TerrainLitInclude.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/Terrain/TerrainLitPasses.hlsl"
             ENDHLSL
         }
 
@@ -98,16 +98,16 @@ Shader "Landscape/TerrainLit_VT"
             Tags{"LightMode" = "ShadowCaster"}
 
             ZWrite On
+            ColorMask 0
 
             HLSLPROGRAM
             #pragma target 2.0
-            //#pragma prefer_hlslcc gles
-            //#pragma exclude_renderers d3d11_9x
 
             #pragma vertex ShadowPassVertex
             #pragma fragment ShadowPassFragment
 
             #pragma multi_compile_instancing
+            #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
             #pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
 
             #include "Packages/com.unity.render-pipelines.universal/Shaders/Terrain/TerrainLitInput.hlsl"
@@ -125,12 +125,32 @@ Shader "Landscape/TerrainLit_VT"
 
             HLSLPROGRAM
             #pragma target 2.0
-            //#pragma prefer_hlslcc gles
-            //#pragma exclude_renderers d3d11_9x
 
             #pragma vertex DepthOnlyVertex
             #pragma fragment DepthOnlyFragment
 
+            #pragma multi_compile_instancing
+            #pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
+
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/Terrain/TerrainLitInput.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/Terrain/TerrainLitPasses.hlsl"
+            ENDHLSL
+        }
+
+        // This pass is used when drawing to a _CameraNormalsTexture texture
+        Pass
+        {
+            Name "DepthNormals"
+            Tags{"LightMode" = "DepthNormals"}
+
+            ZWrite On
+
+            HLSLPROGRAM
+            #pragma target 2.0
+            #pragma vertex DepthNormalOnlyVertex
+            #pragma fragment DepthNormalOnlyFragment
+
+            #pragma shader_feature_local _NORMALMAP
             #pragma multi_compile_instancing
             #pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
 
@@ -146,8 +166,6 @@ Shader "Landscape/TerrainLit_VT"
 
             HLSLPROGRAM
             #pragma target 2.0
-            //#pragma prefer_hlslcc gles
-            //#pragma exclude_renderers d3d11_9x
 
             #pragma vertex DepthOnlyVertex
             #pragma fragment DepthOnlyFragment
@@ -163,7 +181,10 @@ Shader "Landscape/TerrainLit_VT"
 
         //UsePass "Hidden/Nature/Terrain/Utilities/PICKING"
     }
-    
+    Dependency "AddPassShader" = "Landscape/TerrainLit_Add"
+    //Dependency "BaseMapShader" = "Hidden/Universal Render Pipeline/Terrain/Lit (Base Pass)"
+    //Dependency "BaseMapGenShader" = "Hidden/Universal Render Pipeline/Terrain/Lit (Basemap Gen)"
+
     CustomEditor "UnityEditor.Rendering.Universal.TerrainLitShaderGUI"
 
     //Fallback "Hidden/Universal Render Pipeline/FallbackError"
