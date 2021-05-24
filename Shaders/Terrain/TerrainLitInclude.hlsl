@@ -124,7 +124,7 @@ void InitializeInputData(Varyings IN, half3 normalTS, out InputData input)
     input.bakedGI = SAMPLE_GI(IN.uvMainAndLM.zw, SH, input.normalWS);
 }
 
-#ifndef TERRAIN_SPLAT_BASEPASS
+/*#ifndef TERRAIN_SPLAT_BASEPASS
 
 void SplatmapMix(float4 uvMainAndLM, float4 uvSplat01, float4 uvSplat23, inout half4 splatControl, out half weight, out half4 mixedDiffuse, out half4 defaultSmoothness, inout half3 mixedNormal)
 {
@@ -188,9 +188,9 @@ void SplatmapMix(float4 uvMainAndLM, float4 uvSplat01, float4 uvSplat23, inout h
 #endif
 }
 
-#endif
+#endif*/
 
-#ifdef _TERRAIN_BLEND_HEIGHT
+/*#ifdef _TERRAIN_BLEND_HEIGHT
 void HeightBasedSplatModify(inout half4 splatControl, in half4 masks[4])
 {
     // heights are in mask blue channel, we multiply by the splat Control weights to get combined height
@@ -213,9 +213,9 @@ void HeightBasedSplatModify(inout half4 splatControl, in half4 masks[4])
     half sumHeight = max(dot(weightedHeights, half4(1, 1, 1, 1)), 1e-6);
     splatControl = weightedHeights / sumHeight.xxxx;
 }
-#endif
+#endif*/
 
-void SplatmapFinalColor(inout half4 color, half fogCoord)
+/*void SplatmapFinalColor(inout half4 color, half fogCoord)
 {
     color.rgb *= color.a;
     #ifdef TERRAIN_SPLAT_ADDPASS
@@ -223,7 +223,7 @@ void SplatmapFinalColor(inout half4 color, half fogCoord)
     #else
         color.rgb = MixFog(color.rgb, fogCoord);
     #endif
-}
+}*/
 
 void TerrainInstancing(inout float4 positionOS, inout float3 normal, inout float2 uv)
 {
@@ -305,7 +305,7 @@ Varyings SplatmapVert(Attributes v)
     return o;
 }
 
-void ComputeMasks(out half4 masks[4], half4 hasMask, Varyings IN)
+/*void ComputeMasks(out half4 masks[4], half4 hasMask, Varyings IN)
 {
     masks[0] = 0.5h;
     masks[1] = 0.5h;
@@ -327,7 +327,7 @@ void ComputeMasks(out half4 masks[4], half4 hasMask, Varyings IN)
     masks[2] += _MaskMapRemapOffset2.rgba;
     masks[3] *= _MaskMapRemapScale3.rgba;
     masks[3] += _MaskMapRemapOffset3.rgba;
-}
+}*/
 
 float4 _VTVolumeBound;
 
@@ -351,7 +351,7 @@ float4 TextureSampleVirtual(Varyings IN)
     InputData inputData;
     InitializeInputData(IN, normalTS, inputData);
     float4 color = UniversalFragmentPBR(inputData, albedo, 0, /* specular */ 0, 0, 1, /* emission */ 0, 1);
-    SplatmapFinalColor(color, inputData.fogCoord);
+    //SplatmapFinalColor(color, inputData.fogCoord);
     float Mask = BoxMask(IN.positionWS.xz, _VTVolumeBound.xz, _VTVolumeBound.w);
 
     //return pageTable / 255;

@@ -73,7 +73,7 @@ namespace Landscape.RuntimeVirtualTexture
 
         public override void Execute(ScriptableRenderContext renderContext, ref RenderingData renderingData)
         {
-            if (!Application.isPlaying) { return; }
+            if (!Application.isPlaying || VirtualTextureVolume.s_VirtualTextureVolume == null) { return; }
 
             CommandBuffer cmdBuffer = CommandBufferPool.Get();
             Camera camera = renderingData.cameraData.camera;
