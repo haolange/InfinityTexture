@@ -127,7 +127,7 @@ float4 FeedbackFrag(Varyings input) : SV_Target
 
     float mipLevel = clamp(ComputeMip(input.texcoord0 * _VTFeedbackParams.y) + _VTFeedbackParams.w * 0.5 - 0.25, 0, 10);
     //float2 pageUV = floor(input.texcoord0 * _VTFeedbackParams.x) / 256;
-    float2 pageUV = input.texcoord0 * _VTFeedbackParams.x / _VTFeedbackParams.x;
+    float2 pageUV = ceil(input.texcoord0 * _VTFeedbackParams.x) / _VTFeedbackParams.x;
 
     //return float4(pageUV, floor(mipLevel) / 255, 1);
 	return float4(Pack1212To888(pageUV), floor(mipLevel) / 255);
