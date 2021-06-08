@@ -4,17 +4,10 @@ using UnityEngine.Rendering;
 
 namespace Landscape.RuntimeVirtualTexture
 {
-    public enum FeedbackBits
-    {
-        B8,
-        B16
-    }
-
     internal unsafe class FVirtualTextureFeedback
     {
         internal bool isReady;
-        internal const FeedbackBits bits = FeedbackBits.B8;
-        internal NativeArray<byte> readbackDatas;
+        internal NativeArray<Color32> readbackDatas;
 
         public FVirtualTextureFeedback(in bool isReady)
         {
@@ -35,7 +28,7 @@ namespace Landscape.RuntimeVirtualTexture
             if (request.hasError || request.done == true)
             {
                 isReady = true;
-                readbackDatas = request.GetData<byte>();
+                readbackDatas = request.GetData<Color32>();
             }
         }
     }

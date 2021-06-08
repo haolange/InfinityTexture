@@ -24,34 +24,18 @@ namespace Landscape.RuntimeVirtualTexture
             //ActivatePage(0, 0, pageTexture.MaxMipLevel);
         }
 
-        public void ProcessFeedback(in NativeArray<byte> readbackDatas, FeedbackBits bits, in int maxMip, in int tileNum, in int pageSize, FLruCache* lruCache, NativeList<FPageLoadInfo> loadRequests)
+        public void ProcessFeedback(ref NativeArray<Color32> readbackDatas, in int maxMip, in int tileNum, in int pageSize, FLruCache* lruCache, ref NativeList<FPageLoadInfo> loadRequests)
         {
-            if(bits == FeedbackBits.B16)
-            {
-                FProcessFeedbackJob64 processFeedbackJob;
-                processFeedbackJob.maxMip = maxMip - 1;
-                processFeedbackJob.tileNum = tileNum;
-                processFeedbackJob.pageSize = pageSize;
-                processFeedbackJob.lruCache = lruCache;
-                processFeedbackJob.pageTables = pageTables;
-                processFeedbackJob.loadRequests = loadRequests;
-                processFeedbackJob.frameCount = Time.frameCount;
-                processFeedbackJob.readbackDatas = readbackDatas.Reinterpret<half4>(1);
-                processFeedbackJob.Run();
-            }
-            else
-            {
-                FProcessFeedbackJob32 processFeedbackJob;
-                processFeedbackJob.maxMip = maxMip - 1;
-                processFeedbackJob.tileNum = tileNum;
-                processFeedbackJob.pageSize = pageSize;
-                processFeedbackJob.lruCache = lruCache;
-                processFeedbackJob.pageTables = pageTables;
-                processFeedbackJob.loadRequests = loadRequests;
-                processFeedbackJob.frameCount = Time.frameCount;
-                processFeedbackJob.readbackDatas = readbackDatas.Reinterpret<Color32>(1);
-                processFeedbackJob.Run();
-            }
+            FProcessFeedbackJob processFeedbackJob;
+            processFeedbackJob.maxMip = maxMip - 1;
+            processFeedbackJob.tileNum = tileNum;
+            processFeedbackJob.pageSize = pageSize;
+            processFeedbackJob.lruCache = lruCache;
+            processFeedbackJob.pageTables = pageTables;
+            processFeedbackJob.loadRequests = loadRequests;
+            processFeedbackJob.frameCount = Time.frameCount;
+            processFeedbackJob.readbackDatas = readbackDatas;
+            processFeedbackJob.Run();
         }
 
         public void Reset()
