@@ -8,7 +8,7 @@ namespace Landscape.RuntimeVirtualTexture
     internal unsafe class FVirtualTextureFeedback
     {
         internal bool isReady;
-        internal NativeArray<half4> readbackDatas;
+        internal NativeArray<Color32> readbackDatas;
 
         public FVirtualTextureFeedback(in bool isReady)
         {
@@ -29,7 +29,7 @@ namespace Landscape.RuntimeVirtualTexture
             if (request.hasError || request.done == true)
             {
                 isReady = true;
-                readbackDatas = request.GetData<half4>();
+                readbackDatas = request.GetData<Color32>();
             }
         }
     }

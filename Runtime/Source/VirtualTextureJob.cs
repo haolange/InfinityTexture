@@ -49,7 +49,7 @@ namespace Landscape.RuntimeVirtualTexture
         internal FLruCache* lruCache;
 
         [ReadOnly]
-        internal NativeArray<half4> readbackDatas;
+        internal NativeArray<Color32> readbackDatas;
 
         [ReadOnly]
         internal NativeArray<FPageTable> pageTables;
@@ -61,8 +61,8 @@ namespace Landscape.RuntimeVirtualTexture
             int3 prevValue = -1;
             for (int i = 0; i < readbackDatas.Length; ++i)
             {
-                float4 readbackData = readbackDatas[i];
-                int x = (int)(readbackData.x), y = (int)(readbackData.y), mip = (int)(readbackData.z);
+                Color32 readbackData = readbackDatas[i];
+                int x = (int)(readbackData.r), y = (int)(readbackData.g), mip = (int)(readbackData.b);
 
                 int3 value = new int3(x, y, mip);
                 if (value.Equals(prevValue)) //skip same page

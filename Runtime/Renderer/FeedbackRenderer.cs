@@ -58,7 +58,7 @@ namespace Landscape.RuntimeVirtualTexture
         {
             Camera camera = renderingData.cameraData.camera;
             int2 size = new int2(math.min(1920, camera.pixelWidth), math.min(1080, camera.pixelHeight));
-            m_FeedbackTexture = RenderTexture.GetTemporary(size.x / (int)m_feedbackScale, size.y / (int)m_feedbackScale, 1, GraphicsFormat.R16G16B16A16_SFloat, 1);
+            m_FeedbackTexture = RenderTexture.GetTemporary(size.x / (int)m_feedbackScale, size.y / (int)m_feedbackScale, 1, GraphicsFormat.R8G8B8A8_UNorm, 1);
             m_FeedbackTexture.name = "FeedbackTexture";
             m_FeedbackTextureID = new RenderTargetIdentifier(m_FeedbackTexture);
             //ConfigureTarget(m_FeedbackTextureID);

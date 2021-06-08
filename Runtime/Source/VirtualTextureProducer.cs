@@ -11,20 +11,18 @@ namespace Landscape.RuntimeVirtualTexture
         public NativeArray<FPageTable> pageTables;
         public NativeHashMap<int2, int3> activePageMap;
 
-        public FPageProducer(in int pageSize, in int maxMipLevel)
+        public FPageProducer(in int numTile, in int pageSize, in int maxMipLevel)
         {
             pageTables = new NativeArray<FPageTable>(maxMipLevel, Allocator.Persistent);
-            activePageMap = new NativeHashMap<int2, int3>(256, Allocator.Persistent);
+            activePageMap = new NativeHashMap<int2, int3>(numTile * numTile, Allocator.Persistent);
 
             for (int i = 0; i < maxMipLevel; ++i)
             {
                 pageTables[i] = new FPageTable(i, pageSize);
             }
-
-            //ActivatePage(0, 0, pageTexture.MaxMipLevel);
         }
 
-        public void ProcessFeedback(ref NativeArray<half4> readbackDatas, in int maxMip, in int tileNum, in int pageSize, FLruCache* lruCache, ref NativeList<FPageLoadInfo> loadRequests)
+        public void ProcessFeedback(ref NativeArray<Color32> readbackDatas, in int maxMip, in int tileNum, in int pageSize, FLruCache* lruCache, ref NativeList<FPageLoadInfo> loadRequests)
         {
             FProcessFeedbackJob processFeedbackJob;
             processFeedbackJob.maxMip = maxMip - 1;

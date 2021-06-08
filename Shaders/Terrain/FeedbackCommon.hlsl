@@ -87,7 +87,7 @@ Varyings FeedbackVert(Attributes input)
     return output;
 }
 
-float MipLevel(float2 UV)
+float ComputeMip(float2 UV)
 {
     float2 DX = ddx(UV);
     float2 DY = ddy(UV);
@@ -119,24 +119,16 @@ float3 Pack1212To888(float2 x)
     #endif
 }
 
-half4 FeedbackFrag(Varyings input) : SV_Target
+float4 FeedbackFrag(Varyings input) : SV_Target
 {
     #ifdef _ALPHATEST_ON
         ClipHoles(input.texcoord1);
     #endif
 
-    float ComputedLevel = MipLevel(input.texcoord0 * _VTFeedbackParams.y) + _VTFeedbackParams.w;
-    ComputedLevel = clamp(floor(ComputedLevel), 0, 8);
+    float mipLevel = clamp(ComputeMip(input.texcoord0 * _VTFeedbackParams.y) + _VTFeedbackParams.w, 0, 8);
 
-    return half4(floor(input.texcoord0 * _VTFeedbackParams.x), ComputedLevel, 1);
-	//return float4(Pack1212To888(floor(input.texcoord0 * _VTFeedbackParams.x)) / 255, ComputedLevel / 255);
-    
-    /*float ComputedLevel = floor(MipLevel(input.texcoord0 * 4224));//4224
-    ComputedLevel = clamp(ComputedLevel, 0, 8);
-    return float4(floor(input.texcoord0 * 256) / 255, ComputedLevel / 255, 1) * BoxMask(input.texcoord0, 0.5, 1);*/
-    //return float4(floor(input.texcoord0 * 1024) / (255 * 1), ComputedLevel / 255, 1) * BoxMask(input.texcoord0, 0.5, 1);
-
-    //return float4(input.texcoord1, 0, 1);
+    return float4(floor(input.texcoord0 * _VTFeedbackParams.x) / 255, floor(mipLevel) / 255, 1);
+	//return float4(Pack1212To888(floor(input.texcoord0 * _VTFeedbackParams.x)) / 255, floor(mipLevel) / 255);
 }
 
 #endif
