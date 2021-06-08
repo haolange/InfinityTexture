@@ -355,7 +355,7 @@ float4 TextureSampleVirtual(Varyings IN)
     float Mask = BoxMask(IN.positionWS.xz, _VTVolumeBound.xz, _VTVolumeBound.w);
 
     //return pageTable / 255;
-    //return float4(uv, 0, 1) * Mask;
+    //return float4(uvInt, 0, 1) * Mask;
     //return float4(albedo, 1) * Mask;
     return float4(color.rgb, 1) * Mask;
     //return float4(clamp(1 - pageTable.b * 0.1 , 0, 1), 0, 0, 1);

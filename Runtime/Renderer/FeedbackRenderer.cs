@@ -100,10 +100,20 @@ namespace Landscape.RuntimeVirtualTexture
                 {
                     if (m_FeedbackProcessor.readbackDatas.IsCreated)
                     {
-                        pageProducer.ProcessFeedback(ref m_FeedbackProcessor.readbackDatas, virtualTexture.NumMip, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, ref pageRenderer.loadRequests);
+                        NativeArray<int4> decodeDatas = new NativeArray<int4>(m_FeedbackProcessor.readbackDatas.Length, Allocator.TempJob);
+
+                        FDecodeFeedbackJob decodeFeedbackJob;
+                        decodeFeedbackJob.pageSize = virtualTexture.pageSize;
+                        decodeFeedbackJob.decodeDatas = decodeDatas;
+                        decodeFeedbackJob.encodeDatas = m_FeedbackProcessor.readbackDatas;
+                        decodeFeedbackJob.Schedule(m_FeedbackProcessor.readbackDatas.Length, 256).Complete();
+
+                        pageProducer.ProcessFeedback(ref decodeDatas, virtualTexture.NumMip, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, ref pageRenderer.loadRequests);
+                        decodeDatas.Dispose();
 
                         cmdBuffer.SetRenderTarget(virtualTexture.tableTextureID);
                         pageRenderer.DrawPageTable(renderContext, cmdBuffer, pageProducer);
+                        
                     }
                 }
 

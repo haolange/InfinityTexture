@@ -125,10 +125,12 @@ float4 FeedbackFrag(Varyings input) : SV_Target
         ClipHoles(input.texcoord1);
     #endif
 
-    float mipLevel = clamp(ComputeMip(input.texcoord0 * _VTFeedbackParams.y) + _VTFeedbackParams.w, 0, 8);
+    float mipLevel = clamp(ComputeMip(input.texcoord0 * _VTFeedbackParams.y) + _VTFeedbackParams.w * 0.5 - 0.25, 0, 10);
+    //float2 pageUV = floor(input.texcoord0 * _VTFeedbackParams.x) / 256;
+    float2 pageUV = input.texcoord0 * _VTFeedbackParams.x / _VTFeedbackParams.x;
 
-    return float4(floor(input.texcoord0 * _VTFeedbackParams.x) / 255, floor(mipLevel) / 255, 1);
-	//return float4(Pack1212To888(floor(input.texcoord0 * _VTFeedbackParams.x)) / 255, floor(mipLevel) / 255);
+    //return float4(pageUV, floor(mipLevel) / 255, 1);
+	return float4(Pack1212To888(pageUV), floor(mipLevel) / 255);
 }
 
 #endif

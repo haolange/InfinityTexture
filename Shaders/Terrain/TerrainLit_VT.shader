@@ -53,9 +53,9 @@ Shader "Landscape/TerrainLit_VT"
             Tags { "LightMode" = "VTFeedback" }
 
             HLSLPROGRAM
-            //#pragma target 4.5
+            #pragma target 3.0
             #pragma multi_compile_instancing
-            //#pragma enable_d3d11_debug_symbols
+            #pragma enable_d3d11_debug_symbols
             #pragma shader_feature_local _TERRAIN_INSTANCED_PERPIXEL_NORMAL
             #pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
 
@@ -100,7 +100,7 @@ Shader "Landscape/TerrainLit_VT"
             ZWrite On
 
             HLSLPROGRAM
-            #pragma target 2.0
+            #pragma target 3.0
             //#pragma prefer_hlslcc gles
             //#pragma exclude_renderers d3d11_9x
 
@@ -124,7 +124,7 @@ Shader "Landscape/TerrainLit_VT"
             ColorMask 0
 
             HLSLPROGRAM
-            #pragma target 2.0
+            #pragma target 3.0
             //#pragma prefer_hlslcc gles
             //#pragma exclude_renderers d3d11_9x
 
