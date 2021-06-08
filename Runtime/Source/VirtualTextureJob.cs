@@ -35,7 +35,7 @@ namespace Landscape.RuntimeVirtualTexture
     }
 
     [BurstCompile]
-    internal unsafe struct FProcessFeedbackJob : IJob
+    internal unsafe struct FAnalysisFeedbackJob : IJob
     {
         internal int maxMip;
 

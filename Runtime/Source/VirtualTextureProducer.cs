@@ -24,16 +24,16 @@ namespace Landscape.RuntimeVirtualTexture
 
         public void ProcessFeedback(ref NativeArray<int4> readbackDatas, in int maxMip, in int tileNum, in int pageSize, FLruCache* lruCache, ref NativeList<FPageLoadInfo> loadRequests)
         {
-            FProcessFeedbackJob processFeedbackJob;
-            processFeedbackJob.maxMip = maxMip - 1;
-            processFeedbackJob.tileNum = tileNum;
-            processFeedbackJob.pageSize = pageSize;
-            processFeedbackJob.lruCache = lruCache;
-            processFeedbackJob.pageTables = pageTables;
-            processFeedbackJob.loadRequests = loadRequests;
-            processFeedbackJob.frameCount = Time.frameCount;
-            processFeedbackJob.readbackDatas = readbackDatas;
-            processFeedbackJob.Run();
+            FAnalysisFeedbackJob analysisFeedbackJob;
+            analysisFeedbackJob.maxMip = maxMip - 1;
+            analysisFeedbackJob.tileNum = tileNum;
+            analysisFeedbackJob.pageSize = pageSize;
+            analysisFeedbackJob.lruCache = lruCache;
+            analysisFeedbackJob.pageTables = pageTables;
+            analysisFeedbackJob.loadRequests = loadRequests;
+            analysisFeedbackJob.frameCount = Time.frameCount;
+            analysisFeedbackJob.readbackDatas = readbackDatas;
+            analysisFeedbackJob.Run();
         }
 
         public void Reset()
