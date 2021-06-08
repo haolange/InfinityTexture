@@ -96,9 +96,6 @@ namespace Landscape.RuntimeVirtualTexture
 
         public unsafe void DrawVirtualTexture(ScriptableRenderContext renderContext, CommandBuffer cmdBuffer, Camera camera, ref RenderingData renderingData)
         {
-            ref CameraData cameraData = ref renderingData.cameraData;
-            Rect pixelRect = renderingData.cameraData.camera.pixelRect;
-            float cameraAspect = (float) pixelRect.width / (float) pixelRect.height;
             FPageProducer pageProducer = VirtualTextureVolume.s_VirtualTextureVolume.pageProducer;
             FPageRenderer pageRenderer = VirtualTextureVolume.s_VirtualTextureVolume.pageRenderer;
             VirtualTextureAsset virtualTexture = VirtualTextureVolume.s_VirtualTextureVolume.virtualTexture;
@@ -110,9 +107,8 @@ namespace Landscape.RuntimeVirtualTexture
                     if (m_FeedbackProcessor.readbackDatas.IsCreated)
                     {
                         pageProducer.ProcessFeedback(m_FeedbackProcessor.readbackDatas, FVirtualTextureFeedback.bits, virtualTexture.NumMip, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, pageRenderer.loadRequests);
+                        
                         cmdBuffer.SetRenderTarget(virtualTexture.tableTextureID);
-                        renderContext.ExecuteCommandBuffer(cmdBuffer);
-                        cmdBuffer.Clear();
                         pageRenderer.DrawPageTable(renderContext, cmdBuffer, pageProducer);
                     }
                 }
@@ -122,8 +118,6 @@ namespace Landscape.RuntimeVirtualTexture
                     DrawingSettings drawSetting = new DrawingSettings(m_ShaderPassID, new SortingSettings(camera) { criteria = SortingCriteria.QuantizedFrontToBack })
                     {
                         enableInstancing = true,
-                        //overrideMaterial = m_FeedbackMaterial,
-                        //overrideMaterialPassIndex = 0
                     };
                     cmdBuffer.SetRenderTarget(m_FeedbackTextureID);
                     cmdBuffer.ClearRenderTarget(true, true, Color.black);
@@ -133,14 +127,17 @@ namespace Landscape.RuntimeVirtualTexture
                     // w: mipBias
                     cmdBuffer.SetGlobalVector("_VTFeedbackParams", new Vector4(virtualTexture.pageSize, virtualTexture.pageSize * virtualTexture.tileSize * (1.0f / (float)m_feedbackScale), virtualTexture.NumMip, 0.1f));
                     
+                    float cameraAspect = (float) camera.pixelRect.width / (float) camera.pixelRect.height;
                     Matrix4x4 projectionMatrix = Matrix4x4.Perspective(80, cameraAspect, camera.nearClipPlane, camera.farClipPlane);
-                    projectionMatrix = GL.GetGPUProjectionMatrix(projectionMatrix, cameraData.IsCameraProjectionMatrixFlipped());
-                    RenderingUtils.SetViewAndProjectionMatrices(cmdBuffer, cameraData.GetViewMatrix(), projectionMatrix, false);
+                    projectionMatrix = GL.GetGPUProjectionMatrix(projectionMatrix, true);
+                    RenderingUtils.SetViewAndProjectionMatrices(cmdBuffer, camera.worldToCameraMatrix, projectionMatrix, false);
                     renderContext.ExecuteCommandBuffer(cmdBuffer);
                     cmdBuffer.Clear();
 
                     renderContext.DrawRenderers(renderingData.cullResults, ref drawSetting, ref m_FilterSetting);
-                    RenderingUtils.SetViewAndProjectionMatrices(cmdBuffer, cameraData.GetViewMatrix(), cameraData.GetGPUProjectionMatrix(), false);
+
+                    projectionMatrix = GL.GetGPUProjectionMatrix(camera.projectionMatrix, true);
+                    RenderingUtils.SetViewAndProjectionMatrices(cmdBuffer, camera.worldToCameraMatrix, projectionMatrix, false);
                     renderContext.ExecuteCommandBuffer(cmdBuffer);
                     cmdBuffer.Clear();
                 }
