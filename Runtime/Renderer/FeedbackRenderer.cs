@@ -1,5 +1,7 @@
-﻿using UnityEngine;
+﻿using Unity.Jobs;
+using UnityEngine;
 using Unity.Mathematics;
+using Unity.Collections;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.Experimental.Rendering;
@@ -55,16 +57,8 @@ namespace Landscape.RuntimeVirtualTexture
         public override void OnCameraSetup(CommandBuffer cmdBuffer, ref RenderingData renderingData)
         {
             Camera camera = renderingData.cameraData.camera;
-            GraphicsFormat format = GraphicsFormat.R8G8B8A8_UNorm;
-            /*switch (FVirtualTextureFeedback.bits)
-            {
-                case FeedbackBits.B16:
-                    format = GraphicsFormat.R16G16B16A16_SFloat;
-                    break;
-            }*/
-
-            int2 feedSize = new int2(math.min(1920, camera.pixelWidth), math.min(1080, camera.pixelHeight));
-            m_FeedbackTexture = RenderTexture.GetTemporary(feedSize.x / (int)m_feedbackScale, feedSize.y / (int)m_feedbackScale, 1, format, 1);
+            int2 size = new int2(math.min(1920, camera.pixelWidth), math.min(1080, camera.pixelHeight));
+            m_FeedbackTexture = RenderTexture.GetTemporary(size.x / (int)m_feedbackScale, size.y / (int)m_feedbackScale, 1, GraphicsFormat.R16G16B16A16_SFloat, 1);
             m_FeedbackTexture.name = "FeedbackTexture";
             m_FeedbackTextureID = new RenderTargetIdentifier(m_FeedbackTexture);
             //ConfigureTarget(m_FeedbackTextureID);
@@ -107,7 +101,7 @@ namespace Landscape.RuntimeVirtualTexture
                     if (m_FeedbackProcessor.readbackDatas.IsCreated)
                     {
                         pageProducer.ProcessFeedback(ref m_FeedbackProcessor.readbackDatas, virtualTexture.NumMip, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, ref pageRenderer.loadRequests);
-                        
+
                         cmdBuffer.SetRenderTarget(virtualTexture.tableTextureID);
                         pageRenderer.DrawPageTable(renderContext, cmdBuffer, pageProducer);
                     }

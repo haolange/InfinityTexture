@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using Unity.Mathematics;
 using Unity.Collections;
 using UnityEngine.Rendering;
 
@@ -7,7 +8,7 @@ namespace Landscape.RuntimeVirtualTexture
     internal unsafe class FVirtualTextureFeedback
     {
         internal bool isReady;
-        internal NativeArray<Color32> readbackDatas;
+        internal NativeArray<half4> readbackDatas;
 
         public FVirtualTextureFeedback(in bool isReady)
         {
@@ -28,7 +29,7 @@ namespace Landscape.RuntimeVirtualTexture
             if (request.hasError || request.done == true)
             {
                 isReady = true;
-                readbackDatas = request.GetData<Color32>();
+                readbackDatas = request.GetData<half4>();
             }
         }
     }

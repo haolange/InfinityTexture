@@ -24,7 +24,7 @@ namespace Landscape.RuntimeVirtualTexture
             //ActivatePage(0, 0, pageTexture.MaxMipLevel);
         }
 
-        public void ProcessFeedback(ref NativeArray<Color32> readbackDatas, in int maxMip, in int tileNum, in int pageSize, FLruCache* lruCache, ref NativeList<FPageLoadInfo> loadRequests)
+        public void ProcessFeedback(ref NativeArray<half4> readbackDatas, in int maxMip, in int tileNum, in int pageSize, FLruCache* lruCache, ref NativeList<FPageLoadInfo> loadRequests)
         {
             FProcessFeedbackJob processFeedbackJob;
             processFeedbackJob.maxMip = maxMip - 1;

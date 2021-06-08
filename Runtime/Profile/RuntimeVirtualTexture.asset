@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: RuntimeVirtualTexture
   m_EditorClassIdentifier: 
   tileNum: 16
-  tileSize: 256
+  tileSize: 512
   tileBorder: 4
   pageSize: 1024
   m_Shader: {fileID: 7200000, guid: e34776c72005e1e488fbdc217f4556c5, type: 3}
