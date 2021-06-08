@@ -10,6 +10,7 @@ namespace Landscape.RuntimeVirtualTexture
         X512 = 512,
         X1024 = 1024,
         X2048 = 2048,
+        X4096 = 4096,
     }
 
     public unsafe class VirtualTextureVolume : MonoBehaviour

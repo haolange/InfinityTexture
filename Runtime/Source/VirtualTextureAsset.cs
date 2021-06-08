@@ -21,12 +21,12 @@ namespace Landscape.RuntimeVirtualTexture
     [CreateAssetMenu(menuName = "Landscape/VirtualTextureAsset")]
     public unsafe class VirtualTextureAsset : ScriptableObject, IDisposable
     {
-        [Range(8, 16)]
+        [Range(8, 32)]
         public int tileNum = 16;
         [Range(64, 512)]
         public int tileSize = 256;
-        public EBorder tileBorder = EBorder.X2;
-        [Range(256, 1024)]
+        public EBorder tileBorder = EBorder.X4;
+        [Range(128, 4096)]
         public int pageSize = 256;
 
         public int NumMip { get { return (int)math.log2(pageSize) + 1; } }
