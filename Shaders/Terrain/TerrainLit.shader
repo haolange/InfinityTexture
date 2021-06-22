@@ -182,8 +182,8 @@ Shader "Landscape/TerrainLit"
         //UsePass "Hidden/Nature/Terrain/Utilities/PICKING"
     }
     Dependency "AddPassShader" = "Landscape/TerrainLit_Add"
-    //Dependency "BaseMapShader" = "Hidden/Universal Render Pipeline/Terrain/Lit (Base Pass)"
-    //Dependency "BaseMapGenShader" = "Hidden/Universal Render Pipeline/Terrain/Lit (Basemap Gen)"
+    Dependency "BaseMapShader" = "Hidden/Universal Render Pipeline/Terrain/Lit (Base Pass)"
+    Dependency "BaseMapGenShader" = "Hidden/Universal Render Pipeline/Terrain/Lit (Basemap Gen)"
 
     CustomEditor "UnityEditor.Rendering.Universal.TerrainLitShaderGUI"
 

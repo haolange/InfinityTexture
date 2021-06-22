@@ -75,14 +75,14 @@
 			struct Attributes
 			{
 				uint InstanceId : SV_InstanceID;
-				float2 uv0           : TEXCOORD0;
-				float4 positionOS   : POSITION;
+				float2 texCoord0           : TEXCOORD0;
+				float4 vertexOS   : POSITION;
 			};
 
 			struct Varyings
 			{
-				float4 uv0           : TEXCOORD0;
-				float4 positionHCS	   : SV_POSITION;
+				float4 texCoord0           : TEXCOORD0;
+				float4 vertexCS	   : SV_POSITION;
 			};
 
 			struct FPageTableInfo
@@ -98,17 +98,17 @@
 				Varyings output;
 				FPageTableInfo PageTableInfo = _PageTableBuffer[input.InstanceId];
 
-				float2 pos = saturate(mul(PageTableInfo.matrix_M, input.positionOS).xy);
+				float2 pos = saturate(mul(PageTableInfo.matrix_M, input.vertexOS).xy);
 				pos.y = 1 - pos.y;
 
-				output.uv0 = PageTableInfo.pageData;
-				output.positionHCS = float4(pos * 2 - 1, 0.5, 1);
+				output.texCoord0 = PageTableInfo.pageData;
+				output.vertexCS = float4(pos * 2 - 1, 0.5, 1);
 				return output;
 			}
 
 			float4 frag(Varyings input) : SV_Target
 			{
-				return input.uv0;
+				return input.texCoord0;
 			}
 			ENDHLSL
 		}
