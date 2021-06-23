@@ -31,6 +31,8 @@ struct Varyings
     float2 texcoord1 : TEXCOORD1;
 };
 
+int _VTMipCount;
+
 float4 _VTVolumeRect;
 
 // xy: page count
@@ -125,7 +127,7 @@ float4 FeedbackFrag(Varyings input) : SV_Target
         ClipHoles(input.texcoord1);
     #endif
 
-    float mipLevel = clamp(ComputeMip(input.texcoord0 * _VTFeedbackParams.y) + _VTFeedbackParams.w * 0.5 - 0.25, 0, 10);
+    float mipLevel = clamp(ComputeMip(input.texcoord0 * _VTFeedbackParams.y) + _VTFeedbackParams.w * 0.5 - 0.25, 0, _VTMipCount);
     //float2 pageUV = floor(input.texcoord0 * _VTFeedbackParams.x) / 256;
     float2 pageUV = ceil(input.texcoord0 * _VTFeedbackParams.x) / _VTFeedbackParams.x;
 

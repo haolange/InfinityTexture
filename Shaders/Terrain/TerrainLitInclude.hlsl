@@ -346,18 +346,18 @@ float4 TextureSampleVirtual(Varyings IN)
 	float2 pageOffset = frac(uvInt * exp2(_VTPageParams.z - pageTable.b));
     uvInt = (pageTable.rg * (_VTPageTileParams.y + _VTPageTileParams.x * 2) + pageOffset * _VTPageTileParams.y + _VTPageTileParams.x) / _VTPageTileParams.zw;
     float3 albedo = _PhyscisAlbedo.SampleLevel(Global_bilinear_clamp_sampler, uvInt, 0).rgb;
-    float3 normalTS = UnpackNormalScale(_PhyscisNormal.SampleLevel(Global_bilinear_clamp_sampler, uvInt, 0), 1);
+    float3 normal = _PhyscisNormal.SampleLevel(Global_bilinear_clamp_sampler, uvInt, 0).xyz;
 
     InputData inputData;
-    InitializeInputData(IN, normalTS, inputData);
+    InitializeInputData(IN, normal, inputData);
     float4 color = UniversalFragmentPBR(inputData, albedo, 0, /* specular */ 0, 0, 1, /* emission */ 0, 1);
     //SplatmapFinalColor(color, inputData.fogCoord);
     float Mask = BoxMask(IN.positionWS.xz, _VTVolumeBound.xz, _VTVolumeBound.w);
 
     //return pageTable / 255;
-    //return float4(uvInt, 0, 1) * Mask;
     //return float4(albedo, 1) * Mask;
     return float4(color.rgb, 1) * Mask;
+    //return float4(uvInt, 0, 1) * Mask;
     //return float4(clamp(1 - pageTable.b * 0.1 , 0, 1), 0, 0, 1);
 }
 #endif

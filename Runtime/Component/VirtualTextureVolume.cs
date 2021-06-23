@@ -59,6 +59,7 @@ namespace Landscape.RuntimeVirtualTexture
 
             int2 fixedCenter = GetFixedCenter(GetFixedPos(transform.position));
             volumeRect = new FRect(fixedCenter.x - m_VolumeRadius, fixedCenter.y - m_VolumeRadius, VolumeSize, VolumeSize);
+            Shader.SetGlobalInt("_VTMipCount", virtualTexture.NumMip);
             Shader.SetGlobalVector("_VTVolumeRect", new Vector4(volumeRect.xMin, volumeRect.yMin, volumeRect.width, volumeRect.height));
             Shader.SetGlobalVector("_VTVolumeBound", new Vector4(transform.position.x, transform.position.y, transform.position.z, VolumeSize));
 

@@ -18,6 +18,13 @@ namespace Landscape.RuntimeVirtualTexture
         X4 = 4
     }
 
+    public enum ECompressMode
+    {
+        None = 0,
+        Bit8 = 1,
+        Bit16 = 2
+    }
+
     [CreateAssetMenu(menuName = "Landscape/VirtualTextureAsset")]
     public unsafe class VirtualTextureAsset : ScriptableObject, IDisposable
     {
@@ -28,6 +35,7 @@ namespace Landscape.RuntimeVirtualTexture
         public EBorder tileBorder = EBorder.X4;
         [Range(128, 4096)]
         public int pageSize = 256;
+        public ECompressMode compressMode = ECompressMode.Bit16;
 
         public int NumMip { get { return (int)math.log2(pageSize) + 1; } }
         public int TileSizePadding { get { return tileSize + (int)tileBorder * 2; } }
@@ -45,17 +53,23 @@ namespace Landscape.RuntimeVirtualTexture
         private RenderTexture m_physicsTextureB;
         private RenderTexture m_pageTableTexture;
 
-        public VirtualTextureAsset()
-        {
-
-        }
-
         public void Initialize()
         {
             lruCache = (FLruCache*)UnsafeUtility.Malloc(Marshal.SizeOf(typeof(FLruCache)) * 1, 64, Allocator.Persistent);
             FLruCache.BuildLruCache(ref lruCache[0], tileNum * tileNum);
 
-            RenderTextureDescriptor textureDesctiptor = new RenderTextureDescriptor { width = TextureSize, height = TextureSize, volumeDepth = 1, dimension = TextureDimension.Tex2D, colorFormat = RenderTextureFormat.RGB565, depthBufferBits = 0, mipCount = -1, useMipMap = false, autoGenerateMips = false, bindMS = false, msaaSamples = 1 };
+            GraphicsFormat format = GraphicsFormat.R8G8B8A8_UNorm;
+            switch (compressMode)
+            {
+                case ECompressMode.Bit8:
+                    format = GraphicsFormat.B5G6R5_UNormPack16;
+                    break;
+                case ECompressMode.Bit16:
+                    format = GraphicsFormat.B5G6R5_UNormPack16;
+                    break;
+            }
+            
+            RenderTextureDescriptor textureDesctiptor = new RenderTextureDescriptor { width = TextureSize, height = TextureSize, volumeDepth = 1, dimension = TextureDimension.Tex2D, graphicsFormat = format, depthBufferBits = 0, mipCount = -1, useMipMap = false, autoGenerateMips = false, bindMS = false, msaaSamples = 1 };
 
             //physics texture
             m_physicsTextureA = new RenderTexture(textureDesctiptor);
