@@ -29,6 +29,7 @@ namespace Landscape.RuntimeVirtualTexture
 
     internal class FeedbackRenderPass : ScriptableRenderPass
     {
+        int2 m_maxFeedSize;
         LayerMask m_LayerMask;
         ShaderTagId m_ShaderPassID;
         EFeedbackScale m_feedbackScale;
@@ -41,9 +42,10 @@ namespace Landscape.RuntimeVirtualTexture
         RenderTargetIdentifier m_FeedbackTextureID;
         FVirtualTextureFeedback m_FeedbackProcessor;
 
-        public FeedbackRenderPass(in LayerMask layerMask, in EFeedbackScale feedbackScale)
+        public FeedbackRenderPass(in LayerMask layerMask, int2 maxFeedSize, in EFeedbackScale feedbackScale)
         {
             m_LayerMask = layerMask;
+            m_maxFeedSize = maxFeedSize;
             m_feedbackScale = feedbackScale;
             m_ShaderPassID = new ShaderTagId("VTFeedback");
             m_FilterSetting = new FilteringSettings(RenderQueueRange.opaque, m_LayerMask);
@@ -57,7 +59,7 @@ namespace Landscape.RuntimeVirtualTexture
         public override void OnCameraSetup(CommandBuffer cmdBuffer, ref RenderingData renderingData)
         {
             Camera camera = renderingData.cameraData.camera;
-            int2 size = new int2(math.min(1920, camera.pixelWidth), math.min(1080, camera.pixelHeight));
+            int2 size = new int2(math.min(m_maxFeedSize.x, camera.pixelWidth), math.min(m_maxFeedSize.y, camera.pixelHeight));
             m_FeedbackTexture = RenderTexture.GetTemporary(size.x / (int)m_feedbackScale, size.y / (int)m_feedbackScale, 1, GraphicsFormat.R8G8B8A8_UNorm, 1);
             m_FeedbackTexture.name = "FeedbackTexture";
             m_FeedbackTextureID = new RenderTargetIdentifier(m_FeedbackTexture);
@@ -165,13 +167,14 @@ namespace Landscape.RuntimeVirtualTexture
     public class FeedbackRenderer : ScriptableRendererFeature
     {
         public LayerMask layerMask;
+        public int2 maxFeedSize;
         public EFeedbackScale feedbackScale;
 
         FeedbackRenderPass m_FeedbackRenderPass;
 
         public override void Create()
         {
-            m_FeedbackRenderPass = new FeedbackRenderPass(layerMask, feedbackScale);
+            m_FeedbackRenderPass = new FeedbackRenderPass(layerMask, maxFeedSize, feedbackScale);
             m_FeedbackRenderPass.renderPassEvent = RenderPassEvent.BeforeRenderingPrePasses;
         }
 
