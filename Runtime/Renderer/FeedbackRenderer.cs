@@ -132,7 +132,7 @@ namespace Landscape.RuntimeVirtualTexture
                     cmdBuffer.SetGlobalVector("_VTFeedbackParams", new Vector4(virtualTexture.pageSize, virtualTexture.pageSize * virtualTexture.tileSize * (1.0f / (float)m_feedbackScale), virtualTexture.NumMip, 0.1f));
                     
                     float cameraAspect = (float) camera.pixelRect.width / (float) camera.pixelRect.height;
-                    Matrix4x4 projectionMatrix = Matrix4x4.Perspective(80, cameraAspect, camera.nearClipPlane, camera.farClipPlane);
+                    Matrix4x4 projectionMatrix = Matrix4x4.Perspective(90, cameraAspect, camera.nearClipPlane, camera.farClipPlane);
                     projectionMatrix = GL.GetGPUProjectionMatrix(projectionMatrix, true);
                     RenderingUtils.SetViewAndProjectionMatrices(cmdBuffer, camera.worldToCameraMatrix, projectionMatrix, false);
                     renderContext.ExecuteCommandBuffer(cmdBuffer);
