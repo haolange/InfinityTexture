@@ -29,10 +29,10 @@ namespace Landscape.RuntimeVirtualTexture
 
     internal class FeedbackRenderPass : ScriptableRenderPass
     {
-        int2 m_maxFeedSize;
+        int2 m_FeedbackSize;
         LayerMask m_LayerMask;
         ShaderTagId m_ShaderPassID;
-        EFeedbackScale m_feedbackScale;
+        EFeedbackScale m_FeedbackScale;
         FilteringSettings m_FilterSetting;
         ProfilingSampler m_DrawFeedbackSampler;
         ProfilingSampler m_DrawPageTableSampler;
@@ -42,11 +42,11 @@ namespace Landscape.RuntimeVirtualTexture
         RenderTargetIdentifier m_FeedbackTextureID;
         FVirtualTextureFeedback m_FeedbackProcessor;
 
-        public FeedbackRenderPass(in LayerMask layerMask, int2 maxFeedSize, in EFeedbackScale feedbackScale)
+        public FeedbackRenderPass(in LayerMask layerMask, int2 feedbackSize, in EFeedbackScale feedbackScale)
         {
             m_LayerMask = layerMask;
-            m_maxFeedSize = maxFeedSize;
-            m_feedbackScale = feedbackScale;
+            m_FeedbackSize = feedbackSize;
+            m_FeedbackScale = feedbackScale;
             m_ShaderPassID = new ShaderTagId("VTFeedback");
             m_FilterSetting = new FilteringSettings(RenderQueueRange.opaque, m_LayerMask);
             m_DrawFeedbackSampler = ProfilingSampler.Get(EVirtualTexturePass.DrawFeedback);
@@ -59,8 +59,8 @@ namespace Landscape.RuntimeVirtualTexture
         public override void OnCameraSetup(CommandBuffer cmdBuffer, ref RenderingData renderingData)
         {
             Camera camera = renderingData.cameraData.camera;
-            int2 size = new int2(math.min(m_maxFeedSize.x, camera.pixelWidth), math.min(m_maxFeedSize.y, camera.pixelHeight));
-            m_FeedbackTexture = RenderTexture.GetTemporary(size.x / (int)m_feedbackScale, size.y / (int)m_feedbackScale, 1, GraphicsFormat.R8G8B8A8_UNorm, 1);
+            int2 size = new int2(math.min(m_FeedbackSize.x, camera.pixelWidth), math.min(m_FeedbackSize.y, camera.pixelHeight));
+            m_FeedbackTexture = RenderTexture.GetTemporary(size.x / (int)m_FeedbackScale, size.y / (int)m_FeedbackScale, 1, GraphicsFormat.R8G8B8A8_UNorm, 1);
             m_FeedbackTexture.name = "FeedbackTexture";
             m_FeedbackTextureID = new RenderTargetIdentifier(m_FeedbackTexture);
             //ConfigureTarget(m_FeedbackTextureID);
@@ -131,7 +131,7 @@ namespace Landscape.RuntimeVirtualTexture
                     // y: 虚拟贴图大小(单位: 像素)
                     // z: 最大mipmap等级
                     // w: mipBias
-                    cmdBuffer.SetGlobalVector("_VTFeedbackParams", new Vector4(virtualTexture.pageSize, virtualTexture.pageSize * virtualTexture.tileSize * (1.0f / (float)m_feedbackScale), virtualTexture.NumMip, 0.1f));
+                    cmdBuffer.SetGlobalVector("_VTFeedbackParams", new Vector4(virtualTexture.pageSize, virtualTexture.pageSize * virtualTexture.tileSize * (1.0f / (float)m_FeedbackScale), virtualTexture.NumMip, 0.1f));
                     
                     float cameraAspect = (float) camera.pixelRect.width / (float) camera.pixelRect.height;
                     Matrix4x4 projectionMatrix = Matrix4x4.Perspective(90, cameraAspect, camera.nearClipPlane, camera.farClipPlane);
@@ -166,15 +166,18 @@ namespace Landscape.RuntimeVirtualTexture
 
     public class FeedbackRenderer : ScriptableRendererFeature
     {
+        [Header("Filter")]
         public LayerMask layerMask;
-        public int2 maxFeedSize;
+
+        [Header("Feedback")]
+        public int2 feedbackSize;
         public EFeedbackScale feedbackScale;
 
         FeedbackRenderPass m_FeedbackRenderPass;
 
         public override void Create()
         {
-            m_FeedbackRenderPass = new FeedbackRenderPass(layerMask, maxFeedSize, feedbackScale);
+            m_FeedbackRenderPass = new FeedbackRenderPass(layerMask, feedbackSize, feedbackScale);
             m_FeedbackRenderPass.renderPassEvent = RenderPassEvent.BeforeRenderingPrePasses;
         }
 
