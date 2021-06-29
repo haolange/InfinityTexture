@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: RuntimeVirtualTexture
   m_EditorClassIdentifier: 
   tileNum: 16
-  tileSize: 256
+  tileSize: 200
   tileBorder: 4
   pageSize: 2048
   compressMode: 2
