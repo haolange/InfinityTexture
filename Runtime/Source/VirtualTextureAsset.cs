@@ -73,20 +73,23 @@ namespace Landscape.RuntimeVirtualTexture
 
             //physics texture
             m_physicsTextureA = new RenderTexture(textureDesctiptor);
+            m_physicsTextureA.bindTextureMS = false;
             m_physicsTextureA.name = "PhysicsTextureA";
-            m_physicsTextureA.filterMode = FilterMode.Bilinear;
             m_physicsTextureA.wrapMode = TextureWrapMode.Clamp;
+            m_physicsTextureA.filterMode = FilterMode.Bilinear;
 
             m_physicsTextureB = new RenderTexture(textureDesctiptor);
+            m_physicsTextureB.bindTextureMS = false;
             m_physicsTextureB.name = "PhysicsTextureB";
-            m_physicsTextureB.filterMode = FilterMode.Bilinear;
             m_physicsTextureB.wrapMode = TextureWrapMode.Clamp;
+            m_physicsTextureB.filterMode = FilterMode.Bilinear;
 
             colorTextureIDs = new RenderTargetIdentifier[2];
             colorTextureIDs[0] = new RenderTargetIdentifier(m_physicsTextureA);
             colorTextureIDs[1] = new RenderTargetIdentifier(m_physicsTextureB);
 
             m_pageTableTexture = new RenderTexture(pageSize, pageSize, 0, GraphicsFormat.R8G8B8A8_UNorm);
+            m_pageTableTexture.bindTextureMS = false;
             m_pageTableTexture.name = "PageTableTexture";
             m_pageTableTexture.filterMode = FilterMode.Point;
             m_pageTableTexture.wrapMode = TextureWrapMode.Clamp;

@@ -137,28 +137,6 @@ Shader "Landscape/TerrainLit"
             ENDHLSL
         }
 
-        // This pass is used when drawing to a _CameraNormalsTexture texture
-        Pass
-        {
-            Name "DepthNormals"
-            Tags{"LightMode" = "DepthNormals"}
-
-            ZWrite On
-
-            HLSLPROGRAM
-            #pragma target 2.0
-            #pragma vertex DepthNormalOnlyVertex
-            #pragma fragment DepthNormalOnlyFragment
-
-            #pragma shader_feature_local _NORMALMAP
-            #pragma multi_compile_instancing
-            #pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
-
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/Terrain/TerrainLitInput.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/Terrain/TerrainLitPasses.hlsl"
-            ENDHLSL
-        }
-
         Pass
         {
             Name "SceneSelectionPass"

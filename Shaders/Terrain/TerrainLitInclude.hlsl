@@ -7,11 +7,11 @@
     #define ENABLE_TERRAIN_PERPIXEL_NORMAL
 #endif
 
-#ifdef UNITY_INSTANCING_ENABLED
+/*#ifdef UNITY_INSTANCING_ENABLED
     TEXTURE2D(_TerrainHeightmapTexture);
     TEXTURE2D(_TerrainNormalmapTexture);
     SAMPLER(sampler_TerrainNormalmapTexture);
-#endif
+#endif*/
 
 
 float4 _VTVolumeRect;
@@ -28,11 +28,11 @@ SAMPLER(sampler_PhyscisNormal);
 SAMPLER(Global_point_clamp_sampler);
 SAMPLER(Global_bilinear_clamp_sampler);
 
-UNITY_INSTANCING_BUFFER_START(Terrain)
+/*UNITY_INSTANCING_BUFFER_START(Terrain)
     UNITY_DEFINE_INSTANCED_PROP(float4, _TerrainPatchInstanceData)  // float4(xBase, yBase, skipScale, ~)
-UNITY_INSTANCING_BUFFER_END(Terrain)
+UNITY_INSTANCING_BUFFER_END(Terrain)*/
 
-#ifdef _ALPHATEST_ON
+/*#ifdef _ALPHATEST_ON
 TEXTURE2D(_TerrainHolesTexture);
 SAMPLER(sampler_TerrainHolesTexture);
 
@@ -41,7 +41,7 @@ void ClipHoles(float2 uv)
 	float hole = SAMPLE_TEXTURE2D(_TerrainHolesTexture, sampler_TerrainHolesTexture, uv).r;
 	clip(hole == 0.0f ? -1 : 1);
 }
-#endif
+#endif*/
 
 struct Attributes
 {
@@ -225,7 +225,7 @@ void HeightBasedSplatModify(inout half4 splatControl, in half4 masks[4])
     #endif
 }*/
 
-void TerrainInstancing(inout float4 positionOS, inout float3 normal, inout float2 uv)
+/*void TerrainInstancing(inout float4 positionOS, inout float3 normal, inout float2 uv)
 {
 #ifdef UNITY_INSTANCING_ENABLED
     float2 patchVertex = positionOS.xy;
@@ -244,13 +244,13 @@ void TerrainInstancing(inout float4 positionOS, inout float3 normal, inout float
     #endif
     uv = sampleCoords * _TerrainHeightmapRecipSize.zw;
 #endif
-}
+}*/
 
-void TerrainInstancing(inout float4 positionOS, inout float3 normal)
+/*void TerrainInstancing(inout float4 positionOS, inout float3 normal)
 {
     float2 uv = { 0, 0 };
     TerrainInstancing(positionOS, normal, uv);
-}
+}*/
 
 ///////////////////////////////////////////////////////////////////////////////
 //                  Vertex and Fragment functions                            //
