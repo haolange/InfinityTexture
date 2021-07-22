@@ -16,6 +16,9 @@ MonoBehaviour:
   layerMask:
     serializedVersion: 2
     m_Bits: 8
+  feedbackSize:
+    x: 1280
+    y: 720
   feedbackScale: 16
 --- !u!114 &11400000
 MonoBehaviour:
