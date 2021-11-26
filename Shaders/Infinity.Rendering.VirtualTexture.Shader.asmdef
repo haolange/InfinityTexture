@@ -1,12 +1,11 @@
 {
-    "name": "Infinity.VirtualTexture.Editor",
+    "name": "Infinity.Rendering.VirtualTexture.Shader",
     "rootNamespace": "",
     "references": [
-        "Infinity.VirtualTexture.Runtime"
+        "GUID:46a67ded66a63de48b9329c593fc08de",
+        "GUID:c5fe2eb9d5ef64b4f892cb2e1428b4cc"
     ],
-    "includePlatforms": [
-        "Editor"
-    ],
+    "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": true,
     "overrideReferences": false,

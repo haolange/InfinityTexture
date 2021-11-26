@@ -21,7 +21,7 @@ float4 _VTPageTileParams;
 
 TEXTURE2D(_PhyscisAlbedo);
 TEXTURE2D(_PhyscisNormal);
-TEXTURE2D(_PageTableTexture);
+Texture2D<float4> _PageTableTexture;
 
 SAMPLER(sampler_PhyscisAlbedo);
 SAMPLER(sampler_PhyscisNormal);
