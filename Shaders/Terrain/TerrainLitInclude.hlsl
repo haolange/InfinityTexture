@@ -25,6 +25,7 @@ Texture2D<float4> _PageTableTexture;
 
 SAMPLER(sampler_PhyscisAlbedo);
 SAMPLER(sampler_PhyscisNormal);
+SAMPLER(sampler_PageTableTexture);
 SAMPLER(Global_point_clamp_sampler);
 SAMPLER(Global_bilinear_clamp_sampler);
 
@@ -341,12 +342,12 @@ float4 TextureSampleVirtual(Varyings IN)
     //float2 uv = (IN.positionWS.xz + 512) * rcp(4096);
     float2 uv = (IN.positionWS.xz - _VTVolumeRect.xy) / _VTVolumeRect.zw;
     float2 uvInt = uv - frac(uv * _VTPageParams.x) * _VTPageParams.y;
-	float4 pageTable = _PageTableTexture.SampleLevel(Global_point_clamp_sampler, uvInt, 0) * 255;
+	float4 pageTable = _PageTableTexture.SampleLevel(sampler_PageTableTexture, uvInt, 0) * 255.0f;
 
 	float2 pageOffset = frac(uvInt * exp2(_VTPageParams.z - pageTable.b));
     uvInt = (pageTable.rg * (_VTPageTileParams.y + _VTPageTileParams.x * 2) + pageOffset * _VTPageTileParams.y + _VTPageTileParams.x) / _VTPageTileParams.zw;
-    float3 albedo = _PhyscisAlbedo.SampleLevel(Global_bilinear_clamp_sampler, uvInt, 0).rgb;
-    float3 normal = _PhyscisNormal.SampleLevel(Global_bilinear_clamp_sampler, uvInt, 0).xyz;
+    float3 albedo = _PhyscisAlbedo.SampleLevel(sampler_PhyscisAlbedo, uvInt, 0).rgb;
+    float3 normal = _PhyscisNormal.SampleLevel(sampler_PhyscisNormal, uvInt, 0).xyz;
 
     InputData inputData;
     InitializeInputData(IN, normal, inputData);
