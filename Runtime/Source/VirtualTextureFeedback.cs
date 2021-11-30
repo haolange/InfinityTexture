@@ -1,5 +1,4 @@
 ﻿using UnityEngine;
-using Unity.Mathematics;
 using Unity.Collections;
 using UnityEngine.Rendering;
 
@@ -10,9 +9,9 @@ namespace Landscape.RuntimeVirtualTexture
         internal bool isReady;
         internal NativeArray<Color32> readbackDatas;
 
-        public FVirtualTextureFeedback(in bool isReady)
+        public FVirtualTextureFeedback(in bool bReady)
         {
-            this.isReady = isReady;
+            isReady = bReady;
         }
 
         internal void RequestReadback(CommandBuffer cmdBuffer, RenderTexture feedbackTexture)
