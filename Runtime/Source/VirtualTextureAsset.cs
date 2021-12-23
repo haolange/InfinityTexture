@@ -76,13 +76,17 @@ namespace Landscape.RuntimeVirtualTexture
             m_physicsTextureA.bindTextureMS = false;
             m_physicsTextureA.name = "PhysicsTextureA";
             m_physicsTextureA.wrapMode = TextureWrapMode.Clamp;
-            m_physicsTextureA.filterMode = FilterMode.Bilinear;
+            m_physicsTextureA.filterMode = FilterMode.Trilinear;
+            m_physicsTextureA.anisoLevel = 16;
+            m_physicsTextureA.Create();
 
             m_physicsTextureB = new RenderTexture(textureDesctiptor);
             m_physicsTextureB.bindTextureMS = false;
             m_physicsTextureB.name = "PhysicsTextureB";
             m_physicsTextureB.wrapMode = TextureWrapMode.Clamp;
-            m_physicsTextureB.filterMode = FilterMode.Bilinear;
+            m_physicsTextureB.filterMode = FilterMode.Trilinear;
+            m_physicsTextureB.anisoLevel = 16;
+            m_physicsTextureB.Create();
 
             colorTextureIDs = new RenderTargetIdentifier[2];
             colorTextureIDs[0] = new RenderTargetIdentifier(m_physicsTextureA);
@@ -115,9 +119,9 @@ namespace Landscape.RuntimeVirtualTexture
             m_physicsTextureA.Release();
             m_physicsTextureB.Release();
             m_pageTableTexture.Release();
-            Object.DestroyImmediate(m_physicsTextureA);
-            Object.DestroyImmediate(m_physicsTextureB);
-            Object.DestroyImmediate(m_pageTableTexture);
+            Object.Destroy(m_physicsTextureA);
+            Object.Destroy(m_physicsTextureB);
+            Object.Destroy(m_pageTableTexture);
         }
     }
 }

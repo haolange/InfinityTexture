@@ -91,10 +91,7 @@ void StochasticPrepareStochasticUVs(float2 uv, out float2 uv1, out float2 uv2, o
    uv2.xy += StochasticSimpleHash2(vertex2);
    uv3.xy += StochasticSimpleHash2(vertex3);
    weights = half3(w1, w2, w3);
-   
 }
-
-
 
 half4 StochasticSample2DWeightsR(Texture2D Tex, SamplerState TexSampler, float2 uv, out half3 cw, out float2 uv1, out float2 uv2, out float2 uv3, out float2 dx, out float2 dy, float scale, float contrast)
 {
@@ -147,12 +144,8 @@ half4 StochasticSample2DWeightsB(Texture2D Tex, SamplerState TexSampler, float2 
    float4 G2 = Tex.SampleGrad(TexSampler, uv2, dx, dy);
    float4 G3 = Tex.SampleGrad(TexSampler, uv3, dx, dy);
    
-   
    cw.xyz = StochasticBaryWeightBlend(w, G1.b, G2.b, G3.b, contrast);
-
-   
    return G1 * cw.x + G2 * cw.y + G3 * cw.z;
-
 }
 
 half4 StochasticSample2DWeightsA(Texture2D Tex, SamplerState TexSampler, float2 uv, out half3 cw, out float2 uv1, out float2 uv2, out float2 uv3, out float2 dx, out float2 dy, float scale, float contrast)
@@ -167,12 +160,9 @@ half4 StochasticSample2DWeightsA(Texture2D Tex, SamplerState TexSampler, float2 
    float4 G2 = Tex.SampleGrad(TexSampler, uv2, dx, dy);
    float4 G3 = Tex.SampleGrad(TexSampler, uv3, dx, dy);
    
-   
    cw.xyz = StochasticBaryWeightBlend(w, G1.a, G2.a, G3.a, contrast);
-
    
    return G1 * cw.x + G2 * cw.y + G3 * cw.z;
-
 }
 
 half4 StochasticSample2DWeightsLum(Texture2D Tex, SamplerState TexSampler, float2 uv, out half3 cw, out float2 uv1, out float2 uv2, out float2 uv3, out float2 dx, out float2 dy, float scale, float contrast)
