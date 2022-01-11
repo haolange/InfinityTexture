@@ -79,7 +79,7 @@ namespace Landscape.RuntimeVirtualTexture
             m_terrainList = GameObject.FindObjectsOfType<Terrain>();
             if (m_terrainList.Length == 0) { return; }
 
-            for (int i = 0; i < m_terrainList.Length; i++)
+            for (int i = 0; i < m_terrainList.Length; ++i)
             {
                 m_terrainList[i].materialTemplate = m_material;
             }
