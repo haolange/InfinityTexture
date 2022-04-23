@@ -6,8 +6,8 @@
   "unityRelease": "0a8",
   "displayName": "Infinity Texture",
   "dependencies": {
-    "com.unity.burst": "1.5.4",
-    "com.unity.mathematics": "1.2.1"
+    "com.unity.burst": "1.6.5",
+    "com.unity.mathematics": "1.2.6"
   },
   "type": "library"
 }
