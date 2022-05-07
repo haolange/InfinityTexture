@@ -95,62 +95,59 @@ namespace Landscape.RuntimeVirtualTexture
             FPageProducer pageProducer = VirtualTextureVolume.s_VirtualTextureVolume.pageProducer;
             FPageRenderer pageRenderer = VirtualTextureVolume.s_VirtualTextureVolume.pageRenderer;
             VirtualTextureAsset virtualTexture = VirtualTextureVolume.s_VirtualTextureVolume.virtualTexture;
-
-            if (m_FeedbackProcessor.isReady)
+            
+            using (new ProfilingScope(cmdBuffer, m_DrawPageTableSampler))
             {
-                using (new ProfilingScope(cmdBuffer, m_DrawPageTableSampler))
+                if (m_FeedbackProcessor.isReady)
                 {
-                    if (m_FeedbackProcessor.readbackDatas.IsCreated)
-                    {
-                        NativeArray<int4> decodeDatas = new NativeArray<int4>(m_FeedbackProcessor.readbackDatas.Length, Allocator.TempJob);
+                    NativeArray<int4> decodeDatas = new NativeArray<int4>(m_FeedbackProcessor.readbackDatas.Length, Allocator.TempJob);
 
-                        FDecodeFeedbackJob decodeFeedbackJob;
-                        decodeFeedbackJob.pageSize = virtualTexture.pageSize;
-                        decodeFeedbackJob.decodeDatas = decodeDatas;
-                        decodeFeedbackJob.encodeDatas = m_FeedbackProcessor.readbackDatas;
-                        decodeFeedbackJob.Schedule(m_FeedbackProcessor.readbackDatas.Length, 256).Complete();
+                    FDecodeFeedbackJob decodeFeedbackJob;
+                    decodeFeedbackJob.pageSize = virtualTexture.pageSize;
+                    decodeFeedbackJob.decodeDatas = decodeDatas;
+                    decodeFeedbackJob.encodeDatas = m_FeedbackProcessor.readbackDatas;
+                    decodeFeedbackJob.Schedule(m_FeedbackProcessor.readbackDatas.Length, 256).Complete();
 
-                        pageProducer.ProcessFeedback(ref decodeDatas, virtualTexture.NumMip, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, ref pageRenderer.loadRequests);
-                        decodeDatas.Dispose();
+                    pageProducer.ProcessFeedback(ref decodeDatas, virtualTexture.NumMip, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, ref pageRenderer.loadRequests);
+                    decodeDatas.Dispose();
 
-                        cmdBuffer.SetRenderTarget(virtualTexture.tableTextureID);
-                        pageRenderer.DrawPageTable(renderContext, cmdBuffer, pageProducer);
-                        
-                    }
-                }
-
-                using (new ProfilingScope(cmdBuffer, m_DrawFeedbackSampler))
-                {
-                    DrawingSettings drawSetting = new DrawingSettings(m_ShaderPassID, new SortingSettings(camera) { criteria = SortingCriteria.QuantizedFrontToBack })
-                    {
-                        enableInstancing = true,
-                    };
-                    cmdBuffer.SetRenderTarget(m_FeedbackTextureID);
-                    cmdBuffer.ClearRenderTarget(true, true, Color.black);
-                    // x: 页表大小(单位: 页)
-                    // y: 虚拟贴图大小(单位: 像素)
-                    // z: 最大mipmap等级
-                    // w: mipBias
-                    cmdBuffer.SetGlobalVector("_VTFeedbackParams", new Vector4(virtualTexture.pageSize, virtualTexture.pageSize * virtualTexture.tileSize * (1.0f / (float)m_FeedbackScale), virtualTexture.NumMip, 0.1f));
+                    cmdBuffer.SetRenderTarget(virtualTexture.tableTextureID);
+                    pageRenderer.DrawPageTable(renderContext, cmdBuffer, pageProducer);
                     
-                    float cameraAspect = (float) camera.pixelRect.width / (float) camera.pixelRect.height;
-                    Matrix4x4 projectionMatrix = Matrix4x4.Perspective(90, cameraAspect, camera.nearClipPlane, camera.farClipPlane);
-                    projectionMatrix = GL.GetGPUProjectionMatrix(projectionMatrix, true);
-                    RenderingUtils.SetViewAndProjectionMatrices(cmdBuffer, camera.worldToCameraMatrix, projectionMatrix, false);
-                    renderContext.ExecuteCommandBuffer(cmdBuffer);
-                    cmdBuffer.Clear();
-
-                    renderContext.DrawRenderers(renderingData.cullResults, ref drawSetting, ref m_FilterSetting);
-
-                    projectionMatrix = GL.GetGPUProjectionMatrix(camera.projectionMatrix, true);
-                    RenderingUtils.SetViewAndProjectionMatrices(cmdBuffer, camera.worldToCameraMatrix, projectionMatrix, false);
-                    renderContext.ExecuteCommandBuffer(cmdBuffer);
-                    cmdBuffer.Clear();
                 }
-
-                //read-back feedback
-                m_FeedbackProcessor.RequestReadback(cmdBuffer, m_FeedbackTexture);
             }
+
+            using (new ProfilingScope(cmdBuffer, m_DrawFeedbackSampler))
+            {
+                DrawingSettings drawSetting = new DrawingSettings(m_ShaderPassID, new SortingSettings(camera) { criteria = SortingCriteria.QuantizedFrontToBack })
+                {
+                    enableInstancing = true,
+                };
+                cmdBuffer.SetRenderTarget(m_FeedbackTextureID);
+                cmdBuffer.ClearRenderTarget(true, true, Color.black);
+                // x: 页表大小(单位: 页)
+                // y: 虚拟贴图大小(单位: 像素)
+                // z: 最大mipmap等级
+                // w: mipBias
+                cmdBuffer.SetGlobalVector("_VTFeedbackParams", new Vector4(virtualTexture.pageSize, virtualTexture.pageSize * virtualTexture.tileSize * (1.0f / (float)m_FeedbackScale), virtualTexture.NumMip, 0.1f));
+                
+                float cameraAspect = (float) camera.pixelRect.width / (float) camera.pixelRect.height;
+                Matrix4x4 projectionMatrix = Matrix4x4.Perspective(90, cameraAspect, camera.nearClipPlane, camera.farClipPlane);
+                projectionMatrix = GL.GetGPUProjectionMatrix(projectionMatrix, true);
+                RenderingUtils.SetViewAndProjectionMatrices(cmdBuffer, camera.worldToCameraMatrix, projectionMatrix, false);
+                renderContext.ExecuteCommandBuffer(cmdBuffer);
+                cmdBuffer.Clear();
+
+                renderContext.DrawRenderers(renderingData.cullResults, ref drawSetting, ref m_FilterSetting);
+
+                projectionMatrix = GL.GetGPUProjectionMatrix(camera.projectionMatrix, true);
+                RenderingUtils.SetViewAndProjectionMatrices(cmdBuffer, camera.worldToCameraMatrix, projectionMatrix, false);
+                renderContext.ExecuteCommandBuffer(cmdBuffer);
+                cmdBuffer.Clear();
+            }
+
+            //read-back feedback
+            m_FeedbackProcessor.RequestReadback(cmdBuffer, m_FeedbackTexture);
 
             using (new ProfilingScope(cmdBuffer, m_DrawPageColorSampler))
             {

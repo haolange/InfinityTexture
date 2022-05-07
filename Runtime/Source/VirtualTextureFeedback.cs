@@ -16,11 +16,8 @@ namespace Landscape.RuntimeVirtualTexture
 
         internal void RequestReadback(CommandBuffer cmdBuffer, RenderTexture feedbackTexture)
         {
-            if (isReady == true)
-            {
-                isReady = false;
-                cmdBuffer.RequestAsyncReadback(feedbackTexture, 0, feedbackTexture.graphicsFormat, EnqueueCopy);
-            }
+            isReady = false;
+            cmdBuffer.RequestAsyncReadback(feedbackTexture, 0, feedbackTexture.graphicsFormat, EnqueueCopy);
         }
 
         private void EnqueueCopy(AsyncGPUReadbackRequest request)
