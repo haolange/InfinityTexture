@@ -63,7 +63,7 @@ namespace Landscape.RuntimeVirtualTexture
             Shader.SetGlobalVector("_VTVolumeRect", new Vector4(volumeRect.xMin, volumeRect.yMin, volumeRect.width, volumeRect.height));
             Shader.SetGlobalVector("_VTVolumeBound", new Vector4(transform.position.x, transform.position.y, transform.position.z, VolumeSize));
 
-            pageRenderer = new FPageRenderer(virtualTexture.pageSize, virtualTexture.NumMip);
+            pageRenderer = new FPageRenderer(virtualTexture.pageSize, 6);
             pageProducer = new FPageProducer(virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.NumMip);
         }
 

@@ -106,7 +106,7 @@ namespace Landscape.RuntimeVirtualTexture
         internal NativeList<FPageDrawInfo> drawInfos;
 
         [ReadOnly]
-        internal NativeHashMap<int2, int3>.Enumerator pageEnumerator;
+        internal NativeParallelHashMap<int2, int3>.Enumerator pageEnumerator;
 
         public void Execute()
         {
