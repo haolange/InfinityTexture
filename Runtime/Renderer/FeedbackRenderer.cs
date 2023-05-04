@@ -130,7 +130,7 @@ namespace Landscape.RuntimeVirtualTexture
                 // z: 最大mipmap等级
                 // w: mipBias
                 cmdBuffer.SetGlobalVector("_VTFeedbackParams", new Vector4(virtualTexture.pageSize, virtualTexture.pageSize * virtualTexture.tileSize * (1.0f / (float)m_FeedbackScale), virtualTexture.NumMip, 0.1f));
-                
+
                 float cameraAspect = (float) camera.pixelRect.width / (float) camera.pixelRect.height;
                 Matrix4x4 projectionMatrix = Matrix4x4.Perspective(90, cameraAspect, camera.nearClipPlane, camera.farClipPlane);
                 projectionMatrix = GL.GetGPUProjectionMatrix(projectionMatrix, true);

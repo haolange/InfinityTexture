@@ -76,7 +76,7 @@ namespace Landscape.RuntimeVirtualTexture
 
         void SetTerrainMaterial()
         {
-            m_terrainList = GameObject.FindObjectsOfType<Terrain>();
+            m_terrainList = FindObjectsByType<Terrain>(FindObjectsSortMode.InstanceID);
             if (m_terrainList.Length == 0) { return; }
 
             for (int i = 0; i < m_terrainList.Length; ++i)
