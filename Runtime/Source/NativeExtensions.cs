@@ -16,7 +16,7 @@ namespace Landscape.RuntimeVirtualTexture
             return (int)color.r + ((int)color.g << 8) + ((int)color.b << 16) + ((int)color.a << 24);
         }
 
-        [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(int) })]
         internal struct DefaultComparer<T> : IEqualityComparer<T> where T : IEquatable<T>
         {
             public bool Equals(T x, T y) => x.Equals(y);
@@ -27,7 +27,7 @@ namespace Landscape.RuntimeVirtualTexture
             }
         }
 
-        [BurstCompatible(GenericTypeArguments = new[] { typeof(int), typeof(DefaultComparer<int>) })]
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(int), typeof(DefaultComparer<int>) })]
         public static unsafe int Unique<T, U>(T* array, int size, U comp) where T : unmanaged where U : IEqualityComparer<T>
         {
             int length = 0, current = 1;
@@ -60,13 +60,13 @@ namespace Landscape.RuntimeVirtualTexture
         }
     }
 
-    [BurstCompatible]
+    [GenerateTestsForBurstCompatibility]
     struct ColorComparer : IComparer<Color32>
     {
         public int Compare(Color32 x, Color32 y) => x.ToInt().CompareTo(y.ToInt());
     }
 
-    [BurstCompatible]
+    [GenerateTestsForBurstCompatibility]
     struct ColorEqualComparer : IEqualityComparer<Color32>
     {
         public bool Equals(Color32 x, Color32 y) => x.ToInt() == y.ToInt();

@@ -74,7 +74,7 @@ namespace Landscape.RuntimeVirtualTexture
             this.m_DrawPageMaterial.enableInstancing = true;
         }
 
-        public void DrawPageTable(ScriptableRenderContext renderContext, CommandBuffer cmdBuffer, FPageProducer pageProducer)
+        public void DrawPageTable(CommandBuffer cmdBuffer, FPageProducer pageProducer)
         {
             m_Property.Clear();
             m_DrawInfos.Clear();
@@ -114,7 +114,7 @@ namespace Landscape.RuntimeVirtualTexture
             pageTableInfos.Dispose();
         }
 
-        public void DrawPageColor(ScriptableRenderContext renderContext, CommandBuffer cmdBuffer, FPageProducer pageProducer, VirtualTextureAsset virtualTexture, ref FLruCache lruCache, in FDrawPageParameter drawPageParameter)
+        public void DrawPageColor(CommandBuffer cmdBuffer, FPageProducer pageProducer, VirtualTextureAsset virtualTexture, ref FLruCache lruCache, in FDrawPageParameter drawPageParameter)
         {
             if (loadRequests.Length <= 0) { return; }
             FPageRequestInfoSortJob pageRequestInfoSortJob;

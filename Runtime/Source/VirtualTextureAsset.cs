@@ -47,6 +47,8 @@ namespace Landscape.RuntimeVirtualTexture
         internal FLruCache* lruCache;
         internal RenderTargetIdentifier tableTextureID;
         internal RenderTargetIdentifier[] colorTextureIDs;
+        internal RTHandle tableTextureHandle;
+        internal RTHandle[] colorTextureHandles;
         internal int TextureSize { get { return tileNum * TileSizePadding; } }
 
         private RenderTexture m_physicsTextureA;
@@ -91,6 +93,7 @@ namespace Landscape.RuntimeVirtualTexture
             colorTextureIDs = new RenderTargetIdentifier[2];
             colorTextureIDs[0] = new RenderTargetIdentifier(m_physicsTextureA);
             colorTextureIDs[1] = new RenderTargetIdentifier(m_physicsTextureB);
+            colorTextureHandles = new[] { RTHandles.Alloc(m_physicsTextureA), RTHandles.Alloc(m_physicsTextureB) };
 
             m_pageTableTexture = new RenderTexture(pageSize, pageSize, 0, GraphicsFormat.R8G8B8A8_UNorm);
             m_pageTableTexture.bindTextureMS = false;
@@ -99,6 +102,7 @@ namespace Landscape.RuntimeVirtualTexture
             m_pageTableTexture.wrapMode = TextureWrapMode.Clamp;
 
             tableTextureID = new RenderTargetIdentifier(m_pageTableTexture);
+            tableTextureHandle = RTHandles.Alloc(m_pageTableTexture);
 
             // 设置Shader参数
             // x: padding 偏移量
@@ -115,6 +119,10 @@ namespace Landscape.RuntimeVirtualTexture
         {
             lruCache[0].Dispose();
             UnsafeUtility.Free((void*)lruCache, Allocator.Persistent);
+
+            tableTextureHandle.Release();
+            colorTextureHandles[0].Release();
+            colorTextureHandles[1].Release();
 
             m_physicsTextureA.Release();
             m_physicsTextureB.Release();

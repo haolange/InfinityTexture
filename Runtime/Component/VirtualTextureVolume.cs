@@ -52,6 +52,7 @@ namespace Landscape.RuntimeVirtualTexture
 
         void OnEnable()
         {
+            Shader.SetGlobalInt("_VTReady", 0);
             SetTerrainMaterial();
 
             virtualTexture.Initialize();
@@ -69,9 +70,14 @@ namespace Landscape.RuntimeVirtualTexture
 
         void OnDisable()
         {
+            Shader.SetGlobalInt("_VTReady", 0);
+            if (s_VirtualTextureVolume == this) { s_VirtualTextureVolume = null; }
             pageProducer.Dispose();
             pageRenderer.Dispose();
             virtualTexture.Dispose();
+            Shader.SetGlobalTexture("_PhyscisAlbedo", Texture2D.blackTexture);
+            Shader.SetGlobalTexture("_PhyscisNormal", Texture2D.normalTexture);
+            Shader.SetGlobalTexture("_PageTableTexture", Texture2D.blackTexture);
         }
 
         void SetTerrainMaterial()
