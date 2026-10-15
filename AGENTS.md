@@ -19,8 +19,8 @@
 | 间接表 | 带完整 mip 的 GPU 间接表；第 k 级只描述虚拟 mip k | `IndirectMap`、`Shaders/Core/IndirectMap.shader` |
 | 物理页 | 每个启用层一张物理图，无硬件 mip，只采样 0 级 | `PhysicalLayers` |
 | 烘焙 | 生产者把一页的各层画进 scratch | `IPageProducer` |
-| 压缩 | 把 scratch 编码成块，写进物理槽 | `PageEncoder`、`Shaders/Compress` |
-| 着色采样 | lod、间接查找、物理 uv、过滤、层解码 | `Shaders/Core/VirtualTextureCommon.hlsl` |
+| 压缩 | 把 scratch 编码成块，写进物理槽（BC3 / ETC2 / ASTC） | `PageEncoder`、`AstcLayout`、`Shaders/Compress` |
+| 着色采样 | lod、间接查找、物理 uv、过滤、层解码、PBR 光照 | `Shaders/Core/VirtualTextureCommon.hlsl`、`VirtualTextureLighting.hlsl` |
 
 ## 底层与生产者的边界
 
@@ -76,8 +76,14 @@
 ## 验证清单
 
 ```sh
-# 不应有任何输出
-grep -rnE '\bF[A-Z][a-z][A-Za-z]*\b' --include=*.cs --include=*.hlsl --include=*.shader --include=*.compute Runtime Editor Shaders Tests | grep -vE 'FilterMode|Float|FindObjects|Format'
+# 以下命令都不应有输出
+# F 前缀的类型、函数、字段
+grep -rnE '\b(class|struct|enum|interface)\s+F[A-Z]' Runtime Editor Shaders Tests
+grep -rnE '\b[A-Za-z0-9_<>\[\]]+\s+F[A-Z][A-Za-z0-9_]*\s*(\(|;|=)' --include=*.cs --include=*.hlsl --include=*.compute --include=*.shader Runtime Editor Shaders Tests
+# 底层不出现 Terrain
 grep -rn 'Terrain' Runtime/Core Shaders/Core Shaders/Compress
-grep -rnE 'isReady|notLoading|isNull|activeFrame|_Physcis|_PageTableTexture' Runtime Shaders
+# 已删除的状态与旧全局名
+grep -rnE 'isReady|notLoading|isNull|activeFrame|activePageMap|_Physcis|_PageTableTexture' Runtime Shaders
 ```
+
+EditMode 测试在 Unity 6 的 Test Runner 中运行（Infinity.Rendering.VirtualTexture.Tests）。
