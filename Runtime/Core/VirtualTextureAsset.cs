@@ -22,6 +22,18 @@ namespace Landscape.RuntimeVirtualTexture
         BaseColorNormalMask
     }
 
+    /// <summary>
+    /// 着色时的过滤方式。物理图只有 0 级，三档都靠间接表的多级查找实现：
+    /// Bilinear 一次查找；Trilinear 在 floor / ceil 两级各查一次再插值；
+    /// Anisotropic 沿足迹长轴做 anisoSamples 次三线性查找再平均。
+    /// </summary>
+    public enum EPageFilter
+    {
+        Bilinear,
+        Trilinear,
+        Anisotropic
+    }
+
     /// <summary>虚拟纹理的设置。只保存参数，运行时资源由 VirtualTextureSystem 创建。</summary>
     [CreateAssetMenu(menuName = "Landscape/VirtualTextureAsset")]
     public class VirtualTextureAsset : ScriptableObject
@@ -34,6 +46,12 @@ namespace Landscape.RuntimeVirtualTexture
         [Range(64, 512)]
         public int pageTexels = 256;
         public EBorder pageBorder = EBorder.X4;
+
+        [Header("Sampling")]
+        public EPageFilter filter = EPageFilter.Trilinear;
+        [Tooltip("各向异性时沿长轴的最多查找次数")]
+        [Range(2, 16)]
+        public int anisoSamples = 4;
 
         [Header("Physical")]
         public EPageLayers layers = EPageLayers.BaseColorNormalMask;

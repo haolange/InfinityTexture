@@ -29,6 +29,30 @@ namespace Landscape.RuntimeVirtualTexture
         }
 
         /// <summary>
+        /// 过滤使用的 lod（虚拟像素空间，dx / dy 为屏幕导数）。各向异性时 lod 取自长轴 / 查找次数，
+        /// taps 为沿长轴的查找次数；其余过滤 taps 为 1。着色器 VTFilterLod 同式。
+        /// </summary>
+        public static float FilterLod(float2 dx, float2 dy, EPageFilter filter, int anisoSamples, out int taps)
+        {
+            taps = 1;
+            float lengthX = math.length(dx);
+            float lengthY = math.length(dy);
+            float major = math.max(lengthX, lengthY);
+            if (filter != EPageFilter.Anisotropic) { return math.log2(math.max(major, 1e-6f)); }
+
+            float minor = math.max(math.min(lengthX, lengthY), 1e-6f);
+            taps = (int)math.clamp(math.ceil(major / minor), 1, anisoSamples);
+            return math.log2(math.max(major / taps, minor));
+        }
+
+        /// <summary>反馈请求的 mip：双线性取最近的一级，三线性与各向异性取 floor（ceil 级是父页，会随祖先一并入队）。</summary>
+        public static int RequestMip(float lod, EPageFilter filter, int maxMip)
+        {
+            float level = filter == EPageFilter.Bilinear ? math.floor(lod + 0.5f) : math.floor(lod);
+            return (int)math.clamp(level, 0, maxMip);
+        }
+
+        /// <summary>
         /// 虚拟 uv 落在 pageMip 级、物理槽 slotCoord 的那一页时，对应的物理像素坐标。
         /// 页内偏移用对齐前的 uv。
         /// </summary>

@@ -12,6 +12,8 @@ float2 _VTFeedbackScale;
 
 // 启用的物理层数：1 BaseColor，2 +Normal，3 +Mask
 int _VTLayerCount;
+// x: 过滤方式（0 双线性，1 三线性，2 各向异性，对应 C# EPageFilter）  y: 各向异性最多查找次数
+float4 _VTFilterParams;
 
 // 间接表：第 k 级的 texel = (槽 x, 槽 y, 页所在 mip, 有效) / 255
 TEXTURE2D(_VTIndirectMap);
@@ -27,16 +29,31 @@ SAMPLER(sampler_VTLinearClamp);
 #define VT_PAGE_TEXELS  (_VTParams.z)
 #define VT_BORDER       (_VTParams.w)
 #define VT_TEXEL_SCALE  (VT_PAGE_COUNT * VT_PAGE_TEXELS)
+#define VT_FILTER       ((uint)_VTFilterParams.x)
+#define VT_BILINEAR     0
+#define VT_TRILINEAR    1
+#define VT_ANISOTROPIC  2
 
-// 虚拟像素空间里的 lod：0 级时一个屏幕像素对应一个虚拟像素。
-float VTComputeLod(float2 dx, float2 dy)
+// 过滤使用的 lod：dx / dy 为虚拟像素坐标的屏幕导数，0 级时一个屏幕像素对应一个虚拟像素。
+// 各向异性时 lod 取自 长轴 / 查找次数，taps 为沿长轴的查找次数。与 C# VirtualTextureMath.FilterLod 同式。
+float VTFilterLod(float2 dx, float2 dy, out uint taps)
 {
-    return 0.5 * log2(max(max(dot(dx, dx), dot(dy, dy)), 1e-12));
+    taps = 1;
+    float lengthX = length(dx);
+    float lengthY = length(dy);
+    float major = max(lengthX, lengthY);
+    if (VT_FILTER != VT_ANISOTROPIC) { return log2(max(major, 1e-6)); }
+
+    float minor = max(min(lengthX, lengthY), 1e-6);
+    taps = (uint)clamp(ceil(major / minor), 1.0, _VTFilterParams.y);
+    return log2(max(major / taps, minor));
 }
 
+// 反馈请求的 mip：双线性取最近一级；三线性与各向异性取 floor，ceil 级是父页，会随祖先一并入队。
 uint VTRequestMip(float lod)
 {
-    return (uint)clamp(floor(lod), 0.0, (float)VT_MAX_MIP);
+    float level = VT_FILTER == VT_BILINEAR ? floor(lod + 0.5) : floor(lod);
+    return (uint)clamp(level, 0.0, (float)VT_MAX_MIP);
 }
 
 struct VTAddress
@@ -106,13 +123,60 @@ VTSurface VTDecodeSurface(VTTexels texels)
     return surface;
 }
 
-// 着色采样：dx / dy 为虚拟像素坐标（uv × 页数 × 每页像素）的屏幕导数，需在分支外求得。
+VTTexels VTLerpTexels(VTTexels a, VTTexels b, float t)
+{
+    VTTexels result;
+    result.baseColor = lerp(a.baseColor, b.baseColor, t);
+    result.normal = lerp(a.normal, b.normal, t);
+    result.mask = lerp(a.mask, b.mask, t);
+    return result;
+}
+
+// 一次查找：间接表第 mip 级点采样 + 物理图 0 级双线性。
+VTTexels VTBilinear(float2 uv, uint mip, inout bool valid)
+{
+    VTAddress address = VTLookup(uv, mip);
+    valid = valid && address.valid;
+    return VTSampleTexels(address.physicalUV);
+}
+
+// floor(lod) 与 ceil(lod) 两级各查一次再插值。
+VTTexels VTTrilinear(float2 uv, float lod, inout bool valid)
+{
+    float level = clamp(lod, 0.0, (float)VT_MAX_MIP);
+    uint fine = (uint)floor(level);
+    uint coarse = (uint)ceil(level);
+    return VTLerpTexels(VTBilinear(uv, fine, valid), VTBilinear(uv, coarse, valid), level - fine);
+}
+
+// 沿足迹长轴均匀取 taps 个点，每点做同样的三线性查找后平均。
+VTTexels VTAnisotropic(float2 uv, float2 dx, float2 dy, float lod, uint taps, inout bool valid)
+{
+    float2 majorAxis = (dot(dx, dx) > dot(dy, dy) ? dx : dy) / VT_TEXEL_SCALE;
+    VTTexels sum = (VTTexels)0;
+    for (uint i = 0; i < taps; ++i)
+    {
+        float2 offset = majorAxis * ((i + 0.5) / taps - 0.5);
+        sum = VTLerpTexels(sum, VTTrilinear(uv + offset, lod, valid), 1.0 / (i + 1));
+    }
+    return sum;
+}
+
+// 着色采样：dx / dy 为虚拟像素坐标（uv × VT_TEXEL_SCALE）的屏幕导数，需在分支外求得。
 // 返回 false 表示该处还没有任何驻留页（连根页都没有）。
 bool VTSampleSurface(float2 uv, float2 dx, float2 dy, out VTSurface surface)
 {
-    VTAddress address = VTLookup(uv, VTRequestMip(VTComputeLod(dx, dy)));
-    surface = VTDecodeSurface(VTSampleTexels(address.physicalUV));
-    return address.valid;
+    uint taps;
+    float lod = VTFilterLod(dx, dy, taps);
+    bool valid = true;
+
+    VTTexels texels;
+    if (VT_FILTER == VT_BILINEAR) { texels = VTBilinear(uv, VTRequestMip(lod), valid); }
+    else if (VT_FILTER == VT_TRILINEAR) { texels = VTTrilinear(uv, lod, valid); }
+    else { texels = VTAnisotropic(uv, dx, dy, lod, taps, valid); }
+
+    surface = VTDecodeSurface(texels);
+    return valid;
 }
 
 // 与 C# PageId 相同的位布局：[31] 有效 | [30:26] mip | [25:13] y | [12:0] x
@@ -127,7 +191,8 @@ uint VTFeedback(float2 uv)
     if (any(uv < 0.0) || any(uv >= 1.0)) { return 0; }
 
     float2 texels = uv * VT_TEXEL_SCALE;
-    float lod = VTComputeLod(ddx(texels) / _VTFeedbackScale.x, ddy(texels) / _VTFeedbackScale.y);
+    uint taps;
+    float lod = VTFilterLod(ddx(texels) / _VTFeedbackScale.x, ddy(texels) / _VTFeedbackScale.y, taps);
     uint mip = VTRequestMip(lod);
     uint pagesAtMip = VT_PAGE_COUNT >> mip;
     uint2 page = min((uint2)floor(uv * pagesAtMip), pagesAtMip - 1);

@@ -15,6 +15,7 @@ namespace Landscape.RuntimeVirtualTexture
         static readonly int s_PoolParamsID = Shader.PropertyToID("_VTPoolParams");
         static readonly int s_ReadyID = Shader.PropertyToID("_VTReady");
         static readonly int s_LayerCountID = Shader.PropertyToID("_VTLayerCount");
+        static readonly int s_FilterParamsID = Shader.PropertyToID("_VTFilterParams");
 
         public static VirtualTextureSystem active { get; private set; }
 
@@ -39,6 +40,7 @@ namespace Landscape.RuntimeVirtualTexture
             Shader.SetGlobalVector(s_ParamsID, new Vector4(settings.pageCount, settings.mipCount, settings.pageTexels, (int)settings.pageBorder));
             Shader.SetGlobalVector(s_PoolParamsID, new Vector4(settings.slotTexels, 1.0f / settings.poolTexels, 0, 0));
             Shader.SetGlobalInt(s_LayerCountID, layers.Length);
+            Shader.SetGlobalVector(s_FilterParamsID, new Vector4((int)settings.filter, settings.anisoSamples, 0, 0));
             Shader.SetGlobalInt(s_ReadyID, 0);
             active = this;
         }
