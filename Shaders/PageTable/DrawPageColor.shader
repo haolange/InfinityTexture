@@ -52,32 +52,5 @@
 			ENDHLSL
 		}
 
-		/*Pass
-        {
-            HLSLPROGRAM
-			#pragma target 4.5
-
-            #pragma vertex vertTriangle
-            #pragma fragment frag
-			//#pragma enable_d3d11_debug_symbols
-            
-			#include "DrwaPageCommon.hlsl"
-            ENDHLSL
-        }
-
-		Pass
-		{
-			Blend One One
-			HLSLPROGRAM
-			#pragma target 4.5
-
-			#pragma vertex vertTriangle
-			#pragma fragment frag
-			#define TERRAIN_SPLAT_ADDPASS
-			//#pragma enable_d3d11_debug_symbols
-			
-			#include "DrwaPageCommon.hlsl"
-			ENDHLSL
-		}*/
     }
 }

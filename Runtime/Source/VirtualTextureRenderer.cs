@@ -51,7 +51,6 @@ namespace Landscape.RuntimeVirtualTexture
         private int m_Limit;
         private int m_PageSize;
         private Mesh m_DrawPageMesh;
-        private Mesh m_TriangleMesh;
         private Material m_DrawPageMaterial;
         private Material m_DrawColorMaterial;
         private ComputeBuffer m_PageTableBuffer;
@@ -68,7 +67,6 @@ namespace Landscape.RuntimeVirtualTexture
             this.loadRequests = new NativeList<FPageLoadInfo>(4096 * 2, Allocator.Persistent);
             this.m_PageTableBuffer = new ComputeBuffer(pageSize, Marshal.SizeOf(typeof(FPageTableInfo)));
             this.m_DrawPageMesh = FVirtualTextureUtility.BuildQuadMesh();
-            this.m_TriangleMesh = FVirtualTextureUtility.BuildTriangleMesh();
             this.m_DrawPageMaterial = new Material(Shader.Find("VirtualTexture/DrawPageTable"));
             this.m_DrawColorMaterial = new Material(Shader.Find("VirtualTexture/DrawPageColor"));
             this.m_DrawPageMaterial.enableInstancing = true;
@@ -108,7 +106,7 @@ namespace Landscape.RuntimeVirtualTexture
             m_Property.Clear();
             m_Property.SetBuffer(FPageShaderID.PageTableBuffer, m_PageTableBuffer);
             m_PageTableBuffer.SetData<FPageTableInfo>(pageTableInfos, 0, 0, pageTableInfos.Length);
-            cmdBuffer.DrawMeshInstancedProcedural(m_DrawPageMesh, 0, m_DrawPageMaterial, 1, pageTableInfos.Length, m_Property);
+            cmdBuffer.DrawMeshInstancedProcedural(m_DrawPageMesh, 0, m_DrawPageMaterial, 0, pageTableInfos.Length, m_Property);
 
             //Release NativeData
             pageTableInfos.Dispose();
@@ -225,7 +223,6 @@ namespace Landscape.RuntimeVirtualTexture
             loadRequests.Dispose();
             m_PageTableBuffer.Dispose();
             Object.DestroyImmediate(m_DrawPageMesh);
-            Object.DestroyImmediate(m_TriangleMesh);
             Object.DestroyImmediate(m_DrawPageMaterial);
             Object.DestroyImmediate(m_DrawColorMaterial);
         }
