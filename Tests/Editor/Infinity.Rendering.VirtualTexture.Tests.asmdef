@@ -1,0 +1,27 @@
+{
+    "name": "Infinity.Rendering.VirtualTexture.Tests",
+    "rootNamespace": "",
+    "references": [
+        "GUID:66802a45437b7bf498aa44b38d6f769e",
+        "Unity.Burst",
+        "Unity.Collections",
+        "Unity.Mathematics",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
