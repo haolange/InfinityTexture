@@ -28,7 +28,7 @@ namespace Landscape.RuntimeVirtualTexture
         CopyPageToPhyscis
     }
 
-    internal class FeedbackRenderPass : ScriptableRenderPass
+    internal unsafe class FeedbackRenderPass : ScriptableRenderPass
     {
         int2 m_FeedbackSize;
         LayerMask m_LayerMask;
@@ -39,7 +39,8 @@ namespace Landscape.RuntimeVirtualTexture
         ProfilingSampler m_DrawPageTableSampler;
         ProfilingSampler m_DrawPageColorSampler;
         ProfilingSampler m_VirtualTextureSampler;
-        FVirtualTextureFeedback m_FeedbackProcessor;
+        FeedbackReadback m_Readback;
+        NativeList<BakeOrder> m_Bakes;
         private bool m_PageTableInitialized;
         private VirtualTextureVolume m_ActiveVolume;
 
@@ -47,6 +48,10 @@ namespace Landscape.RuntimeVirtualTexture
         {
             internal FeedbackRenderPass pass;
             internal Camera camera;
+            internal VirtualTextureVolume volume;
+            internal bool hasRound;
+            internal bool residencyChanged;
+            internal bool requestReadback;
             internal RendererListHandle rendererList;
             internal TextureHandle feedback;
             internal TextureHandle feedbackDepth;
@@ -66,33 +71,45 @@ namespace Landscape.RuntimeVirtualTexture
             m_DrawPageTableSampler = ProfilingSampler.Get(EVirtualTexturePass.DrawPageTable);
             m_DrawPageColorSampler = ProfilingSampler.Get(EVirtualTexturePass.DrawPageColor);
             m_VirtualTextureSampler = ProfilingSampler.Get(EVirtualTexturePass.VirtualTexture);
-            m_FeedbackProcessor = new FVirtualTextureFeedback(true);
+            m_Readback = new FeedbackReadback(OnFeedbackArrived);
+            m_Bakes = new NativeList<BakeOrder>(64, Allocator.Persistent);
+        }
+
+        static void OnFeedbackArrived(NativeArray<uint> pixels)
+        {
+            VirtualTextureVolume volume = VirtualTextureVolume.s_VirtualTextureVolume;
+            if (volume != null) { volume.requestPipeline.Schedule(pixels); }
         }
 
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
         {
-            if (!Application.isPlaying || VirtualTextureVolume.s_VirtualTextureVolume == null)
+            VirtualTextureVolume volume = VirtualTextureVolume.s_VirtualTextureVolume;
+            if (!Application.isPlaying || volume == null)
             {
-                m_FeedbackProcessor.Reset();
+                m_Readback.Cancel();
                 m_PageTableInitialized = false;
                 m_ActiveVolume = null;
                 return;
             }
-            if (m_ActiveVolume != VirtualTextureVolume.s_VirtualTextureVolume)
+            if (m_ActiveVolume != volume)
             {
-                m_FeedbackProcessor.Reset();
+                m_Readback.Cancel();
                 m_PageTableInitialized = false;
-                m_ActiveVolume = VirtualTextureVolume.s_VirtualTextureVolume;
+                m_ActiveVolume = volume;
             }
-            var camera = frameData.Get<UniversalCameraData>().camera;
+
+            var cameraData = frameData.Get<UniversalCameraData>();
+            if (cameraData.cameraType != CameraType.Game) { return; }
+
+            var camera = cameraData.camera;
             var renderingData = frameData.Get<UniversalRenderingData>();
-            var virtualTexture = VirtualTextureVolume.s_VirtualTextureVolume.virtualTexture;
+            var virtualTexture = volume.virtualTexture;
             int width = math.max(1, math.min(m_FeedbackSize.x, camera.pixelWidth) / (int)m_FeedbackScale);
             int height = math.max(1, math.min(m_FeedbackSize.y, camera.pixelHeight) / (int)m_FeedbackScale);
             var feedbackDesc = new TextureDesc(width, height)
             {
                 name = "FeedbackTexture",
-                format = GraphicsFormat.R8G8B8A8_UNorm
+                format = GraphicsFormat.R32_UInt
             };
             var depthDesc = new TextureDesc(width, height)
             {
@@ -114,6 +131,10 @@ namespace Landscape.RuntimeVirtualTexture
             {
                 passData.pass = this;
                 passData.camera = camera;
+                passData.volume = volume;
+                // 只取已经跑完的一轮；没跑完就沿用现有驻留状态。
+                passData.hasRound = volume.requestPipeline.TryTakeResult(m_Bakes, out passData.residencyChanged);
+                passData.requestReadback = !volume.requestPipeline.isBusy && !m_Readback.inFlight;
                 passData.rendererList = rendererList;
                 passData.feedback = feedback;
                 passData.feedbackDepth = feedbackDepth;
@@ -136,47 +157,38 @@ namespace Landscape.RuntimeVirtualTexture
             }
         }
 
-        private unsafe void DrawVirtualTexture(CommandBuffer cmdBuffer, PassData data)
+        private void DrawVirtualTexture(CommandBuffer cmdBuffer, PassData data)
         {
             Camera camera = data.camera;
-            FPageProducer pageProducer = VirtualTextureVolume.s_VirtualTextureVolume.pageProducer;
-            FPageRenderer pageRenderer = VirtualTextureVolume.s_VirtualTextureVolume.pageRenderer;
-            VirtualTextureAsset virtualTexture = VirtualTextureVolume.s_VirtualTextureVolume.virtualTexture;
-            
+            VirtualTextureVolume volume = data.volume;
+            FPageRenderer pageRenderer = volume.pageRenderer;
+            VirtualTextureAsset virtualTexture = volume.virtualTexture;
+
+            if (data.hasRound && m_Bakes.Length > 0)
+            {
+                using (new ProfilingScope(cmdBuffer, m_DrawPageColorSampler))
+                {
+                    cmdBuffer.SetRenderTarget(new RenderTargetIdentifier[] { data.colorA, data.colorB }, data.colorA);
+                    pageRenderer.BakePages(cmdBuffer, m_Bakes, volume.requestPipeline.pool, virtualTexture, volume.GetDrawPageParamter());
+                }
+            }
+
             using (new ProfilingScope(cmdBuffer, m_DrawPageTableSampler))
             {
-                if (!m_PageTableInitialized)
+                if (!m_PageTableInitialized || data.residencyChanged)
                 {
                     cmdBuffer.SetRenderTarget(data.pageTable);
                     cmdBuffer.ClearRenderTarget(false, true, Color.clear);
+                    pageRenderer.DrawPageTable(cmdBuffer, volume.requestPipeline.pool);
                     cmdBuffer.SetGlobalInt("_VTReady", 1);
                     m_PageTableInitialized = true;
-                }
-                if (m_FeedbackProcessor.isReady && m_FeedbackProcessor.readbackDatas.IsCreated)
-                {
-                    NativeArray<int4> decodeDatas = new NativeArray<int4>(m_FeedbackProcessor.readbackDatas.Length, Allocator.TempJob);
-
-                    FDecodeFeedbackJob decodeFeedbackJob;
-                    decodeFeedbackJob.pageSize = virtualTexture.pageSize;
-                    decodeFeedbackJob.decodeDatas = decodeDatas;
-                    decodeFeedbackJob.encodeDatas = m_FeedbackProcessor.readbackDatas;
-                    decodeFeedbackJob.Schedule(m_FeedbackProcessor.readbackDatas.Length, 256).Complete();
-
-                    pageProducer.ProcessFeedback(ref decodeDatas, virtualTexture.NumMip, virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.lruCache, ref pageRenderer.loadRequests);
-                    decodeDatas.Dispose();
-                    m_FeedbackProcessor.ReleaseData();
-
-                    cmdBuffer.SetRenderTarget(data.pageTable);
-                    cmdBuffer.ClearRenderTarget(false, true, Color.clear);
-                    pageRenderer.DrawPageTable(cmdBuffer, pageProducer);
-                    
                 }
             }
 
             using (new ProfilingScope(cmdBuffer, m_DrawFeedbackSampler))
             {
                 cmdBuffer.SetRenderTarget(data.feedback, data.feedbackDepth);
-                cmdBuffer.ClearRenderTarget(true, true, Color.black);
+                cmdBuffer.ClearRenderTarget(true, true, Color.clear);
                 // x: 页表大小(单位: 页)
                 // y: 虚拟贴图大小(单位: 像素)
                 // z: 最大mipmap等级
@@ -193,21 +205,16 @@ namespace Landscape.RuntimeVirtualTexture
                 RenderingUtils.SetViewAndProjectionMatrices(cmdBuffer, camera.worldToCameraMatrix, projectionMatrix, false);
             }
 
-            //read-back feedback
-            m_FeedbackProcessor.RequestReadback(cmdBuffer, data.feedback);
-
-            using (new ProfilingScope(cmdBuffer, m_DrawPageColorSampler))
+            if (data.requestReadback)
             {
-                cmdBuffer.SetRenderTarget(new RenderTargetIdentifier[] { data.colorA, data.colorB }, data.colorA);
-
-                FDrawPageParameter drawPageParameter = VirtualTextureVolume.s_VirtualTextureVolume.GetDrawPageParamter();
-                pageRenderer.DrawPageColor(cmdBuffer, pageProducer, virtualTexture, ref virtualTexture.lruCache[0], drawPageParameter);
+                m_Readback.Request(cmdBuffer, data.feedback);
             }
         }
 
         internal void Dispose()
         {
-            m_FeedbackProcessor.Dispose();
+            m_Readback.Dispose();
+            m_Bakes.Dispose();
             m_ActiveVolume = null;
             m_PageTableInitialized = false;
         }

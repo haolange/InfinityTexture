@@ -5,6 +5,7 @@ using Unity.Mathematics;
 using Unity.Collections;
 using UnityEngine.Rendering;
 using Object = UnityEngine.Object;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
 namespace Landscape.RuntimeVirtualTexture
@@ -15,16 +16,10 @@ namespace Landscape.RuntimeVirtualTexture
         public float4x4 matrix_M;
     }
 
-    internal struct FPageDrawInfo : IComparable<FPageDrawInfo>
+    /// <summary>粗页先画，细页后画覆盖。</summary>
+    internal struct CoarseFirst : IComparer<FPageTableInfo>
     {
-        public int mip;
-        public FRect rect;
-        public float2 drawPos;
-
-        public int CompareTo(FPageDrawInfo target)
-        {
-            return -(mip.CompareTo(target.mip));
-        }
+        public int Compare(FPageTableInfo a, FPageTableInfo b) => b.pageData.z.CompareTo(a.pageData.z);
     }
 
     internal struct FDrawPageParameter
@@ -46,115 +41,70 @@ namespace Landscape.RuntimeVirtualTexture
         public static int DscTexture = Shader.PropertyToID("_DscTexture");   
     }
 
-    internal class FPageRenderer : IDisposable
+    internal unsafe class FPageRenderer : IDisposable
     {
-        private int m_Limit;
-        private int m_PageSize;
+        private int m_PageCount;
         private Mesh m_DrawPageMesh;
         private Material m_DrawPageMaterial;
         private Material m_DrawColorMaterial;
         private ComputeBuffer m_PageTableBuffer;
         private MaterialPropertyBlock m_Property;
-        private NativeList<FPageDrawInfo> m_DrawInfos;
-        internal NativeList<FPageLoadInfo> loadRequests;
+        private NativeList<FPageTableInfo> m_TableInfos;
 
-        public FPageRenderer(in int pageSize, in int limit = 16)
+        public FPageRenderer(in int pageCount, in int poolCapacity)
         {
-            this.m_Limit = limit;
-            this.m_PageSize = pageSize;
+            this.m_PageCount = pageCount;
             this.m_Property = new MaterialPropertyBlock();
-            this.m_DrawInfos = new NativeList<FPageDrawInfo>(256, Allocator.Persistent);
-            this.loadRequests = new NativeList<FPageLoadInfo>(4096 * 2, Allocator.Persistent);
-            this.m_PageTableBuffer = new ComputeBuffer(pageSize, Marshal.SizeOf(typeof(FPageTableInfo)));
+            this.m_TableInfos = new NativeList<FPageTableInfo>(poolCapacity, Allocator.Persistent);
+            this.m_PageTableBuffer = new ComputeBuffer(poolCapacity, Marshal.SizeOf(typeof(FPageTableInfo)));
             this.m_DrawPageMesh = FVirtualTextureUtility.BuildQuadMesh();
             this.m_DrawPageMaterial = new Material(Shader.Find("VirtualTexture/DrawPageTable"));
             this.m_DrawColorMaterial = new Material(Shader.Find("VirtualTexture/DrawPageColor"));
             this.m_DrawPageMaterial.enableInstancing = true;
         }
 
-        public void DrawPageTable(CommandBuffer cmdBuffer, FPageProducer pageProducer)
+        /// <summary>按物理槽上的反向映射重画页表。</summary>
+        public void DrawPageTable(CommandBuffer cmdBuffer, PhysicalPool* pool)
         {
-            m_Property.Clear();
-            m_DrawInfos.Clear();
+            m_TableInfos.Clear();
+            for (int slot = 0; slot < pool->capacity; ++slot)
+            {
+                PageId page = (*pool)[slot].owner;
+                if (!page.isValid) { continue; }
 
-            //Build PageDrawInfo
-            FPageDrawInfoBuildJob pageDrawInfoBuildJob;
-            pageDrawInfoBuildJob.pageSize = m_PageSize;
-            pageDrawInfoBuildJob.frameTime = Time.frameCount;
-            pageDrawInfoBuildJob.drawInfos = m_DrawInfos;
-            pageDrawInfoBuildJob.pageTables = pageProducer.pageTables;
-            pageDrawInfoBuildJob.pageEnumerator = pageProducer.activePageMap.GetEnumerator();
-            pageDrawInfoBuildJob.Run();
+                int2 slotCoord = pool->SlotCoord(slot);
+                float size = (float)(1 << page.mip) / m_PageCount;
+                float3 origin = new float3((float)(page.x << page.mip) / m_PageCount, (float)(page.y << page.mip) / m_PageCount, 0);
+                m_TableInfos.Add(new FPageTableInfo
+                {
+                    pageData = new float4(slotCoord.x / 255f, slotCoord.y / 255f, page.mip / 255f, 1),
+                    matrix_M = float4x4.TRS(origin, quaternion.identity, size)
+                });
+            }
+            if (m_TableInfos.Length == 0) { return; }
+            m_TableInfos.Sort(new CoarseFirst());
 
-            //Sort PageDrawInfo
-            if (m_DrawInfos.Length == 0) { return; }
-            FPageDrawInfoSortJob pageDrawInfoSortJob;
-            pageDrawInfoSortJob.drawInfos = m_DrawInfos;
-            pageDrawInfoSortJob.Run();
-
-            //Get NativeData
-            NativeArray<FPageTableInfo> pageTableInfos = new NativeArray<FPageTableInfo>(m_DrawInfos.Length, Allocator.TempJob);
-
-            //Build PageTableInfo
-            FPageTableInfoBuildJob pageTableInfoBuildJob;
-            pageTableInfoBuildJob.pageSize = m_PageSize;
-            pageTableInfoBuildJob.drawInfos = m_DrawInfos;
-            pageTableInfoBuildJob.pageTableInfos = pageTableInfos;
-            pageTableInfoBuildJob.Run(m_DrawInfos.Length);
-
-            //Draw PageTable
             m_Property.Clear();
             m_Property.SetBuffer(FPageShaderID.PageTableBuffer, m_PageTableBuffer);
-            m_PageTableBuffer.SetData<FPageTableInfo>(pageTableInfos, 0, 0, pageTableInfos.Length);
-            cmdBuffer.DrawMeshInstancedProcedural(m_DrawPageMesh, 0, m_DrawPageMaterial, 0, pageTableInfos.Length, m_Property);
-
-            //Release NativeData
-            pageTableInfos.Dispose();
+            m_PageTableBuffer.SetData(m_TableInfos.AsArray(), 0, 0, m_TableInfos.Length);
+            cmdBuffer.DrawMeshInstancedProcedural(m_DrawPageMesh, 0, m_DrawPageMaterial, 0, m_TableInfos.Length, m_Property);
         }
 
-        public void DrawPageColor(CommandBuffer cmdBuffer, FPageProducer pageProducer, VirtualTextureAsset virtualTexture, ref FLruCache lruCache, in FDrawPageParameter drawPageParameter)
+        public void BakePages(CommandBuffer cmdBuffer, NativeList<BakeOrder> bakes, PhysicalPool* pool, VirtualTextureAsset virtualTexture, in FDrawPageParameter drawPageParameter)
         {
-            if (loadRequests.Length <= 0) { return; }
-            FPageRequestInfoSortJob pageRequestInfoSortJob;
-            pageRequestInfoSortJob.loadRequests = loadRequests;
-            pageRequestInfoSortJob.Run();
-
-            int count = m_Limit;
-            while (count > 0 && loadRequests.Length > 0)
+            for (int i = 0; i < bakes.Length; ++i)
             {
-                count--;
-                FPageLoadInfo loadRequest = loadRequests[loadRequests.Length - 1];
-                loadRequests.RemoveAt(loadRequests.Length - 1);
-
-                int3 pageUV = new int3(loadRequest.x, loadRequest.y, loadRequest.mipLevel);
-                FPageTable pageTable = pageProducer.pageTables[pageUV.z];
-                ref FPage page = ref pageTable.GetPage(pageUV.x, pageUV.y);
-
-                if (page.isNull == true) { continue; }
-                page.payload.notLoading = true;
-
-                int2 pageCoord = new int2(lruCache.First % virtualTexture.tileNum, lruCache.First / virtualTexture.tileNum);
-                if (lruCache.SetActive(pageCoord.y * virtualTexture.tileNum + pageCoord.x))
-                {
-                    pageProducer.InvalidatePage(pageCoord);
-
-                    FRectInt pageRect = new FRectInt(pageCoord.x * virtualTexture.TileSizePadding, pageCoord.y * virtualTexture.TileSizePadding, virtualTexture.TileSizePadding, virtualTexture.TileSizePadding);
-                    RenderPage(cmdBuffer, virtualTexture, pageRect, loadRequest, drawPageParameter);
-                }
-
-                page.payload.pageCoord = pageCoord;
-                pageProducer.activePageMap.Add(pageCoord, pageUV);
+                int2 slotCoord = pool->SlotCoord(bakes[i].slot);
+                RectInt pageRect = new RectInt(slotCoord.x * virtualTexture.TileSizePadding, slotCoord.y * virtualTexture.TileSizePadding, virtualTexture.TileSizePadding, virtualTexture.TileSizePadding);
+                RenderPage(cmdBuffer, virtualTexture, pageRect, bakes[i].page, drawPageParameter);
             }
         }
 
-        private void RenderPage(CommandBuffer cmdBuffer, VirtualTextureAsset virtualTexture, in FRectInt pageRect, in FPageLoadInfo loadRequest, in FDrawPageParameter drawPageParameter)
+        private void RenderPage(CommandBuffer cmdBuffer, VirtualTextureAsset virtualTexture, in RectInt pageRect, in PageId page, in FDrawPageParameter drawPageParameter)
         {
-            int x = loadRequest.x;
-            int y = loadRequest.y;
-            int perSize = (int)Mathf.Pow(2, loadRequest.mipLevel);
-            x = x - x % perSize;
-            y = y - y % perSize;
-
+            int perSize = 1 << page.mip;
+            int x = page.x << page.mip;
+            int y = page.y << page.mip;
             var padding = (int)virtualTexture.tileBorder * perSize * (drawPageParameter.volumeRect.width / virtualTexture.pageSize) / virtualTexture.tileSize;
             var volumeRect = new Rect(drawPageParameter.volumeRect.xMin + (float)x / virtualTexture.pageSize * drawPageParameter.volumeRect.width - padding, drawPageParameter.volumeRect.yMin + (float)y / virtualTexture.pageSize * drawPageParameter.volumeRect.height - padding, drawPageParameter.volumeRect.width / virtualTexture.pageSize * perSize + 2f * padding, drawPageParameter.volumeRect.width / virtualTexture.pageSize * perSize + 2f * padding);
             
@@ -219,8 +169,7 @@ namespace Landscape.RuntimeVirtualTexture
 
         public void Dispose()
         {
-            m_DrawInfos.Dispose();
-            loadRequests.Dispose();
+            m_TableInfos.Dispose();
             m_PageTableBuffer.Dispose();
             Object.DestroyImmediate(m_DrawPageMesh);
             Object.DestroyImmediate(m_DrawPageMaterial);

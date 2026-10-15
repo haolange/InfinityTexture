@@ -103,36 +103,25 @@ float BoxMask(float2 A, float2 B, float2 Size)
     return 1 - saturate(ceil(length(max(0, abs(A - B) - (Size * 0.5)))));
 }
 
-float3 Pack1212To888(float2 x)
+// 与 C# PageId 相同的位布局：[31] 有效 | [30:26] mip | [25:13] y | [12:0] x
+uint PackPageId(uint2 page, uint mip)
 {
-	// Pack 12:12 to 8:8:8
-    #if 0
-        uint2 x1212 = (uint2)(x * 4095);
-        uint2 High = x1212 >> 8;
-        uint2 Low = x1212 & 255;
-        uint3 x888 = uint3( Low, High.x | (High.y << 4) );
-        return x888 / 255.0;
-    #else
-        float2 x1212 = floor( x * 4095 );
-        float2 High = floor( x1212 / 256 );	// x1212 >> 8
-        float2 Low = x1212 - High * 256;	// x1212 & 255
-        float3 x888 = float3( Low, High.x + High.y * 16 );
-        return saturate( x888 / 255 );
-    #endif
+    return 0x80000000u | (mip << 26) | (page.y << 13) | page.x;
 }
 
-float4 FeedbackFrag(Varyings input) : SV_Target
+uint FeedbackFrag(Varyings input) : SV_Target
 {
     #ifdef _ALPHATEST_ON
         ClipHoles(input.texcoord1);
     #endif
 
-    float mipLevel = clamp(ComputeMip(input.texcoord0 * _VTFeedbackParams.y) + _VTFeedbackParams.w * 0.5 - 0.25, 0, _VTMipCount);
-    //float2 pageUV = floor(input.texcoord0 * _VTFeedbackParams.x) / 256;
-    float2 pageUV = ceil(input.texcoord0 * _VTFeedbackParams.x) / _VTFeedbackParams.x;
+    float2 uv = input.texcoord0;
+    if (any(uv < 0.0) || any(uv >= 1.0)) { return 0; }
 
-    //return float4(pageUV, floor(mipLevel) / 255, 1);
-	return float4(Pack1212To888(pageUV), floor(mipLevel) / 255);
+    uint mip = (uint)floor(clamp(ComputeMip(uv * _VTFeedbackParams.y) + _VTFeedbackParams.w * 0.5 - 0.25, 0, _VTMipCount - 1));
+    uint pagesAtMip = (uint)_VTFeedbackParams.x >> mip;
+    uint2 page = min((uint2)floor(uv * pagesAtMip), pagesAtMip - 1);
+    return PackPageId(page, mip);
 }
 
 #endif

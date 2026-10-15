@@ -46,7 +46,7 @@ namespace Landscape.RuntimeVirtualTexture
         }
 
         internal FRect volumeRect;
-        internal FPageProducer pageProducer;
+        internal RequestPipeline requestPipeline;
         internal FPageRenderer pageRenderer;
         internal static VirtualTextureVolume s_VirtualTextureVolume;
 
@@ -64,15 +64,15 @@ namespace Landscape.RuntimeVirtualTexture
             Shader.SetGlobalVector("_VTVolumeRect", new Vector4(volumeRect.xMin, volumeRect.yMin, volumeRect.width, volumeRect.height));
             Shader.SetGlobalVector("_VTVolumeBound", new Vector4(transform.position.x, transform.position.y, transform.position.z, VolumeSize));
 
-            pageRenderer = new FPageRenderer(virtualTexture.pageSize, 6);
-            pageProducer = new FPageProducer(virtualTexture.tileNum, virtualTexture.pageSize, virtualTexture.NumMip);
+            pageRenderer = new FPageRenderer(virtualTexture.pageSize, virtualTexture.tileNum * virtualTexture.tileNum);
+            requestPipeline = new RequestPipeline(virtualTexture.pageSize, virtualTexture.tileNum, virtualTexture.bakesPerRound, virtualTexture.queueCapacity, virtualTexture.queueTimeout);
         }
 
         void OnDisable()
         {
             Shader.SetGlobalInt("_VTReady", 0);
             if (s_VirtualTextureVolume == this) { s_VirtualTextureVolume = null; }
-            pageProducer.Dispose();
+            requestPipeline.Dispose();
             pageRenderer.Dispose();
             virtualTexture.Dispose();
             Shader.SetGlobalTexture("_PhyscisAlbedo", Texture2D.blackTexture);

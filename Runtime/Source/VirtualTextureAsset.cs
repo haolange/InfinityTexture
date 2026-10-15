@@ -37,6 +37,17 @@ namespace Landscape.RuntimeVirtualTexture
         public int pageSize = 256;
         public ECompressMode compressMode = ECompressMode.Bit16;
 
+        [Header("Request")]
+        [Tooltip("每轮反馈最多烘焙的页数")]
+        [Range(1, 64)]
+        public int bakesPerRound = 8;
+        [Tooltip("排队页的上限")]
+        [Range(16, 4096)]
+        public int queueCapacity = 512;
+        [Tooltip("排队页连续多少轮没被请求就退回空闲")]
+        [Range(1, 600)]
+        public int queueTimeout = 30;
+
         public int NumMip { get { return (int)math.log2(pageSize) + 1; } }
         public int TileSizePadding { get { return tileSize + (int)tileBorder * 2; } }
         public int QuadTileSizePadding { get { return TileSizePadding / 4; } }
@@ -44,7 +55,6 @@ namespace Landscape.RuntimeVirtualTexture
         [HideInInspector]
         public ComputeShader m_Shader;
 
-        internal FLruCache* lruCache;
         internal RenderTargetIdentifier tableTextureID;
         internal RenderTargetIdentifier[] colorTextureIDs;
         internal RTHandle tableTextureHandle;
@@ -57,9 +67,6 @@ namespace Landscape.RuntimeVirtualTexture
 
         public void Initialize()
         {
-            lruCache = (FLruCache*)UnsafeUtility.Malloc(Marshal.SizeOf(typeof(FLruCache)) * 1, 64, Allocator.Persistent);
-            FLruCache.BuildLruCache(ref lruCache[0], tileNum * tileNum);
-
             RenderTextureFormat format = RenderTextureFormat.ARGB32;
             switch (compressMode)
             {
@@ -117,9 +124,6 @@ namespace Landscape.RuntimeVirtualTexture
 
         public void Dispose()
         {
-            lruCache[0].Dispose();
-            UnsafeUtility.Free((void*)lruCache, Allocator.Persistent);
-
             tableTextureHandle.Release();
             colorTextureHandles[0].Release();
             colorTextureHandles[1].Release();
