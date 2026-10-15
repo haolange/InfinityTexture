@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using Unity.Mathematics;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;

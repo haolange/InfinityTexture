@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using Unity.Collections;
 using UnityEngine.Rendering;
+using UnityEngine.Experimental.Rendering;
 
 namespace Landscape.RuntimeVirtualTexture
 {
@@ -35,7 +36,7 @@ namespace Landscape.RuntimeVirtualTexture
             requests = new RequestPipeline(settings.pageCount, settings.poolSize, settings.bakesPerRound, settings.queueCapacity, settings.queueTimeout);
             indirectMap = new IndirectMap(settings.pageCount, poolCapacity, settings.indirectShader);
             EPageLayer[] layers = PhysicalLayers.Enabled(settings.layers);
-            physical = new PhysicalLayers(settings, layers);
+            physical = new PhysicalLayers(settings, layers, settings.format, settings.encodeShader);
 
             Shader.SetGlobalVector(s_ParamsID, new Vector4(settings.pageCount, settings.mipCount, settings.pageTexels, (int)settings.pageBorder));
             Shader.SetGlobalVector(s_PoolParamsID, new Vector4(settings.slotTexels, 1.0f / settings.poolTexels, 0, 0));
@@ -43,6 +44,29 @@ namespace Landscape.RuntimeVirtualTexture
             Shader.SetGlobalVector(s_FilterParamsID, new Vector4((int)settings.filter, settings.anisoSamples, 0, 0));
             Shader.SetGlobalInt(s_ReadyID, 0);
             active = this;
+        }
+
+        /// <summary>设置与当前平台是否能建出这套虚拟纹理；不能时给出原因，调用方保持非 VT 着色。</summary>
+        public static bool CanCreate(VirtualTextureAsset settings, out string error)
+        {
+            if (!settings.Validate(out error)) { return false; }
+
+            PageFormat format = settings.format;
+            foreach (EPageLayer layer in PhysicalLayers.Enabled(settings.layers))
+            {
+                GraphicsFormat physicalFormat = format.PhysicalFormat(PhysicalLayers.IsColor(layer));
+                if (!SystemInfo.IsFormatSupported(physicalFormat, GraphicsFormatUsage.Sample)) { error = $"当前平台不支持 {physicalFormat}"; return false; }
+            }
+            if (format.isCompressed)
+            {
+                if (!SystemInfo.supportsComputeShaders) { error = "当前平台不支持 compute shader，无法压缩物理页"; return false; }
+                if ((SystemInfo.copyTextureSupport & (CopyTextureSupport.DifferentTypes | CopyTextureSupport.RTToTexture)) != (CopyTextureSupport.DifferentTypes | CopyTextureSupport.RTToTexture))
+                {
+                    error = "当前平台不支持把块图拷贝进压缩纹理";
+                    return false;
+                }
+            }
+            return true;
         }
 
         /// <summary>间接表第一次清空后才允许着色器读虚拟纹理。</summary>

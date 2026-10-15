@@ -1,12 +1,14 @@
-#ifndef _ETCCompress_
-#define _ETCCompress_
+#ifndef ETC_COMPRESS_INCLUDED
+#define ETC_COMPRESS_INCLUDED
+
+// ETC2 RGBA8 块编码：RGB 用 ETC2（个别/差分模式），A 用 EAC。输入为 0..1。
 
 #define BLOCK_MODE_INDIVIDUAL				0
 #define BLOCK_MODE_DIFFERENTIAL				1
 #define NUM_RGB_TABLES 8
 #define NUM_ALPHA_TABLES 16
 
-float4 alpha_distance_tables[16] =
+static const float4 alpha_distance_tables[16] =
 {
     float4(2, 5, 8, 14),
     float4(2, 6, 9, 12),
@@ -26,7 +28,7 @@ float4 alpha_distance_tables[16] =
     float4(2, 4, 6, 8)
 };
 
-float4 rgb_distance_tables[8] =
+static const float4 rgb_distance_tables[8] =
 {
     float4(-8, -2, 2, 8),
     float4(-17, -5, 5, 17),

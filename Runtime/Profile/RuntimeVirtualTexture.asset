@@ -18,8 +18,10 @@ MonoBehaviour:
   filter: 1
   anisoSamples: 4
   layers: 2
+  compression: 1
   poolSize: 16
   bakesPerRound: 8
   queueCapacity: 512
   queueTimeout: 30
   indirectShader: {fileID: 4800000, guid: e9b94491ae45d7c45af4ea434d0002a5, type: 3}
+  encodeShader: {fileID: 7200000, guid: e34776c72005e1e488fbdc217f4556c5, type: 3}

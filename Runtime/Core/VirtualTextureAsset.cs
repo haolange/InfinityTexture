@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using Unity.Mathematics;
 
 namespace Landscape.RuntimeVirtualTexture
@@ -55,6 +55,7 @@ namespace Landscape.RuntimeVirtualTexture
 
         [Header("Physical")]
         public EPageLayers layers = EPageLayers.BaseColorNormalMask;
+        public EPageCompression compression = EPageCompression.None;
         [Tooltip("物理池每边槽数")]
         [Range(4, 64)]
         public int poolSize = 16;
@@ -72,12 +73,15 @@ namespace Landscape.RuntimeVirtualTexture
 
         [SerializeField, HideInInspector]
         internal Shader indirectShader;
+        [SerializeField, HideInInspector]
+        internal ComputeShader encodeShader;
 
         public int mipCount => math.tzcnt(pageCount) + 1;
         /// <summary>一个物理槽的边长像素（含两侧 border）。</summary>
         public int slotTexels => pageTexels + 2 * (int)pageBorder;
         /// <summary>物理图边长像素。</summary>
         public int poolTexels => poolSize * slotTexels;
+        internal PageFormat format => PageFormat.Of(compression);
 
         /// <summary>参数是否能建出一套虚拟纹理；不能时给出原因。</summary>
         public bool Validate(out string error)
@@ -85,7 +89,9 @@ namespace Landscape.RuntimeVirtualTexture
             error = null;
             if (!math.ispow2(pageCount) || pageCount > PageId.MaxPageCount) { error = $"pageCount {pageCount} 必须是不超过 {PageId.MaxPageCount} 的 2 的幂"; }
             else if (poolSize > 255) { error = $"poolSize {poolSize} 超出间接表 8 位槽坐标"; }
+            else if (!format.IsAligned(slotTexels)) { error = $"槽边长 {slotTexels}（pageTexels + 2 × pageBorder）不是 {compression} 块宽 {format.blockSize.x} 的整数倍"; }
             else if (indirectShader == null) { error = "缺少 IndirectMap shader 引用"; }
+            else if (format.isCompressed && encodeShader == null) { error = "缺少 PageEncode compute 引用"; }
             return error == null;
         }
 

@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 namespace Landscape.RuntimeVirtualTexture
 {
@@ -39,7 +39,7 @@ namespace Landscape.RuntimeVirtualTexture
                 Debug.LogError($"{name}: 缺少 VirtualTextureAsset、地形材质或烘焙 shader 引用", this);
                 return;
             }
-            if (!virtualTexture.Validate(out string error))
+            if (!VirtualTextureSystem.CanCreate(virtualTexture, out string error))
             {
                 Debug.LogError($"{name}: {error}", virtualTexture);
                 return;

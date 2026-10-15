@@ -1,4 +1,4 @@
-﻿#ifndef StochasticSampling
+#ifndef StochasticSampling
 #define StochasticSampling
 
 #ifdef UNITY_COLORSPACE_GAMMA

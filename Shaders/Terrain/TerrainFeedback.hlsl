@@ -1,4 +1,4 @@
-﻿#ifndef TERRAIN_VT_FEEDBACK_INCLUDED
+#ifndef TERRAIN_VT_FEEDBACK_INCLUDED
 #define TERRAIN_VT_FEEDBACK_INCLUDED
 
 // 地形的反馈 pass：顶点按地形实例化展开高度图，片元把世界坐标换成虚拟 uv 后交给底层编码。

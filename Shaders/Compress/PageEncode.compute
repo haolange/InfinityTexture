@@ -1,0 +1,53 @@
+// 压缩通路：把一页大小的 scratch 编码成 128 位块，每个线程一块，一个块写成 _Blocks 的一个 texel。
+// 颜色层先把线性值转成 sRGB 再编码（物理图为 *_SRGB 格式）；数据层原样编码。
+
+#pragma kernel EncodeBC3
+#pragma kernel EncodeETC2
+
+#include "BCCompress.hlsl"
+#include "ETCCompress.hlsl"
+
+Texture2D<float4> _Source;
+RWTexture2D<uint4> _Blocks;
+uint _BlockCount;     // 每边块数
+uint _SourceIsColor;  // 1：颜色层
+
+float3 LinearToSrgb(float3 c)
+{
+    return c <= 0.0031308 ? c * 12.92 : 1.055 * pow(c, 1.0 / 2.4) - 0.055;
+}
+
+float4 LoadTexel(uint2 texel)
+{
+    float4 c = saturate(_Source.Load(int3(texel, 0)));
+    if (_SourceIsColor != 0) { c.rgb = LinearToSrgb(c.rgb); }
+    return c;
+}
+
+void LoadBlock4x4(uint2 block, out float3 rgb[16], out float alpha[16])
+{
+    [unroll] for (uint i = 0; i < 16; ++i)
+    {
+        float4 c = LoadTexel(block * 4 + uint2(i % 4, i / 4));
+        rgb[i] = c.rgb;
+        alpha[i] = c.a;
+    }
+}
+
+[numthreads(8, 8, 1)]
+void EncodeBC3(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id.xy >= _BlockCount)) { return; }
+    float3 rgb[16]; float alpha[16];
+    LoadBlock4x4(id.xy, rgb, alpha);
+    _Blocks[id.xy] = CompressBC3Block(rgb, alpha);
+}
+
+[numthreads(8, 8, 1)]
+void EncodeETC2(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id.xy >= _BlockCount)) { return; }
+    float3 rgb[16]; float alpha[16];
+    LoadBlock4x4(id.xy, rgb, alpha);
+    _Blocks[id.xy] = CompressBlock_ETC2_RGBA(rgb, alpha);
+}
