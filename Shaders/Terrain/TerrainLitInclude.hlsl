@@ -12,8 +12,8 @@
 float4 _VTVolumeRect;
 int _VTReady;
 
-TEXTURE2D(_PhyscisAlbedo);
-TEXTURE2D(_PhyscisNormal);
+TEXTURE2D(_VTPhysicalBaseColor);
+TEXTURE2D(_VTPhysicalNormal);
 
 void SplatmapFragment(Varyings IN, out half4 outColor : SV_Target0)
 {
@@ -29,8 +29,8 @@ void SplatmapFragment(Varyings IN, out half4 outColor : SV_Target0)
 #ifdef _ALPHATEST_ON
             ClipHoles(IN.uvMainAndLM.xy);
 #endif
-            half3 albedo = SAMPLE_TEXTURE2D_LOD(_PhyscisAlbedo, sampler_VTLinearClamp, address.physicalUV, 0).rgb;
-            half3 normalTS = SAMPLE_TEXTURE2D_LOD(_PhyscisNormal, sampler_VTLinearClamp, address.physicalUV, 0).xyz;
+            half3 albedo = SAMPLE_TEXTURE2D_LOD(_VTPhysicalBaseColor, sampler_VTLinearClamp, address.physicalUV, 0).rgb;
+            half3 normalTS = SAMPLE_TEXTURE2D_LOD(_VTPhysicalNormal, sampler_VTLinearClamp, address.physicalUV, 0).xyz;
             InputData inputData;
             InitializeInputData(IN, normalTS, inputData);
             InitializeBakedGIData(IN, inputData);

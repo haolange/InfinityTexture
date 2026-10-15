@@ -4,8 +4,9 @@ MonoImporter:
   externalObjects: {}
   serializedVersion: 2
   defaultReferences:
-  - m_material: {fileID: 2100000, guid: 3a2c150cfa00c9140826163693691a0f, type: 2}
   - virtualTexture: {fileID: 11400000, guid: b8650e03683bb0844a15d265c3b49a85, type: 2}
+  - m_TerrainMaterial: {fileID: 2100000, guid: 3a2c150cfa00c9140826163693691a0f, type: 2}
+  - m_BakeShader: {fileID: 4800000, guid: 451669337d3073941bfd7910ae77fe65, type: 3}
   executionOrder: 100
   icon: {instanceID: 0}
   userData: 

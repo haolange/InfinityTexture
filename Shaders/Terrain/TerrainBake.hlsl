@@ -1,13 +1,13 @@
-﻿#ifndef PageCommon
-#define PageCommon
+#ifndef TERRAIN_BAKE_INCLUDED
+#define TERRAIN_BAKE_INCLUDED
 
-#include "../Common/StochasticSampling.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Packing.hlsl"
+#include "StochasticSampling.hlsl"
 
 float4 _SplatTileOffset;
 float4 _SurfaceTileOffset;
-float4x4 _Matrix_MVP;
+float4x4 _BakeMatrix;
 
 TEXTURE2D(_SplatTexture);
 TEXTURE2D(_AlbedoTexture1);
@@ -22,23 +22,19 @@ TEXTURE2D(_NormalTexture4);
 SAMPLER(sampler_SplatTexture);
 SAMPLER(Global_trilinear_repeat_sampler);
 
-struct Attributes
-{
-    float2 uv0 : TEXCOORD0;
-    float4 vertexOS : POSITION;
-};
-
 struct Varyings
 {
     float2 uv0 : TEXCOORD0;
     float4 vertexCS : SV_POSITION;
 };
 
-Varyings vert(Attributes input)
+// 单位矩形由 SV_VertexID 生成，_BakeMatrix 把它放到 scratch 上与地形相交的区域。
+Varyings vert(uint vertexID : SV_VertexID)
 {
+    float2 corner = float2(vertexID == 1 || vertexID == 2 || vertexID == 4, vertexID == 2 || vertexID == 4 || vertexID == 5);
     Varyings output;
-    output.uv0 = input.uv0;
-    output.vertexCS = mul(_Matrix_MVP, input.vertexOS);
+    output.uv0 = corner;
+    output.vertexCS = mul(_BakeMatrix, float4(corner, 0.1, 1.0));
     return output;
 }
 
