@@ -1,44 +1,38 @@
 #ifndef LANDSCAPE_TERRAIN_VT_INCLUDE
 #define LANDSCAPE_TERRAIN_VT_INCLUDE
 
-// 地形前向着色：体积内且间接表有效时读虚拟纹理，否则退回 URP 原生的 splat 混合。
+// 地形前向着色：体积内且间接表有效时读虚拟纹理并走完整 PBR，否则退回 URP 原生的 splat 混合。
 
 #define SplatmapFragment StandardSplatmapFragment
 #include "Packages/com.unity.render-pipelines.universal/Shaders/Terrain/TerrainLitPasses.hlsl"
 #undef SplatmapFragment
 #include "../Core/VirtualTextureCommon.hlsl"
+#include "../Core/VirtualTextureLighting.hlsl"
 
 // 地形生产者的地址：xy 体积左下角世界坐标，zw 体积尺寸
 float4 _VTVolumeRect;
 int _VTReady;
 
-TEXTURE2D(_VTPhysicalBaseColor);
-TEXTURE2D(_VTPhysicalNormal);
-
 void SplatmapFragment(Varyings IN, out half4 outColor : SV_Target0)
 {
     float2 uv = (IN.positionWS.xz - _VTVolumeRect.xy) / _VTVolumeRect.zw;
-    float2 texels = uv * (VT_PAGE_COUNT * VT_PAGE_TEXELS);
-    uint mip = VTRequestMip(VTComputeLod(ddx(texels), ddy(texels)));
+    float2 texels = uv * VT_TEXEL_SCALE;
+    float2 dx = ddx(texels);
+    float2 dy = ddy(texels);
 
-    if (_VTReady != 0 && all(uv >= 0.0) && all(uv < 1.0))
+    VTSurface surface;
+    if (_VTReady != 0 && all(uv >= 0.0) && all(uv < 1.0) && VTSampleSurface(uv, dx, dy, surface))
     {
-        VTAddress address = VTLookup(uv, mip);
-        if (address.valid)
-        {
 #ifdef _ALPHATEST_ON
-            ClipHoles(IN.uvMainAndLM.xy);
+        ClipHoles(IN.uvMainAndLM.xy);
 #endif
-            half3 albedo = SAMPLE_TEXTURE2D_LOD(_VTPhysicalBaseColor, sampler_VTLinearClamp, address.physicalUV, 0).rgb;
-            half3 normalTS = SAMPLE_TEXTURE2D_LOD(_VTPhysicalNormal, sampler_VTLinearClamp, address.physicalUV, 0).xyz;
-            InputData inputData;
-            InitializeInputData(IN, normalTS, inputData);
-            InitializeBakedGIData(IN, inputData);
-            half4 color = UniversalFragmentPBR(inputData, albedo, 0, half3(0, 0, 0), 0, 1, half3(0, 0, 0), 1);
-            SplatmapFinalColor(color, inputData.fogCoord);
-            outColor = half4(color.rgb, 1);
-            return;
-        }
+        InputData inputData;
+        InitializeInputData(IN, surface.normalTS, inputData);
+        InitializeBakedGIData(IN, inputData);
+        half4 color = VTFragmentPBR(inputData, surface);
+        SplatmapFinalColor(color, inputData.fogCoord);
+        outColor = half4(color.rgb, 1);
+        return;
     }
     StandardSplatmapFragment(IN, outColor);
 }

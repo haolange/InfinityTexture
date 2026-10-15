@@ -15,9 +15,13 @@ namespace Landscape.RuntimeVirtualTexture
         static readonly int s_BakeMatrixID = Shader.PropertyToID("_BakeMatrix");
         static readonly int s_SplatTextureID = Shader.PropertyToID("_SplatTexture");
         static readonly int s_SplatTileOffsetID = Shader.PropertyToID("_SplatTileOffset");
-        static readonly int s_SurfaceTileOffsetID = Shader.PropertyToID("_SurfaceTileOffset");
-        static readonly int[] s_AlbedoIDs = { Shader.PropertyToID("_AlbedoTexture1"), Shader.PropertyToID("_AlbedoTexture2"), Shader.PropertyToID("_AlbedoTexture3"), Shader.PropertyToID("_AlbedoTexture4") };
-        static readonly int[] s_NormalIDs = { Shader.PropertyToID("_NormalTexture1"), Shader.PropertyToID("_NormalTexture2"), Shader.PropertyToID("_NormalTexture3"), Shader.PropertyToID("_NormalTexture4") };
+        static readonly int[] s_AlbedoIDs = LayerIDs("_AlbedoTexture");
+        static readonly int[] s_NormalIDs = LayerIDs("_NormalTexture");
+        static readonly int[] s_MaskIDs = LayerIDs("_MaskTexture");
+        static readonly int[] s_LayerParamsIDs = LayerIDs("_LayerParams");
+        static readonly int[] s_LayerTileOffsetIDs = LayerIDs("_LayerTileOffset");
+        static readonly int[] s_MaskRemapScaleIDs = LayerIDs("_MaskRemapScale");
+        static readonly int[] s_MaskRemapOffsetIDs = LayerIDs("_MaskRemapOffset");
 
         const int FirstSplatPass = 0;
         const int AddSplatPass = 1;
@@ -27,11 +31,20 @@ namespace Landscape.RuntimeVirtualTexture
         readonly Material m_Material;
         readonly MaterialPropertyBlock m_Properties = new MaterialPropertyBlock();
 
-        public TerrainPageProducer(Terrain[] terrains, Rect volumeRect, Shader bakeShader)
+        public TerrainPageProducer(Terrain[] terrains, Rect volumeRect, Shader bakeShader, EPageLayers layers)
         {
             m_Terrains = terrains;
             m_VolumeRect = volumeRect;
             m_Material = new Material(bakeShader);
+            if (layers == EPageLayers.BaseColorNormal) { m_Material.EnableKeyword("_PAGE_NORMAL"); }
+            if (layers == EPageLayers.BaseColorNormalMask) { m_Material.EnableKeyword("_PAGE_NORMAL_MASK"); }
+        }
+
+        static int[] LayerIDs(string prefix)
+        {
+            var ids = new int[4];
+            for (int i = 0; i < 4; ++i) { ids[i] = Shader.PropertyToID(prefix + (i + 1)); }
+            return ids;
         }
 
         /// <summary>虚拟 uv 矩形 → 世界 XZ 矩形。</summary>
@@ -78,14 +91,30 @@ namespace Landscape.RuntimeVirtualTexture
                 m_Properties.SetTexture(s_SplatTextureID, terrainData.GetAlphamapTexture(splat));
                 for (int channel = 0; channel < 4 && layerIndex < terrainData.alphamapLayers; ++channel, ++layerIndex)
                 {
-                    TerrainLayer layer = layers[layerIndex];
-                    var tileScale = new float2(terrainData.size.x / layer.tileSize.x, terrainData.size.z / layer.tileSize.y);
-                    m_Properties.SetVector(s_SurfaceTileOffsetID, new float4(tileScale * splatTileOffset.xy, tileScale * splatTileOffset.zw));
-                    m_Properties.SetTexture(s_AlbedoIDs[channel], layer.diffuseTexture);
-                    m_Properties.SetTexture(s_NormalIDs[channel], layer.normalMapTexture != null ? layer.normalMapTexture : Texture2D.normalTexture);
+                    SetLayer(channel, layers[layerIndex], terrainData, splatTileOffset);
                 }
                 cmd.DrawProcedural(Matrix4x4.identity, m_Material, splat == 0 ? FirstSplatPass : AddSplatPass, MeshTopology.Triangles, 6, 1, m_Properties);
             }
+        }
+
+        /// <summary>按 URP 地形的约定传入一个地形层：贴图、平铺、metallic / smoothness、mask remap、法线强度。</summary>
+        void SetLayer(int channel, TerrainLayer layer, TerrainData terrainData, float4 splatTileOffset)
+        {
+            // 地形 uv → 图层 uv：× (地形尺寸 / 平铺尺寸) + 平铺偏移 / 平铺尺寸；再与 scratch → 地形 uv 复合。
+            var tileSize = new float2(layer.tileSize.x, layer.tileSize.y);
+            float2 tileScale = new float2(terrainData.size.x, terrainData.size.z) / tileSize;
+            float2 tileOffset = new float2(layer.tileOffset.x, layer.tileOffset.y) / tileSize;
+            m_Properties.SetVector(s_LayerTileOffsetIDs[channel], new float4(splatTileOffset.xy * tileScale, splatTileOffset.zw * tileScale + tileOffset));
+
+            bool hasMask = layer.maskMapTexture != null;
+            Vector4 remapScale = layer.maskMapRemapMax - layer.maskMapRemapMin;
+
+            m_Properties.SetTexture(s_AlbedoIDs[channel], layer.diffuseTexture != null ? layer.diffuseTexture : Texture2D.whiteTexture);
+            m_Properties.SetTexture(s_NormalIDs[channel], layer.normalMapTexture != null ? layer.normalMapTexture : Texture2D.normalTexture);
+            m_Properties.SetTexture(s_MaskIDs[channel], hasMask ? layer.maskMapTexture : Texture2D.whiteTexture);
+            m_Properties.SetVector(s_LayerParamsIDs[channel], new Vector4(layer.metallic, layer.smoothness, hasMask ? 1 : 0, layer.normalScale));
+            m_Properties.SetVector(s_MaskRemapScaleIDs[channel], remapScale);
+            m_Properties.SetVector(s_MaskRemapOffsetIDs[channel], layer.maskMapRemapMin);
         }
 
         /// <summary>把单位矩形映射到 scratch 上的 target 区域（裁剪空间），按平台翻转 y。</summary>

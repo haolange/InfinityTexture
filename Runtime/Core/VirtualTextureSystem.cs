@@ -14,6 +14,7 @@ namespace Landscape.RuntimeVirtualTexture
         static readonly int s_ParamsID = Shader.PropertyToID("_VTParams");
         static readonly int s_PoolParamsID = Shader.PropertyToID("_VTPoolParams");
         static readonly int s_ReadyID = Shader.PropertyToID("_VTReady");
+        static readonly int s_LayerCountID = Shader.PropertyToID("_VTLayerCount");
 
         public static VirtualTextureSystem active { get; private set; }
 
@@ -32,10 +33,12 @@ namespace Landscape.RuntimeVirtualTexture
             int poolCapacity = settings.poolSize * settings.poolSize;
             requests = new RequestPipeline(settings.pageCount, settings.poolSize, settings.bakesPerRound, settings.queueCapacity, settings.queueTimeout);
             indirectMap = new IndirectMap(settings.pageCount, poolCapacity, settings.indirectShader);
-            physical = new PhysicalLayers(settings, new[] { EPageLayer.BaseColor, EPageLayer.Normal });
+            EPageLayer[] layers = PhysicalLayers.Enabled(settings.layers);
+            physical = new PhysicalLayers(settings, layers);
 
             Shader.SetGlobalVector(s_ParamsID, new Vector4(settings.pageCount, settings.mipCount, settings.pageTexels, (int)settings.pageBorder));
             Shader.SetGlobalVector(s_PoolParamsID, new Vector4(settings.slotTexels, 1.0f / settings.poolTexels, 0, 0));
+            Shader.SetGlobalInt(s_LayerCountID, layers.Length);
             Shader.SetGlobalInt(s_ReadyID, 0);
             active = this;
         }

@@ -15,6 +15,7 @@ MonoBehaviour:
   pageCount: 2048
   pageTexels: 256
   pageBorder: 4
+  layers: 2
   poolSize: 16
   bakesPerRound: 8
   queueCapacity: 512

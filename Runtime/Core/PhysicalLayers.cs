@@ -7,7 +7,12 @@ using Object = UnityEngine.Object;
 
 namespace Landscape.RuntimeVirtualTexture
 {
-    /// <summary>物理图的一层。颜色层按 sRGB 存，数据层线性存。</summary>
+    /// <summary>
+    /// 物理图的一层。颜色层按 sRGB 存，数据层线性存。通道布局：
+    /// BaseColor  rgb 底色
+    /// Normal     g = 法线 y，a = 法线 x（编码到 0..1，z 在着色时重建）
+    /// Mask       r 金属度，g AO，b 高光，a 粗糙度
+    /// </summary>
     internal enum EPageLayer
     {
         BaseColor,
@@ -37,6 +42,17 @@ namespace Landscape.RuntimeVirtualTexture
         };
 
         public static bool IsColor(EPageLayer layer) => layer == EPageLayer.BaseColor;
+
+        /// <summary>预设启用的层，按 MRT 顺序。</summary>
+        public static EPageLayer[] Enabled(EPageLayers preset)
+        {
+            switch (preset)
+            {
+                case EPageLayers.BaseColor: return new[] { EPageLayer.BaseColor };
+                case EPageLayers.BaseColorNormal: return new[] { EPageLayer.BaseColor, EPageLayer.Normal };
+                default: return new[] { EPageLayer.BaseColor, EPageLayer.Normal, EPageLayer.Mask };
+            }
+        }
 
         readonly int m_SlotTexels;
         readonly Layer[] m_Layers;

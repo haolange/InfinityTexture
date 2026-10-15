@@ -11,6 +11,17 @@ namespace Landscape.RuntimeVirtualTexture
         X4 = 4
     }
 
+    /// <summary>
+    /// 启用的 PBR 层，从少到多。每层一张物理图，未启用的层不分配。
+    /// BaseColor：底色（sRGB）。Normal：切线空间法线。Mask：金属度、AO、高光、粗糙度。
+    /// </summary>
+    public enum EPageLayers
+    {
+        BaseColor,
+        BaseColorNormal,
+        BaseColorNormalMask
+    }
+
     /// <summary>虚拟纹理的设置。只保存参数，运行时资源由 VirtualTextureSystem 创建。</summary>
     [CreateAssetMenu(menuName = "Landscape/VirtualTextureAsset")]
     public class VirtualTextureAsset : ScriptableObject
@@ -25,6 +36,7 @@ namespace Landscape.RuntimeVirtualTexture
         public EBorder pageBorder = EBorder.X4;
 
         [Header("Physical")]
+        public EPageLayers layers = EPageLayers.BaseColorNormalMask;
         [Tooltip("物理池每边槽数")]
         [Range(4, 64)]
         public int poolSize = 16;

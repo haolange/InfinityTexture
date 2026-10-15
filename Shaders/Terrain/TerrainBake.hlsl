@@ -1,31 +1,61 @@
 #ifndef TERRAIN_BAKE_INCLUDED
 #define TERRAIN_BAKE_INCLUDED
 
+// 地形烘焙：一张 splat 控制图的 4 个地形层按权重混合，按 EPageLayer 的通道布局写出各层。
+// 所有输出都是"权重 × 值"，多张 splat 用 Blend One One 叠加后权重和为 1。
+
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Packing.hlsl"
 #include "StochasticSampling.hlsl"
 
+#define DECLARE_TERRAIN_LAYER(i) \
+    Texture2D _AlbedoTexture##i; \
+    Texture2D _NormalTexture##i; \
+    Texture2D _MaskTexture##i; \
+    float4 _LayerParams##i; \
+    float4 _LayerTileOffset##i; \
+    float4 _MaskRemapScale##i; \
+    float4 _MaskRemapOffset##i;
+
+// _LayerParams: metallic, smoothness, hasMask, normalScale
+// _LayerTileOffset: 从 scratch 的 0..1 到该层贴图 uv 的缩放与偏移
+DECLARE_TERRAIN_LAYER(1)
+DECLARE_TERRAIN_LAYER(2)
+DECLARE_TERRAIN_LAYER(3)
+DECLARE_TERRAIN_LAYER(4)
+
 float4 _SplatTileOffset;
-float4 _SurfaceTileOffset;
 float4x4 _BakeMatrix;
 
 TEXTURE2D(_SplatTexture);
-TEXTURE2D(_AlbedoTexture1);
-TEXTURE2D(_AlbedoTexture2);
-TEXTURE2D(_AlbedoTexture3);
-TEXTURE2D(_AlbedoTexture4);
-TEXTURE2D(_NormalTexture1);
-TEXTURE2D(_NormalTexture2);
-TEXTURE2D(_NormalTexture3);
-TEXTURE2D(_NormalTexture4);
-
 SAMPLER(sampler_SplatTexture);
 SAMPLER(Global_trilinear_repeat_sampler);
+
+// 地形图层没有逐层高光等级，写默认值 0.5（F0 = 0.04）。
+#define DEFAULT_SPECULAR 0.5
 
 struct Varyings
 {
     float2 uv0 : TEXCOORD0;
     float4 vertexCS : SV_POSITION;
+};
+
+struct BakeOutput
+{
+    float4 baseColor : SV_Target0;
+#if defined(_PAGE_NORMAL) || defined(_PAGE_NORMAL_MASK)
+    float4 normal : SV_Target1;
+#endif
+#if defined(_PAGE_NORMAL_MASK)
+    float4 mask : SV_Target2;
+#endif
+};
+
+struct LayerSample
+{
+    float3 baseColor;
+    float2 normalXY;
+    float4 mask;     // metallic, ao, specular, roughness
 };
 
 // 单位矩形由 SV_VertexID 生成，_BakeMatrix 把它放到 scratch 上与地形相交的区域。
@@ -38,61 +68,56 @@ Varyings vert(uint vertexID : SV_VertexID)
     return output;
 }
 
-void frag(Varyings input, out float4 ColorBuffer : SV_Target0, out float4 NormalBuffer : SV_Target1)
+// 与 URP 地形一致：有 mask 图时按 remap 读 (metallic, ao, height, smoothness)，
+// 否则用图层的 metallic，光滑度取 albedo.a × smoothness，AO 为 1。
+LayerSample SampleLayer(Texture2D albedoTexture, Texture2D normalTexture, Texture2D maskTexture, float4 params, float4 remapScale, float4 remapOffset, float4 tileOffset, float2 scratchUV)
 {
-    float4 splatMap = saturate(_SplatTexture.Sample(sampler_SplatTexture, input.uv0 * _SplatTileOffset.xy + _SplatTileOffset.zw));
-    
-#ifdef TERRAIN_SPLAT_ADDPASS
-    clip(splatMap.x + splatMap.y + splatMap.z + splatMap.w <= 0.005h ? -1.0h : 1.0h);
+    float2 uv = scratchUV * tileOffset.xy + tileOffset.zw;
+    half3 cw; float2 uv1, uv2, uv3, dx, dy;
+    float4 albedo = StochasticSample2DWeightsR(albedoTexture, Global_trilinear_repeat_sampler, uv, cw, uv1, uv2, uv3, dx, dy, 0.5, 0.15);
+    float4 normal = StochasticSample2D(normalTexture, Global_trilinear_repeat_sampler, cw, uv1, uv2, uv3, dx, dy);
+    float4 mask = StochasticSample2D(maskTexture, Global_trilinear_repeat_sampler, cw, uv1, uv2, uv3, dx, dy) * remapScale + remapOffset;
+
+    bool hasMask = params.z > 0.5;
+    float metallic = hasMask ? mask.r : params.x;
+    float occlusion = hasMask ? mask.g : 1.0;
+    float smoothness = hasMask ? mask.a : albedo.a * params.y;
+
+    LayerSample result;
+    result.baseColor = albedo.rgb;
+    result.normalXY = UnpackNormalScale(normal, params.w).xy;
+    result.mask = float4(metallic, occlusion, DEFAULT_SPECULAR, 1.0 - smoothness);
+    return result;
+}
+
+#define SAMPLE_TERRAIN_LAYER(i, uv) SampleLayer(_AlbedoTexture##i, _NormalTexture##i, _MaskTexture##i, _LayerParams##i, _MaskRemapScale##i, _MaskRemapOffset##i, _LayerTileOffset##i, uv)
+
+void Accumulate(inout BakeOutput output, float weight, LayerSample layer)
+{
+    output.baseColor += weight * float4(layer.baseColor, 1.0);
+#if defined(_PAGE_NORMAL) || defined(_PAGE_NORMAL_MASK)
+    // 先编码到 0..1 再乘权重，叠加后仍是 0.5 × n + 0.5。
+    float2 encoded = layer.normalXY * 0.5 + 0.5;
+    output.normal += weight * float4(0.0, encoded.y, 0.0, encoded.x);
 #endif
-    
-    float2 transUv = input.uv0 * _SurfaceTileOffset.xy + _SurfaceTileOffset.zw;
+#if defined(_PAGE_NORMAL_MASK)
+    output.mask += weight * layer.mask;
+#endif
+}
 
-    float3 cw5 = 0;
-    float2 uv15 = 0;
-    float2 uv25 = 0;
-    float2 uv35 = 0;
-    float2 dx5 = 0;
-    float2 dy5 = 0;
+BakeOutput frag(Varyings input)
+{
+    float4 weights = saturate(SAMPLE_TEXTURE2D(_SplatTexture, sampler_SplatTexture, input.uv0 * _SplatTileOffset.xy + _SplatTileOffset.zw));
+#ifdef TERRAIN_SPLAT_ADDPASS
+    clip(dot(weights, 1.0) <= 0.005 ? -1.0 : 1.0);
+#endif
 
-    float3 cw8 = 0;
-    float2 uv18 = 0;
-    float2 uv28 = 0;
-    float2 uv38 = 0;
-    float2 dx8 = 0;
-    float2 dy8 = 0;
-
-    float StochasticScale = 0.5;
-
-    float4 Diffuse1 = StochasticSample2DWeightsR(_AlbedoTexture1, Global_trilinear_repeat_sampler, transUv, cw5, uv15, uv25, uv35, dx5, dy5, StochasticScale, 0.15);
-    float4 Normal1 = StochasticSample2DWeightsLum(_NormalTexture1, Global_trilinear_repeat_sampler, transUv, cw8, uv18, uv28, uv38, dx8, dy8, StochasticScale, 0.15);
-    Normal1.xyz = UnpackNormalScale(Normal1, 1);
-
-    float4 Diffuse2 = StochasticSample2DWeightsR(_AlbedoTexture2, Global_trilinear_repeat_sampler, transUv, cw5, uv15, uv25, uv35, dx5, dy5, StochasticScale, 0.15);
-    float4 Normal2 = StochasticSample2DWeightsLum(_NormalTexture2, Global_trilinear_repeat_sampler, transUv, cw8, uv18, uv28, uv38, dx8, dy8, StochasticScale, 0.15);
-    Normal2.xyz = UnpackNormalScale(Normal2, 1);
-
-    float4 Diffuse3 = StochasticSample2DWeightsR(_AlbedoTexture3, Global_trilinear_repeat_sampler, transUv, cw5, uv15, uv25, uv35, dx5, dy5, StochasticScale, 0.15);
-    float4 Normal3 = StochasticSample2DWeightsLum(_NormalTexture3, Global_trilinear_repeat_sampler, transUv, cw8, uv18, uv28, uv38, dx8, dy8, StochasticScale, 0.15);
-    Normal3.xyz = UnpackNormalScale(Normal3, 1);
-
-    float4 Diffuse4 = StochasticSample2DWeightsR(_AlbedoTexture4, Global_trilinear_repeat_sampler, transUv, cw5, uv15, uv25, uv35, dx5, dy5, StochasticScale, 0.15);
-    float4 Normal4 = StochasticSample2DWeightsLum(_NormalTexture4, Global_trilinear_repeat_sampler, transUv, cw8, uv18, uv28, uv38, dx8, dy8, StochasticScale, 0.15);
-    Normal4.xyz = UnpackNormalScale(Normal4, 1);
-
-    
-    ColorBuffer = 0;
-    ColorBuffer += splatMap.r * Diffuse1;
-    ColorBuffer += splatMap.g * Diffuse2;
-    ColorBuffer += splatMap.b * Diffuse3;
-    ColorBuffer += splatMap.a * Diffuse4;
-
-    NormalBuffer = 0;
-    NormalBuffer.rgb += splatMap.r * Normal1;
-    NormalBuffer.rgb += splatMap.g * Normal2;
-    NormalBuffer.rgb += splatMap.b * Normal3;
-    NormalBuffer.rgb += splatMap.a * Normal4;
-    NormalBuffer = normalize(NormalBuffer);
+    BakeOutput output = (BakeOutput)0;
+    Accumulate(output, weights.r, SAMPLE_TERRAIN_LAYER(1, input.uv0));
+    Accumulate(output, weights.g, SAMPLE_TERRAIN_LAYER(2, input.uv0));
+    Accumulate(output, weights.b, SAMPLE_TERRAIN_LAYER(3, input.uv0));
+    Accumulate(output, weights.a, SAMPLE_TERRAIN_LAYER(4, input.uv0));
+    return output;
 }
 
 #endif

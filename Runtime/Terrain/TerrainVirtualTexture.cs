@@ -51,7 +51,7 @@ namespace Landscape.RuntimeVirtualTexture
             Rect volumeRect = VolumeRect();
             Shader.SetGlobalVector(s_VolumeRectID, new Vector4(volumeRect.x, volumeRect.y, volumeRect.width, volumeRect.height));
 
-            m_Producer = new TerrainPageProducer(terrains, volumeRect, m_BakeShader);
+            m_Producer = new TerrainPageProducer(terrains, volumeRect, m_BakeShader, virtualTexture.layers);
             m_System = new VirtualTextureSystem(virtualTexture, m_Producer);
         }
 
