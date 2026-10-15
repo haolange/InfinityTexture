@@ -19,6 +19,7 @@ MonoBehaviour:
   anisoSamples: 4
   layers: 2
   compression: 1
+  astcBlock: 6
   poolSize: 16
   bakesPerRound: 8
   queueCapacity: 512

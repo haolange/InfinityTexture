@@ -56,6 +56,8 @@ namespace Landscape.RuntimeVirtualTexture
         [Header("Physical")]
         public EPageLayers layers = EPageLayers.BaseColorNormalMask;
         public EPageCompression compression = EPageCompression.None;
+        [Tooltip("只在 ASTC 时生效：块越大码率越低")]
+        public EAstcBlock astcBlock = EAstcBlock.X6;
         [Tooltip("物理池每边槽数")]
         [Range(4, 64)]
         public int poolSize = 16;
@@ -81,7 +83,7 @@ namespace Landscape.RuntimeVirtualTexture
         public int slotTexels => pageTexels + 2 * (int)pageBorder;
         /// <summary>物理图边长像素。</summary>
         public int poolTexels => poolSize * slotTexels;
-        internal PageFormat format => PageFormat.Of(compression);
+        internal PageFormat format => PageFormat.Of(compression, astcBlock);
 
         /// <summary>参数是否能建出一套虚拟纹理；不能时给出原因。</summary>
         public bool Validate(out string error)
