@@ -118,7 +118,8 @@ namespace Landscape.RuntimeVirtualTexture
             Shader.SetGlobalTexture("_PhyscisAlbedo", m_physicsTextureA);
             Shader.SetGlobalTexture("_PhyscisNormal", m_physicsTextureB);
             Shader.SetGlobalTexture("_PageTableTexture", m_pageTableTexture);
-            Shader.SetGlobalVector("_VTPageParams", new Vector4(pageSize, 1 / pageSize, NumMip - 1, 0));
+            Shader.SetGlobalVector("_VTParams", new Vector4(pageSize, NumMip, tileSize, (int)tileBorder));
+            Shader.SetGlobalVector("_VTPageParams", new Vector4(pageSize, 1.0f / pageSize, NumMip - 1, 0));
             Shader.SetGlobalVector("_VTPageTileParams", new Vector4((float)tileBorder, (float)tileSize, TextureSize, TextureSize));
         }
 

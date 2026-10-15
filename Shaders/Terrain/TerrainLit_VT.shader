@@ -55,7 +55,6 @@ Shader "Landscape/TerrainLit_VT"
             HLSLPROGRAM
             #pragma target 3.0
             #pragma multi_compile_instancing
-            #pragma enable_d3d11_debug_symbols
             #pragma shader_feature_local _TERRAIN_INSTANCED_PERPIXEL_NORMAL
             #pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
 
