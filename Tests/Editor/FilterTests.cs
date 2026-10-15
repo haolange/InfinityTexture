@@ -1,0 +1,46 @@
+using NUnit.Framework;
+using Unity.Mathematics;
+
+namespace Landscape.RuntimeVirtualTexture.Tests
+{
+    public class FilterTests
+    {
+        [Test]
+        public void RequestMip_BilinearRoundsOthersFloor()
+        {
+            Assert.AreEqual(3, VirtualTextureMath.RequestMip(2.6f, EPageFilter.Bilinear, 10));
+            Assert.AreEqual(2, VirtualTextureMath.RequestMip(2.4f, EPageFilter.Bilinear, 10));
+            Assert.AreEqual(2, VirtualTextureMath.RequestMip(2.6f, EPageFilter.Trilinear, 10));
+            Assert.AreEqual(2, VirtualTextureMath.RequestMip(2.6f, EPageFilter.Anisotropic, 10));
+        }
+
+        [Test]
+        public void RequestMip_ClampsToValidLevels()
+        {
+            Assert.AreEqual(0, VirtualTextureMath.RequestMip(-3f, EPageFilter.Trilinear, 10));
+            Assert.AreEqual(10, VirtualTextureMath.RequestMip(14f, EPageFilter.Bilinear, 10));
+        }
+
+        [Test]
+        public void IsotropicLodUsesTheLongerAxis()
+        {
+            float lod = VirtualTextureMath.FilterLod(new float2(8, 0), new float2(0, 2), EPageFilter.Trilinear, 4, out int taps);
+            Assert.AreEqual(3f, lod, 1e-5f);
+            Assert.AreEqual(1, taps);
+        }
+
+        [Test]
+        public void AnisotropicLodSplitsTheMajorAxisAcrossTaps()
+        {
+            // 8:1 的足迹、最多 4 次：每次覆盖 8 / 4 = 2 个虚拟像素。
+            float lod = VirtualTextureMath.FilterLod(new float2(8, 0), new float2(0, 1), EPageFilter.Anisotropic, 4, out int taps);
+            Assert.AreEqual(4, taps);
+            Assert.AreEqual(1f, lod, 1e-5f);
+
+            // 3:1 的足迹只需要 3 次，每次正好覆盖短轴。
+            lod = VirtualTextureMath.FilterLod(new float2(0, 6), new float2(2, 0), EPageFilter.Anisotropic, 4, out taps);
+            Assert.AreEqual(3, taps);
+            Assert.AreEqual(1f, lod, 1e-5f);
+        }
+    }
+}

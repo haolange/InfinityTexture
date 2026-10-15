@@ -1,32 +1,34 @@
-#ifndef _ETCCompress_
-#define _ETCCompress_
+#ifndef ETC_COMPRESS_INCLUDED
+#define ETC_COMPRESS_INCLUDED
+
+// ETC2 RGBA8 块编码：RGB 用 ETC2（个别/差分模式），A 用 EAC。输入为 0..1。
 
 #define BLOCK_MODE_INDIVIDUAL				0
 #define BLOCK_MODE_DIFFERENTIAL				1
 #define NUM_RGB_TABLES 8
-#define NUM_ALPHA_TABLES 16
 
-float4 alpha_distance_tables[16] =
+// EAC 修正表（ETC2 规范）：下标 0..3 为负修正，4..7 为正修正。
+static const int EAC_MODIFIERS[16][8] =
 {
-    float4(2, 5, 8, 14),
-    float4(2, 6, 9, 12),
-    float4(1, 4, 7, 12),
-    float4(1, 3, 5, 12),
-    float4(2, 5, 7, 11),
-    float4(2, 6, 8, 10),
-    float4(3, 6, 7, 10),
-    float4(2, 4, 7, 10),
-    float4(1, 5, 7, 9),
-    float4(1, 4, 7, 9),
-    float4(1, 3, 7, 9),
-    float4(1, 4, 6, 9),
-    float4(2, 3, 6, 9),
-    float4(0, 1, 2, 9),
-    float4(3, 5, 7, 8),
-    float4(2, 4, 6, 8)
+    { -3, -6,  -9, -15, 2, 5, 8, 14 },
+    { -3, -7, -10, -13, 2, 6, 9, 12 },
+    { -2, -5,  -8, -13, 1, 4, 7, 12 },
+    { -2, -4,  -6, -13, 1, 3, 5, 12 },
+    { -3, -6,  -8, -12, 2, 5, 7, 11 },
+    { -3, -7,  -9, -11, 2, 6, 8, 10 },
+    { -4, -7,  -8, -11, 3, 6, 7, 10 },
+    { -3, -5,  -8, -11, 2, 4, 7, 10 },
+    { -2, -6,  -8, -10, 1, 5, 7,  9 },
+    { -2, -5,  -8, -10, 1, 4, 7,  9 },
+    { -2, -4,  -8, -10, 1, 3, 7,  9 },
+    { -2, -5,  -7, -10, 1, 4, 6,  9 },
+    { -3, -4,  -7, -10, 2, 3, 6,  9 },
+    { -1, -2,  -3, -10, 0, 1, 2,  9 },
+    { -4, -6,  -8,  -9, 3, 5, 7,  8 },
+    { -3, -5,  -7,  -9, 2, 4, 6,  8 }
 };
 
-float4 rgb_distance_tables[8] =
+static const float4 rgb_distance_tables[8] =
 {
     float4(-8, -2, 2, 8),
     float4(-17, -5, 5, 17),
@@ -37,17 +39,6 @@ float4 rgb_distance_tables[8] =
     float4(-106, -33, 33, 106),
     float4(-183, -47, 47, 183)
 };
-
-void SelectAlphaMod(in float SourceAlpha, in float EncodedAlpha, int IndexInTable, inout int SelectedIndex, inout float MinDif)
-{
-    float Dif = abs(EncodedAlpha - SourceAlpha);
-    if (Dif < MinDif)
-    {
-        MinDif = Dif;
-        SelectedIndex = IndexInTable;
-    }
-}
-
 
 int3 FloatColorToUint555(in float3 FloatColor)
 {
@@ -119,7 +110,6 @@ uint SelectRGBTableIndex(float LuminanceR)
 
 void FindPixelWeights(in float3 Block[16], in float3 BaseColor, in uint TableIdx, in int StartX, in int EndX, in int StartY, in int EndY, out uint SubBlockWeights)
 {
-	//int PIXEL_INDEX_ENCODE_TABLE[4] = { 3, 2, 0, 1 };
     SubBlockWeights = 0;
 	
     float TableRangeMax = rgb_distance_tables[TableIdx].w / 255.f;
@@ -140,7 +130,6 @@ void FindPixelWeights(in float3 Block[16], in float3 BaseColor, in uint TableIdx
             {
                 EncIndex = (Diff * 1.58) > TableRangeMax ? 1 : 0;
             }
-			//int EncIndex = PIXEL_INDEX_ENCODE_TABLE[SelectedIndex];
             int IndexInBlock = X * 4 + Y;
             SubBlockWeights |= ((EncIndex & 1) << IndexInBlock) | ((EncIndex >> 1) << (16 + IndexInBlock));
         }
@@ -207,86 +196,62 @@ uint2 CompressBlock_ETC2_RGB(in float3 Block[16])
     return uint2(ModeBits, IndexBits);
 }
 
+// EAC alpha：解码值 = clamp(基准 + 修正表[索引] × 倍率)。逐表求能覆盖 [最小, 最大] 的倍率与基准，取总误差最小的表。
+// 64 位按大端存放：基准 8 位 | 倍率 4 位 | 表号 4 位 | 16 个 3 位索引（像素按列优先）。
 uint2 CompressBlock_ETC2_Alpha(in float BlockA[16])
 {
-    float MinAlpha = 1.f;
-    float MaxAlpha = 0.f;
+    int alpha[16];
+    int minAlpha = 255, maxAlpha = 0;
     for (int k = 0; k < 16; ++k)
     {
-        float A = BlockA[k];
-        MinAlpha = min(A, MinAlpha);
-        MaxAlpha = max(A, MaxAlpha);
+        alpha[k] = (int)round(saturate(BlockA[k]) * 255.0);
+        minAlpha = min(minAlpha, alpha[k]);
+        maxAlpha = max(maxAlpha, alpha[k]);
     }
-	
-    float AlphaRange = MaxAlpha - MinAlpha;
-    const float MidRange = 20.f; // an average range in ALPHA_DISTANCE_TABLES
-    float Multiplier = clamp(round(255.f * AlphaRange / MidRange), 1.f, 15.f);
-	
-    int TableIdx = 0;
-    float4 TableValueNeg = float4(0, 0, 0, 0);
-    float4 TableValuePos = float4(0, 0, 0, 0);
-	
-	// iterating through all tables to find a best fit is quite slow
-	// instead guess the best table based on alpha range
-    for (int i = 0; i < NUM_ALPHA_TABLES; ++i)
-    {
-        TableIdx = NUM_ALPHA_TABLES - 1 - i;
-        TableValuePos = alpha_distance_tables[TableIdx];
-				
-        float TableRange = ((TableValuePos.w * 2 + 1) / 255.f) * Multiplier;
-        float Dif = TableRange - AlphaRange;
-        if (Dif >= 0.f)
-        {
-            break;
-        }
-    }
-    TableValueNeg = -(TableValuePos + float4(1, 1, 1, 1));
 
-	// make sure an exact value of MinAlpha can always be decoded from a BaseValue
-    float BaseValue = MinAlpha - TableValueNeg.w;
-	
-    TableValueNeg = saturate(TableValueNeg + BaseValue.xxxx);
-    TableValuePos = saturate(TableValuePos + BaseValue.xxxx);
-    uint2 BlockWeights = 0;
-	
-    for (int PixelIndex = 0; PixelIndex < 16; ++PixelIndex)
+    int bestTable = 0, bestMultiplier = 1, bestBase = minAlpha;
+    int bestError = 0x7FFFFFFF;
+    for (int table = 0; table < 16; ++table)
     {
-        float Alpha = BlockA[PixelIndex];
-        int SelectedIndex = 0;
-        float MinDif = 100000.f;
-		
-        if ((Alpha - TableValuePos.x) < 0.f)
+        int span = EAC_MODIFIERS[table][7] - EAC_MODIFIERS[table][3];
+        int multiplier = clamp((maxAlpha - minAlpha + span / 2) / span, 1, 15);
+        int base = clamp((minAlpha + maxAlpha - (EAC_MODIFIERS[table][7] + EAC_MODIFIERS[table][3]) * multiplier + 1) / 2, 0, 255);
+
+        int error = 0;
+        for (int p = 0; p < 16; ++p)
         {
-            SelectAlphaMod(Alpha, TableValueNeg.x, 0, SelectedIndex, MinDif);
-            SelectAlphaMod(Alpha, TableValueNeg.y, 1, SelectedIndex, MinDif);
-            SelectAlphaMod(Alpha, TableValueNeg.z, 2, SelectedIndex, MinDif);
-            SelectAlphaMod(Alpha, TableValueNeg.w, 3, SelectedIndex, MinDif);
+            int best = 0x7FFFFFFF;
+            for (int i = 0; i < 8; ++i)
+            {
+                int d = clamp(base + EAC_MODIFIERS[table][i] * multiplier, 0, 255) - alpha[p];
+                best = min(best, d * d);
+            }
+            error += best;
         }
+        if (error < bestError) { bestError = error; bestTable = table; bestMultiplier = multiplier; bestBase = base; }
+    }
+
+    uint indicesHigh = 0, indicesLow = 0;  // 48 位索引的高 16 位与低 32 位
+    for (int p = 0; p < 16; ++p)
+    {
+        int selected = 0, best = 0x7FFFFFFF;
+        for (int i = 0; i < 8; ++i)
+        {
+            int d = clamp(bestBase + EAC_MODIFIERS[bestTable][i] * bestMultiplier, 0, 255) - alpha[p];
+            if (d * d < best) { best = d * d; selected = i; }
+        }
+        int column = p & 3, row = p >> 2;          // BlockA 按行优先
+        int shift = 45 - 3 * (column * 4 + row);   // EAC 按列优先，第一个像素在最高位
+        if (shift >= 32) { indicesHigh |= (uint)selected << (shift - 32); }
         else
         {
-            SelectAlphaMod(Alpha, TableValuePos.x, 4, SelectedIndex, MinDif);
-            SelectAlphaMod(Alpha, TableValuePos.y, 5, SelectedIndex, MinDif);
-            SelectAlphaMod(Alpha, TableValuePos.z, 6, SelectedIndex, MinDif);
-            SelectAlphaMod(Alpha, TableValuePos.w, 7, SelectedIndex, MinDif);
+            indicesLow |= (uint)selected << shift;
+            if (shift > 29) { indicesHigh |= (uint)selected >> (32 - shift); }
         }
-
-		// ETC uses column-major indexing for the pixels in a block...
-        int TransposedIndex = (PixelIndex >> 2) | ((PixelIndex & 3) << 2);
-        int StartBit = (15 - TransposedIndex) * 3;
-        BlockWeights.x |= (StartBit < 32) ? SelectedIndex << StartBit : 0;
-        int ShiftRight = (StartBit == 30) ? 2 : 0;
-        int ShiftLeft = (StartBit >= 32) ? StartBit - 32 : 0;
-        BlockWeights.y |= (StartBit >= 30) ? (SelectedIndex >> ShiftRight) << ShiftLeft : 0;
     }
 
-    int MultiplierInt = round(Multiplier);
-    int BaseValueInt = round(BaseValue * 255.f);
-	
-    uint2 AlphaBits;
-    AlphaBits.x = SwapEndian32(BlockWeights.y | (TableIdx << 16) | (MultiplierInt << 20) | (BaseValueInt << 24));
-    AlphaBits.y = SwapEndian32(BlockWeights.x);
-
-    return AlphaBits;
+    uint high = (uint)bestBase << 24 | (uint)bestMultiplier << 20 | (uint)bestTable << 16 | indicesHigh;
+    return uint2(SwapEndian32(high), SwapEndian32(indicesLow));
 }
 
 uint4 CompressBlock_ETC2_RGBA(in float3 BlockRGB[16], in float BlockA[16])
