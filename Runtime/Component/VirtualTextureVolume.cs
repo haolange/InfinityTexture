@@ -45,7 +45,8 @@ namespace Landscape.RuntimeVirtualTexture
             }
         }
 
-        internal FRect volumeRect;
+        internal Rect volumeRect;
+        internal IndirectMap indirectMap;
         internal RequestPipeline requestPipeline;
         internal FPageRenderer pageRenderer;
         internal static VirtualTextureVolume s_VirtualTextureVolume;
@@ -59,11 +60,11 @@ namespace Landscape.RuntimeVirtualTexture
             s_VirtualTextureVolume = this;
 
             int2 fixedCenter = GetFixedCenter(GetFixedPos(transform.position));
-            volumeRect = new FRect(fixedCenter.x - m_VolumeRadius, fixedCenter.y - m_VolumeRadius, VolumeSize, VolumeSize);
+            volumeRect = new Rect(fixedCenter.x - m_VolumeRadius, fixedCenter.y - m_VolumeRadius, VolumeSize, VolumeSize);
             Shader.SetGlobalVector("_VTVolumeRect", new Vector4(volumeRect.xMin, volumeRect.yMin, volumeRect.width, volumeRect.height));
-            Shader.SetGlobalVector("_VTVolumeBound", new Vector4(transform.position.x, transform.position.y, transform.position.z, VolumeSize));
 
-            pageRenderer = new FPageRenderer(virtualTexture.pageSize, virtualTexture.tileNum * virtualTexture.tileNum);
+            pageRenderer = new FPageRenderer();
+            indirectMap = new IndirectMap(virtualTexture.pageSize, virtualTexture.tileNum * virtualTexture.tileNum, Shader.Find("Hidden/VirtualTexture/IndirectMap"));
             requestPipeline = new RequestPipeline(virtualTexture.pageSize, virtualTexture.tileNum, virtualTexture.bakesPerRound, virtualTexture.queueCapacity, virtualTexture.queueTimeout);
         }
 
@@ -72,11 +73,11 @@ namespace Landscape.RuntimeVirtualTexture
             Shader.SetGlobalInt("_VTReady", 0);
             if (s_VirtualTextureVolume == this) { s_VirtualTextureVolume = null; }
             requestPipeline.Dispose();
+            indirectMap.Dispose();
             pageRenderer.Dispose();
             virtualTexture.Dispose();
             Shader.SetGlobalTexture("_PhyscisAlbedo", Texture2D.blackTexture);
             Shader.SetGlobalTexture("_PhyscisNormal", Texture2D.normalTexture);
-            Shader.SetGlobalTexture("_PageTableTexture", Texture2D.blackTexture);
         }
 
         void SetTerrainMaterial()

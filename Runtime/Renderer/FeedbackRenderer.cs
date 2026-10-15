@@ -31,8 +31,8 @@ namespace Landscape.RuntimeVirtualTexture
         ProfilingSampler m_DrawPageColorSampler;
         ProfilingSampler m_VirtualTextureSampler;
         FeedbackReadback m_Readback;
-        NativeList<BakeOrder> m_Bakes;
-        private bool m_PageTableInitialized;
+        RoundResult m_Round;
+        private bool m_IndirectInitialized;
         private VirtualTextureVolume m_ActiveVolume;
 
         private class PassData
@@ -42,12 +42,11 @@ namespace Landscape.RuntimeVirtualTexture
             internal Vector2 feedbackScale;
             internal VirtualTextureVolume volume;
             internal bool hasRound;
-            internal bool residencyChanged;
             internal bool requestReadback;
             internal RendererListHandle rendererList;
             internal TextureHandle feedback;
             internal TextureHandle feedbackDepth;
-            internal TextureHandle pageTable;
+            internal TextureHandle indirectMap;
             internal TextureHandle colorA;
             internal TextureHandle colorB;
         }
@@ -62,7 +61,7 @@ namespace Landscape.RuntimeVirtualTexture
             m_DrawPageColorSampler = ProfilingSampler.Get(EVirtualTexturePass.DrawPageColor);
             m_VirtualTextureSampler = ProfilingSampler.Get(EVirtualTexturePass.VirtualTexture);
             m_Readback = new FeedbackReadback(OnFeedbackArrived);
-            m_Bakes = new NativeList<BakeOrder>(64, Allocator.Persistent);
+            m_Round = new RoundResult();
         }
 
         static void OnFeedbackArrived(NativeArray<uint> pixels)
@@ -77,14 +76,16 @@ namespace Landscape.RuntimeVirtualTexture
             if (!Application.isPlaying || volume == null)
             {
                 m_Readback.Cancel();
-                m_PageTableInitialized = false;
+                m_Round.Clear();
+                m_IndirectInitialized = false;
                 m_ActiveVolume = null;
                 return;
             }
             if (m_ActiveVolume != volume)
             {
                 m_Readback.Cancel();
-                m_PageTableInitialized = false;
+                m_Round.Clear();
+                m_IndirectInitialized = false;
                 m_ActiveVolume = volume;
             }
 
@@ -108,7 +109,7 @@ namespace Landscape.RuntimeVirtualTexture
             };
             var feedback = renderGraph.CreateTexture(feedbackDesc);
             var feedbackDepth = renderGraph.CreateTexture(depthDesc);
-            var pageTable = renderGraph.ImportTexture(virtualTexture.tableTextureHandle);
+            var indirectMap = renderGraph.ImportTexture(volume.indirectMap.texture);
             var colorA = renderGraph.ImportTexture(virtualTexture.colorTextureHandles[0]);
             var colorB = renderGraph.ImportTexture(virtualTexture.colorTextureHandles[1]);
             var drawingSettings = new DrawingSettings(m_ShaderPassID, new SortingSettings(camera) { criteria = SortingCriteria.QuantizedFrontToBack })
@@ -124,18 +125,18 @@ namespace Landscape.RuntimeVirtualTexture
                 passData.feedbackScale = (Vector2)FeedbackLayout.Scale(renderSize);
                 passData.volume = volume;
                 // 只取已经跑完的一轮；没跑完就沿用现有驻留状态。
-                passData.hasRound = volume.requestPipeline.TryTakeResult(m_Bakes, out passData.residencyChanged);
+                passData.hasRound = volume.requestPipeline.TryTakeResult(m_Round);
                 passData.requestReadback = !volume.requestPipeline.isBusy && !m_Readback.inFlight;
                 passData.rendererList = rendererList;
                 passData.feedback = feedback;
                 passData.feedbackDepth = feedbackDepth;
-                passData.pageTable = pageTable;
+                passData.indirectMap = indirectMap;
                 passData.colorA = colorA;
                 passData.colorB = colorB;
                 builder.UseRendererList(rendererList);
                 builder.UseTexture(feedback, AccessFlags.ReadWrite);
                 builder.UseTexture(feedbackDepth, AccessFlags.Write);
-                builder.UseTexture(pageTable, AccessFlags.ReadWrite);
+                builder.UseTexture(indirectMap, AccessFlags.ReadWrite);
                 builder.UseTexture(colorA, AccessFlags.ReadWrite);
                 builder.UseTexture(colorB, AccessFlags.ReadWrite);
                 builder.AllowGlobalStateModification(true);
@@ -154,24 +155,22 @@ namespace Landscape.RuntimeVirtualTexture
             FPageRenderer pageRenderer = volume.pageRenderer;
             VirtualTextureAsset virtualTexture = volume.virtualTexture;
 
-            if (data.hasRound && m_Bakes.Length > 0)
+            if (data.hasRound && m_Round.bakes.Length > 0)
             {
                 using (new ProfilingScope(cmdBuffer, m_DrawPageColorSampler))
                 {
                     cmdBuffer.SetRenderTarget(new RenderTargetIdentifier[] { data.colorA, data.colorB }, data.colorA);
-                    pageRenderer.BakePages(cmdBuffer, m_Bakes, volume.requestPipeline.pool, virtualTexture, volume.GetDrawPageParamter());
+                    pageRenderer.BakePages(cmdBuffer, m_Round.bakes, volume.requestPipeline.pool, virtualTexture, volume.GetDrawPageParamter());
                 }
             }
 
             using (new ProfilingScope(cmdBuffer, m_DrawPageTableSampler))
             {
-                if (!m_PageTableInitialized || data.residencyChanged)
+                if (!m_IndirectInitialized || (data.hasRound && m_Round.residencyChanged))
                 {
-                    cmdBuffer.SetRenderTarget(data.pageTable);
-                    cmdBuffer.ClearRenderTarget(false, true, Color.clear);
-                    pageRenderer.DrawPageTable(cmdBuffer, volume.requestPipeline.pool);
+                    volume.indirectMap.Update(cmdBuffer, m_Round.indirectWrites, m_Round.levelRanges);
                     cmdBuffer.SetGlobalInt("_VTReady", 1);
-                    m_PageTableInitialized = true;
+                    m_IndirectInitialized = true;
                 }
             }
 
@@ -195,9 +194,9 @@ namespace Landscape.RuntimeVirtualTexture
         internal void Dispose()
         {
             m_Readback.Dispose();
-            m_Bakes.Dispose();
+            m_Round.Dispose();
             m_ActiveVolume = null;
-            m_PageTableInitialized = false;
+            m_IndirectInitialized = false;
         }
     }
 

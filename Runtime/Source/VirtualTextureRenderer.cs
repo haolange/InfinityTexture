@@ -10,27 +10,14 @@ using System.Runtime.InteropServices;
 
 namespace Landscape.RuntimeVirtualTexture
 {
-    internal struct FPageTableInfo
-    {
-        public float4 pageData;
-        public float4x4 matrix_M;
-    }
-
-    /// <summary>粗页先画，细页后画覆盖。</summary>
-    internal struct CoarseFirst : IComparer<FPageTableInfo>
-    {
-        public int Compare(FPageTableInfo a, FPageTableInfo b) => b.pageData.z.CompareTo(a.pageData.z);
-    }
-
     internal struct FDrawPageParameter
     {
-        public FRect volumeRect;
+        public Rect volumeRect;
         public Terrain[] terrainList;
     }
 
     internal static class FPageShaderID
     {
-        public static int PageTableBuffer = Shader.PropertyToID("_PageTableBuffer");
         public static int SplatTileOffset = Shader.PropertyToID("_SplatTileOffset");
         public static int SplatTexture = Shader.PropertyToID("_SplatTexture");
         public static int SurfaceTileOffset = Shader.PropertyToID("_SurfaceTileOffset");
@@ -43,51 +30,15 @@ namespace Landscape.RuntimeVirtualTexture
 
     internal unsafe class FPageRenderer : IDisposable
     {
-        private int m_PageCount;
         private Mesh m_DrawPageMesh;
-        private Material m_DrawPageMaterial;
         private Material m_DrawColorMaterial;
-        private ComputeBuffer m_PageTableBuffer;
         private MaterialPropertyBlock m_Property;
-        private NativeList<FPageTableInfo> m_TableInfos;
 
-        public FPageRenderer(in int pageCount, in int poolCapacity)
+        public FPageRenderer()
         {
-            this.m_PageCount = pageCount;
             this.m_Property = new MaterialPropertyBlock();
-            this.m_TableInfos = new NativeList<FPageTableInfo>(poolCapacity, Allocator.Persistent);
-            this.m_PageTableBuffer = new ComputeBuffer(poolCapacity, Marshal.SizeOf(typeof(FPageTableInfo)));
-            this.m_DrawPageMesh = FVirtualTextureUtility.BuildQuadMesh();
-            this.m_DrawPageMaterial = new Material(Shader.Find("VirtualTexture/DrawPageTable"));
+            this.m_DrawPageMesh = BuildQuadMesh();
             this.m_DrawColorMaterial = new Material(Shader.Find("VirtualTexture/DrawPageColor"));
-            this.m_DrawPageMaterial.enableInstancing = true;
-        }
-
-        /// <summary>按物理槽上的反向映射重画页表。</summary>
-        public void DrawPageTable(CommandBuffer cmdBuffer, PhysicalPool* pool)
-        {
-            m_TableInfos.Clear();
-            for (int slot = 0; slot < pool->capacity; ++slot)
-            {
-                PageId page = (*pool)[slot].owner;
-                if (!page.isValid) { continue; }
-
-                int2 slotCoord = pool->SlotCoord(slot);
-                float size = (float)(1 << page.mip) / m_PageCount;
-                float3 origin = new float3((float)(page.x << page.mip) / m_PageCount, (float)(page.y << page.mip) / m_PageCount, 0);
-                m_TableInfos.Add(new FPageTableInfo
-                {
-                    pageData = new float4(slotCoord.x / 255f, slotCoord.y / 255f, page.mip / 255f, 1),
-                    matrix_M = float4x4.TRS(origin, quaternion.identity, size)
-                });
-            }
-            if (m_TableInfos.Length == 0) { return; }
-            m_TableInfos.Sort(new CoarseFirst());
-
-            m_Property.Clear();
-            m_Property.SetBuffer(FPageShaderID.PageTableBuffer, m_PageTableBuffer);
-            m_PageTableBuffer.SetData(m_TableInfos.AsArray(), 0, 0, m_TableInfos.Length);
-            cmdBuffer.DrawMeshInstancedProcedural(m_DrawPageMesh, 0, m_DrawPageMaterial, 0, m_TableInfos.Length, m_Property);
         }
 
         public void BakePages(CommandBuffer cmdBuffer, NativeList<BakeOrder> bakes, PhysicalPool* pool, VirtualTextureAsset virtualTexture, in FDrawPageParameter drawPageParameter)
@@ -125,7 +76,7 @@ namespace Landscape.RuntimeVirtualTexture
                 maxRect.yMax = Mathf.Min(volumeRect.yMax, terrainRect.yMax);
 
                 var scaleFactor = pageRect.width / volumeRect.width;
-                FRect offsetRect = new FRect(pageRect.x + (maxRect.xMin - volumeRect.xMin) * scaleFactor, pageRect.y + (maxRect.yMin - volumeRect.yMin) * scaleFactor, maxRect.width * scaleFactor, maxRect.height * scaleFactor);
+                Rect offsetRect = new Rect(pageRect.x + (maxRect.xMin - volumeRect.xMin) * scaleFactor, pageRect.y + (maxRect.yMin - volumeRect.yMin) * scaleFactor, maxRect.width * scaleFactor, maxRect.height * scaleFactor);
                 float l = offsetRect.x * 2.0f / virtualTexture.TextureSize - 1;
                 float r = (offsetRect.x + offsetRect.width) * 2.0f / virtualTexture.TextureSize - 1;
                 float b = offsetRect.y * 2.0f / virtualTexture.TextureSize - 1;
@@ -167,12 +118,18 @@ namespace Landscape.RuntimeVirtualTexture
             }
         }
 
+        static Mesh BuildQuadMesh()
+        {
+            var mesh = new Mesh();
+            mesh.SetVertices(new[] { new Vector3(0, 1, 0.1f), new Vector3(0, 0, 0.1f), new Vector3(1, 0, 0.1f), new Vector3(1, 1, 0.1f) });
+            mesh.SetUVs(0, new[] { new Vector2(0, 1), new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1) });
+            mesh.SetTriangles(new[] { 0, 1, 2, 2, 3, 0 }, 0);
+            return mesh;
+        }
+
         public void Dispose()
         {
-            m_TableInfos.Dispose();
-            m_PageTableBuffer.Dispose();
             Object.DestroyImmediate(m_DrawPageMesh);
-            Object.DestroyImmediate(m_DrawPageMaterial);
             Object.DestroyImmediate(m_DrawColorMaterial);
         }
     }

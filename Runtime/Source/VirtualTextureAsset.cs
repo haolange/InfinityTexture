@@ -55,15 +55,12 @@ namespace Landscape.RuntimeVirtualTexture
         [HideInInspector]
         public ComputeShader m_Shader;
 
-        internal RenderTargetIdentifier tableTextureID;
         internal RenderTargetIdentifier[] colorTextureIDs;
-        internal RTHandle tableTextureHandle;
         internal RTHandle[] colorTextureHandles;
         internal int TextureSize { get { return tileNum * TileSizePadding; } }
 
         private RenderTexture m_physicsTextureA;
         private RenderTexture m_physicsTextureB;
-        private RenderTexture m_pageTableTexture;
 
         public void Initialize()
         {
@@ -102,39 +99,21 @@ namespace Landscape.RuntimeVirtualTexture
             colorTextureIDs[1] = new RenderTargetIdentifier(m_physicsTextureB);
             colorTextureHandles = new[] { RTHandles.Alloc(m_physicsTextureA), RTHandles.Alloc(m_physicsTextureB) };
 
-            m_pageTableTexture = new RenderTexture(pageSize, pageSize, 0, GraphicsFormat.R8G8B8A8_UNorm);
-            m_pageTableTexture.bindTextureMS = false;
-            m_pageTableTexture.name = "PageTableTexture";
-            m_pageTableTexture.filterMode = FilterMode.Point;
-            m_pageTableTexture.wrapMode = TextureWrapMode.Clamp;
-
-            tableTextureID = new RenderTargetIdentifier(m_pageTableTexture);
-            tableTextureHandle = RTHandles.Alloc(m_pageTableTexture);
-
-            // 设置Shader参数
-            // x: padding 偏移量
-            // y: tile 有效区域的尺寸
-            // zw: 1/区域尺寸
             Shader.SetGlobalTexture("_PhyscisAlbedo", m_physicsTextureA);
             Shader.SetGlobalTexture("_PhyscisNormal", m_physicsTextureB);
-            Shader.SetGlobalTexture("_PageTableTexture", m_pageTableTexture);
             Shader.SetGlobalVector("_VTParams", new Vector4(pageSize, NumMip, tileSize, (int)tileBorder));
-            Shader.SetGlobalVector("_VTPageParams", new Vector4(pageSize, 1.0f / pageSize, NumMip - 1, 0));
-            Shader.SetGlobalVector("_VTPageTileParams", new Vector4((float)tileBorder, (float)tileSize, TextureSize, TextureSize));
+            Shader.SetGlobalVector("_VTPoolParams", new Vector4(TileSizePadding, 1.0f / TextureSize, 0, 0));
         }
 
         public void Dispose()
         {
-            tableTextureHandle.Release();
             colorTextureHandles[0].Release();
             colorTextureHandles[1].Release();
 
             m_physicsTextureA.Release();
             m_physicsTextureB.Release();
-            m_pageTableTexture.Release();
             Object.Destroy(m_physicsTextureA);
             Object.Destroy(m_physicsTextureB);
-            Object.Destroy(m_pageTableTexture);
         }
     }
 }

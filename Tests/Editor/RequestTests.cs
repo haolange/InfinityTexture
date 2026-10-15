@@ -10,12 +10,13 @@ namespace Landscape.RuntimeVirtualTexture.Tests
         const int PageCount = 16; // mip 0..4
 
         RequestPipeline m_Pipeline;
-        NativeList<BakeOrder> m_Bakes;
+        RoundResult m_Round;
+        NativeList<BakeOrder> m_Bakes => m_Round.bakes;
 
         void Create(int poolSize, int bakeBudget = 8, int queueCapacity = 64, int queueTimeout = 2)
         {
             m_Pipeline = new RequestPipeline(PageCount, poolSize, bakeBudget, queueCapacity, queueTimeout);
-            m_Bakes = new NativeList<BakeOrder>(16, Allocator.Persistent);
+            m_Round = new RoundResult();
         }
 
         [TearDown]
@@ -23,7 +24,8 @@ namespace Landscape.RuntimeVirtualTexture.Tests
         {
             m_Pipeline?.Dispose();
             m_Pipeline = null;
-            if (m_Bakes.IsCreated) { m_Bakes.Dispose(); }
+            m_Round?.Dispose();
+            m_Round = null;
         }
 
         [Test]
@@ -169,7 +171,7 @@ namespace Landscape.RuntimeVirtualTexture.Tests
             var feedback = new NativeArray<uint>(pixels, Allocator.Temp);
             m_Pipeline.Schedule(feedback);
             feedback.Dispose();
-            while (!m_Pipeline.TryTakeResult(m_Bakes, out _)) { JobHandle.ScheduleBatchedJobs(); }
+            while (!m_Pipeline.TryTakeResult(m_Round)) { JobHandle.ScheduleBatchedJobs(); }
         }
 
         EPageState State(PageId page) => m_Pipeline.directory->Get(page).state;
