@@ -90,7 +90,15 @@ namespace Landscape.RuntimeVirtualTexture
         {
             error = null;
             if (!math.ispow2(pageCount) || pageCount > PageId.MaxPageCount) { error = $"pageCount {pageCount} 必须是不超过 {PageId.MaxPageCount} 的 2 的幂"; }
-            else if (poolSize > 255) { error = $"poolSize {poolSize} 超出间接表 8 位槽坐标"; }
+            else if (poolSize < 1 || poolSize > 255) { error = $"poolSize {poolSize} 必须在 1..255 内"; }
+            else if (pageTexels < 1) { error = "pageTexels 必须为正数"; }
+            else if (!System.Enum.IsDefined(typeof(EBorder), pageBorder)) { error = "无效的 pageBorder"; }
+            else if (!System.Enum.IsDefined(typeof(EPageCompression), compression)) { error = "无效的 compression"; }
+            else if (compression == EPageCompression.ASTC && !System.Enum.IsDefined(typeof(EAstcBlock), astcBlock)) { error = "无效的 astcBlock"; }
+            else if (!System.Enum.IsDefined(typeof(EPageLayers), layers)) { error = "无效的 layers"; }
+            else if (!System.Enum.IsDefined(typeof(EPageFilter), filter)) { error = "无效的 filter"; }
+            else if (anisoSamples < 2 || anisoSamples > 16) { error = "anisoSamples 必须在 2..16 内"; }
+            else if (bakesPerRound < 1 || queueCapacity < 1 || queueTimeout < 1) { error = "bakesPerRound、queueCapacity 和 queueTimeout 必须为正数"; }
             else if (!format.IsAligned(slotTexels)) { error = $"槽边长 {slotTexels}（pageTexels + 2 × pageBorder）不是 {compression} 块宽 {format.blockSize.x} 的整数倍"; }
             else if (indirectShader == null) { error = "缺少 IndirectMap shader 引用"; }
             else if (format.isCompressed && encodeShader == null) { error = "缺少 PageEncode compute 引用"; }

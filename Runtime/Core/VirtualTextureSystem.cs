@@ -50,16 +50,29 @@ namespace Landscape.RuntimeVirtualTexture
         public static bool CanCreate(VirtualTextureAsset settings, out string error)
         {
             if (!settings.Validate(out error)) { return false; }
+            if ((long)settings.poolSize * ((long)settings.pageTexels + 2 * (int)settings.pageBorder) > SystemInfo.maxTextureSize || settings.pageCount > SystemInfo.maxTextureSize)
+            {
+                error = "物理图尺寸超出当前平台上限";
+                return false;
+            }
+            if (!SystemInfo.supportsAsyncGPUReadback || !SystemInfo.IsFormatSupported(GraphicsFormat.R32_UInt, GraphicsFormatUsage.Render))
+            {
+                error = "当前平台不支持 R32_UInt 反馈绘制和异步回读";
+                return false;
+            }
 
             PageFormat format = settings.format;
             foreach (EPageLayer layer in PhysicalLayers.Enabled(settings.layers))
             {
                 GraphicsFormat physicalFormat = format.PhysicalFormat(PhysicalLayers.IsColor(layer));
                 if (!SystemInfo.IsFormatSupported(physicalFormat, GraphicsFormatUsage.Sample)) { error = $"当前平台不支持 {physicalFormat}"; return false; }
+                GraphicsFormat scratchFormat = PageFormat.Of(EPageCompression.None).PhysicalFormat(PhysicalLayers.IsColor(layer));
+                if (!SystemInfo.IsFormatSupported(scratchFormat, GraphicsFormatUsage.Render)) { error = $"当前平台不支持 {scratchFormat} 烘焙目标"; return false; }
             }
             if (format.isCompressed)
             {
                 if (!SystemInfo.supportsComputeShaders) { error = "当前平台不支持 compute shader，无法压缩物理页"; return false; }
+                if (!SystemInfo.IsFormatSupported(GraphicsFormat.R32G32B32A32_UInt, GraphicsFormatUsage.LoadStore)) { error = "当前平台不支持压缩块图的随机写入"; return false; }
                 if ((SystemInfo.copyTextureSupport & (CopyTextureSupport.DifferentTypes | CopyTextureSupport.RTToTexture)) != (CopyTextureSupport.DifferentTypes | CopyTextureSupport.RTToTexture))
                 {
                     error = "当前平台不支持把块图拷贝进压缩纹理";
