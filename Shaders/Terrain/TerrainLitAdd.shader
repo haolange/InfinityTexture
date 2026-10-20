@@ -7,7 +7,7 @@ Shader "Hidden/VirtualTexture/TerrainAdd"
         // Layer count is passed down to guide height-blend enable/disable, due
         // to the fact that heigh-based blend will be broken with multipass.
         [HideInInspector] [PerRendererData] _NumLayersCount ("Total Layer Count", Float) = 1.0
-    
+
         // set by terrain engine
         [HideInInspector] _Control("Control (RGBA)", 2D) = "red" {}
         [HideInInspector] _Splat3("Layer 3 (A)", 2D) = "grey" {}
@@ -34,8 +34,8 @@ Shader "Hidden/VirtualTexture/TerrainAdd"
         // used in fallback on old cards & base map
         [HideInInspector] _MainTex("BaseMap (RGB)", 2D) = "grey" {}
         [HideInInspector] _BaseColor("Main Color", Color) = (1,1,1,1)
-		
-		[HideInInspector] _TerrainHolesTexture("Holes Map (RGB)", 2D) = "white" {} 
+
+		[HideInInspector] _TerrainHolesTexture("Holes Map (RGB)", 2D) = "white" {}
 
         [ToggleUI] _EnableInstancedPerPixelNormal("Enable Instanced per-pixel normal", Float) = 1.0
     }
