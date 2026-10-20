@@ -29,6 +29,37 @@ namespace Landscape.RuntimeVirtualTexture.Tests
         }
 
         [Test]
+        public void LargeFeedbackGrowsNativeContainersAcrossTheScheduledJobChain()
+        {
+            using var pipeline = new RequestPipeline(128, 16, 8, 512, 30);
+            using var result = new RoundResult();
+            var feedback = new NativeArray<uint>(128 * 128, Allocator.Temp);
+            try
+            {
+                for (int y = 0; y < 128; ++y)
+                {
+                    for (int x = 0; x < 128; ++x) { feedback[y * 128 + x] = new PageId(x, y, 0).packed; }
+                }
+
+                for (int round = 0; round < 2; ++round)
+                {
+                    pipeline.Schedule(feedback);
+                    while (!pipeline.TryTakeResult(result)) { JobHandle.ScheduleBatchedJobs(); }
+                    Assert.AreEqual(8, result.bakes.Length);
+                    var seen = new System.Collections.Generic.HashSet<PageId>();
+                    for (int i = 0; i < result.bakes.Length; ++i)
+                    {
+                        BakeOrder bake = result.bakes[i];
+                        Assert.IsTrue(seen.Add(bake.page));
+                        Assert.AreEqual(EPageState.Resident, pipeline.directory->Get(bake.page).state);
+                        Assert.AreEqual(bake.page, (*pipeline.pool)[bake.slot].owner);
+                    }
+                }
+            }
+            finally { feedback.Dispose(); }
+        }
+
+        [Test]
         public void EmptyRoundClearsBakesWithoutRepublishingIndirectWrites()
         {
             Create(poolSize: 2);
