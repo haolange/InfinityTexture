@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using Unity.Mathematics;
 using UnityEngine.Rendering;
+using Unity.Profiling;
 using Object = UnityEngine.Object;
 
 namespace Landscape.RuntimeVirtualTexture
@@ -12,6 +13,7 @@ namespace Landscape.RuntimeVirtualTexture
     /// </summary>
     internal class TerrainPageProducer : IPageProducer, IDisposable
     {
+        static readonly ProfilerMarker s_Bake = new ProfilerMarker("VT Producer");
         static readonly int s_BakeMatrixID = Shader.PropertyToID("_BakeMatrix");
         static readonly int s_SplatTextureID = Shader.PropertyToID("_SplatTexture");
         static readonly int s_SplatTileOffsetID = Shader.PropertyToID("_SplatTileOffset");
@@ -58,6 +60,7 @@ namespace Landscape.RuntimeVirtualTexture
 
         public void Bake(CommandBuffer cmd, in PageBakeRequest request)
         {
+            using var bake = s_Bake.Auto();
             Rect pageRect = ToWorld(request.uvRect);
 
             for (int terrainIndex = 0; terrainIndex < m_Terrains.Length; ++terrainIndex)

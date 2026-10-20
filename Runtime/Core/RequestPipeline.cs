@@ -3,6 +3,7 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Profiling;
 
 namespace Landscape.RuntimeVirtualTexture
 {
@@ -29,6 +30,7 @@ namespace Landscape.RuntimeVirtualTexture
     /// </summary>
     internal unsafe class RequestPipeline : IDisposable
     {
+        static readonly ProfilerMarker s_Schedule = new ProfilerMarker("VT Request Schedule");
         public PageDirectory* directory { get; private set; }
         public PhysicalPool* pool { get; private set; }
 
@@ -81,6 +83,7 @@ namespace Landscape.RuntimeVirtualTexture
         /// <summary>回读到达时调用：拷贝反馈像素并调度这一轮。</summary>
         public void Schedule(NativeArray<uint> feedbackPixels)
         {
+            using var schedule = s_Schedule.Auto();
             if (m_Scheduled) { return; }
 
             if (!m_Pixels.IsCreated || m_Pixels.Length != feedbackPixels.Length)

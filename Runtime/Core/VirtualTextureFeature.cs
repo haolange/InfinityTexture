@@ -4,6 +4,7 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
+using Unity.Profiling;
 
 namespace Landscape.RuntimeVirtualTexture
 {
@@ -23,7 +24,12 @@ namespace Landscape.RuntimeVirtualTexture
     internal class VirtualTexturePass : ScriptableRenderPass
     {
         static readonly int s_FeedbackScaleID = Shader.PropertyToID("_VTFeedbackScale");
-
+        static readonly ProfilerMarker s_Record = new ProfilerMarker("VT Record");
+        static readonly ProfilingSampler[] s_PassSamplers =
+        {
+            new ProfilingSampler("VT Bake"), new ProfilingSampler("VT Indirect"),
+            new ProfilingSampler("VT Feedback"), new ProfilingSampler("VT Readback")
+        };
 
         class BakeData
         {
@@ -63,6 +69,7 @@ namespace Landscape.RuntimeVirtualTexture
 
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
         {
+            using var record = s_Record.Auto();
             VirtualTextureSystem system = Application.isPlaying ? VirtualTextureSystem.active : null;
             if (system == null) { return; }
 
@@ -81,7 +88,7 @@ namespace Landscape.RuntimeVirtualTexture
 
         void AddBakePass(RenderGraph renderGraph, VirtualTextureSystem system)
         {
-            using (var builder = renderGraph.AddUnsafePass<BakeData>("VT Bake", out var data, ProfilingSampler.Get(EVirtualTexturePass.Bake)))
+            using (var builder = renderGraph.AddUnsafePass<BakeData>("VT Bake", out var data, s_PassSamplers[(int)EVirtualTexturePass.Bake]))
             {
                 data.system = system;
                 data.round = system.round;
@@ -97,7 +104,7 @@ namespace Landscape.RuntimeVirtualTexture
 
         void AddIndirectPass(RenderGraph renderGraph, VirtualTextureSystem system, bool update)
         {
-            using (var builder = renderGraph.AddUnsafePass<IndirectData>("VT Indirect", out var data, ProfilingSampler.Get(EVirtualTexturePass.Indirect)))
+            using (var builder = renderGraph.AddUnsafePass<IndirectData>("VT Indirect", out var data, s_PassSamplers[(int)EVirtualTexturePass.Indirect]))
             {
                 data.indirectMap = system.indirectMap;
                 data.round = system.round;
@@ -143,7 +150,7 @@ namespace Landscape.RuntimeVirtualTexture
             };
             RendererListHandle rendererList = renderGraph.CreateRendererList(new RendererListParams(renderingData.cullResults, drawing, m_Filtering));
 
-            using (var builder = renderGraph.AddRasterRenderPass<FeedbackData>("VT Feedback", out var data, ProfilingSampler.Get(EVirtualTexturePass.Feedback)))
+            using (var builder = renderGraph.AddRasterRenderPass<FeedbackData>("VT Feedback", out var data, s_PassSamplers[(int)EVirtualTexturePass.Feedback]))
             {
                 data.rendererList = rendererList;
                 data.feedbackScale = (Vector2)FeedbackLayout.Scale(renderSize);
@@ -170,7 +177,7 @@ namespace Landscape.RuntimeVirtualTexture
 
         void AddReadbackPass(RenderGraph renderGraph, TextureHandle feedback, VirtualTextureSystem system)
         {
-            using (var builder = renderGraph.AddUnsafePass<ReadbackData>("VT Readback", out var data, ProfilingSampler.Get(EVirtualTexturePass.Readback)))
+            using (var builder = renderGraph.AddUnsafePass<ReadbackData>("VT Readback", out var data, s_PassSamplers[(int)EVirtualTexturePass.Readback]))
             {
                 data.system = system;
                 data.feedback = feedback;

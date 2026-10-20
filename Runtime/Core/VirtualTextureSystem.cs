@@ -18,6 +18,7 @@ namespace Landscape.RuntimeVirtualTexture
         static readonly int s_ReadyID = Shader.PropertyToID("_VTReady");
         static readonly int s_LayerCountID = Shader.PropertyToID("_VTLayerCount");
         static readonly int s_FilterParamsID = Shader.PropertyToID("_VTFilterParams");
+        internal static readonly ProfilingSampler bakeSampler = new ProfilingSampler("VT Bake Page");
 
         public static VirtualTextureSystem active { get; private set; }
 
@@ -153,12 +154,15 @@ namespace Landscape.RuntimeVirtualTexture
             for (int i = 0; i < bakes.Length; ++i)
             {
                 BakeOrder bake = bakes[i];
-                physical.BindScratch(cmd);
-                m_Producer.Bake(cmd, new PageBakeRequest
+                using (new ProfilingScope(cmd, bakeSampler))
                 {
-                    page = bake.page,
-                    uvRect = VirtualTextureMath.PageUVRect(bake.page, settings.pageCount, settings.pageTexels, (int)settings.pageBorder)
-                });
+                    physical.BindScratch(cmd);
+                    m_Producer.Bake(cmd, new PageBakeRequest
+                    {
+                        page = bake.page,
+                        uvRect = VirtualTextureMath.PageUVRect(bake.page, settings.pageCount, settings.pageTexels, (int)settings.pageBorder)
+                    });
+                }
                 physical.Encode(cmd, requests.pool->SlotCoord(bake.slot));
             }
         }

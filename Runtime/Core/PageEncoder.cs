@@ -104,6 +104,7 @@ namespace Landscape.RuntimeVirtualTexture
     /// </summary>
     internal class PageEncoder : IDisposable
     {
+        internal static readonly ProfilingSampler encodeSampler = new ProfilingSampler("VT Encode");
         static readonly int s_SourceID = Shader.PropertyToID("_Source");
         static readonly int s_BlocksID = Shader.PropertyToID("_Blocks");
         static readonly int s_BlockCountID = Shader.PropertyToID("_BlockCount");
@@ -173,6 +174,7 @@ namespace Landscape.RuntimeVirtualTexture
 
         public void Encode(CommandBuffer cmd, RenderTexture scratch, bool isColor, Texture physical, int2 origin)
         {
+            using var encode = new ProfilingScope(cmd, encodeSampler);
             cmd.SetComputeTextureParam(m_Shader, m_Kernel, s_SourceID, scratch);
             cmd.SetComputeTextureParam(m_Shader, m_Kernel, s_BlocksID, m_Blocks);
             cmd.SetComputeIntParam(m_Shader, s_BlockCountID, m_BlockCount.x);

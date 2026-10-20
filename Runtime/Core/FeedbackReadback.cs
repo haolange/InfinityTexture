@@ -3,6 +3,7 @@ using Unity.Mathematics;
 using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Rendering;
+using Unity.Profiling;
 
 namespace Landscape.RuntimeVirtualTexture
 {
@@ -22,6 +23,7 @@ namespace Landscape.RuntimeVirtualTexture
     /// </summary>
     internal class FeedbackReadback : IDisposable
     {
+        static readonly ProfilerMarker s_Complete = new ProfilerMarker("VT Readback Callback");
         readonly Action<NativeArray<uint>> m_OnArrived;
         bool m_InFlight;
         sealed class Generation
@@ -57,6 +59,7 @@ namespace Landscape.RuntimeVirtualTexture
 
         void OnComplete(AsyncGPUReadbackRequest request)
         {
+            using var complete = s_Complete.Auto();
             m_InFlight = false;
             if (request.hasError || !request.done) { return; }
             m_OnArrived(request.GetData<uint>());
