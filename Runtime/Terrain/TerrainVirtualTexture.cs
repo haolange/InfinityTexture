@@ -45,7 +45,7 @@ namespace Landscape.RuntimeVirtualTexture
                 return;
             }
 
-            Terrain[] terrains = FindObjectsByType<Terrain>(FindObjectsSortMode.InstanceID);
+            Terrain[] terrains = FindObjectsByType<Terrain>();
             foreach (Terrain terrain in terrains) { terrain.materialTemplate = m_TerrainMaterial; }
 
             Rect volumeRect = VolumeRect();

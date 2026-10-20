@@ -155,8 +155,8 @@ namespace Landscape.RuntimeVirtualTexture
                 data.rendererList = rendererList;
                 data.feedbackScale = (Vector2)FeedbackLayout.Scale(renderSize);
                 data.view = cameraData.GetViewMatrix();
-                data.projection = cameraData.GetGPUProjectionMatrix();
-                data.projectionNoJitter = cameraData.GetGPUProjectionMatrixNoJitter();
+                data.projection = GL.GetGPUProjectionMatrix(cameraData.GetProjectionMatrix(), !frameData.Get<UniversalResourceData>().isActiveTargetBackBuffer);
+                data.projectionNoJitter = GL.GetGPUProjectionMatrix(cameraData.camera.nonJitteredProjectionMatrix, true);
 
                 builder.SetRenderAttachment(feedback, 0, AccessFlags.Write);
                 builder.SetRenderAttachmentDepth(depth, AccessFlags.Write);
