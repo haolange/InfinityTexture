@@ -47,7 +47,7 @@ namespace Landscape.RuntimeVirtualTexture
                 return;
             }
 
-            Terrain[] terrains = FindObjectsByType<Terrain>();
+            Terrain[] terrains = Terrain.activeTerrains;
             Rect volumeRect = VolumeRect();
             Shader.SetGlobalVector(s_VolumeRectID, new Vector4(volumeRect.x, volumeRect.y, volumeRect.width, volumeRect.height));
 
