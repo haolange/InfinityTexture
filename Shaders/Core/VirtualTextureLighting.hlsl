@@ -10,7 +10,7 @@ half4 VTFragmentPBR(InputData inputData, VTSurface surface)
     half oneMinusReflectivity = (1.0 - 0.08 * surface.specular) * (1.0 - surface.metallic);
     half3 diffuse = surface.baseColor * oneMinusReflectivity;
     half3 specular = lerp(0.08 * surface.specular, surface.baseColor, surface.metallic);
-    half reflectivity = ReflectivitySpecular(specular);
+    half reflectivity = 1.0 - oneMinusReflectivity;
     half alpha = 1.0;
 
     BRDFData brdfData;
