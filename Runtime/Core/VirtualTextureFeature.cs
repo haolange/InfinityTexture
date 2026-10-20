@@ -33,6 +33,7 @@ namespace Landscape.RuntimeVirtualTexture
         class IndirectData
         {
             public IndirectMap indirectMap;
+            public bool update;
             public RoundResult round;
         }
 
@@ -86,7 +87,7 @@ namespace Landscape.RuntimeVirtualTexture
 
             bool hasRound = system.requests.TryTakeResult(m_Round);
             if (hasRound && m_Round.bakes.Length > 0) { AddBakePass(renderGraph, system); }
-            if (!m_IndirectReady || (hasRound && m_Round.residencyChanged)) { AddIndirectPass(renderGraph, system); }
+            AddIndirectPass(renderGraph, system, !m_IndirectReady || (hasRound && m_Round.residencyChanged));
 
             TextureHandle feedback = AddFeedbackPass(renderGraph, frameData, cameraData);
             if (!system.requests.isBusy && !m_Readback.inFlight) { AddReadbackPass(renderGraph, feedback); }
@@ -98,6 +99,8 @@ namespace Landscape.RuntimeVirtualTexture
             {
                 data.system = system;
                 data.round = m_Round;
+                system.physical.UseResources(renderGraph, builder, AccessFlags.ReadWrite);
+                builder.AllowGlobalStateModification(true);
                 builder.AllowPassCulling(false);
                 builder.SetRenderFunc(static (BakeData d, UnsafeGraphContext context) =>
                 {
@@ -106,19 +109,23 @@ namespace Landscape.RuntimeVirtualTexture
             }
         }
 
-        void AddIndirectPass(RenderGraph renderGraph, VirtualTextureSystem system)
+        void AddIndirectPass(RenderGraph renderGraph, VirtualTextureSystem system, bool update)
         {
             using (var builder = renderGraph.AddUnsafePass<IndirectData>("VT Indirect", out var data, ProfilingSampler.Get(EVirtualTexturePass.Indirect)))
             {
                 data.indirectMap = system.indirectMap;
                 data.round = m_Round;
-                builder.UseTexture(renderGraph.ImportTexture(system.indirectMap.texture), AccessFlags.Write);
+                data.update = update;
+                TextureHandle indirect = renderGraph.ImportTexture(system.indirectMap.texture);
+                builder.UseTexture(indirect, update ? AccessFlags.Write : AccessFlags.Read);
+                builder.SetGlobalTextureAfterPass(indirect, Shader.PropertyToID("_VTIndirectMap"));
+                system.physical.UseResources(renderGraph, builder, AccessFlags.Read);
                 builder.AllowGlobalStateModification(true);
                 builder.AllowPassCulling(false);
                 builder.SetRenderFunc(static (IndirectData d, UnsafeGraphContext context) =>
                 {
                     CommandBuffer cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
-                    d.indirectMap.Update(cmd, d.round.indirectWrites, d.round.levelRanges);
+                    if (d.update) { d.indirectMap.Update(cmd, d.round.indirectWrites, d.round.levelRanges); }
                     VirtualTextureSystem.SetReady(cmd);
                 });
             }

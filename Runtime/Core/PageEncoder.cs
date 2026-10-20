@@ -3,6 +3,7 @@ using UnityEngine;
 using Unity.Mathematics;
 using UnityEngine.Rendering;
 using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering.RenderGraphModule;
 using Object = UnityEngine.Object;
 
 namespace Landscape.RuntimeVirtualTexture
@@ -137,6 +138,7 @@ namespace Landscape.RuntimeVirtualTexture
         readonly int2 m_BlockCount;
         readonly int2 m_ThreadGroupSize;
         readonly RenderTexture m_Blocks;
+        readonly RTHandle m_BlockHandle;
         readonly AstcEncoding m_AstcColor;
         readonly AstcEncoding m_AstcData;
 
@@ -158,6 +160,12 @@ namespace Landscape.RuntimeVirtualTexture
                 enableRandomWrite = true
             };
             m_Blocks.Create();
+            m_BlockHandle = RTHandles.Alloc(m_Blocks);
+        }
+
+        public void UseResources(RenderGraph graph, IBaseRenderGraphBuilder builder)
+        {
+            builder.UseTexture(graph.ImportTexture(m_BlockHandle), AccessFlags.ReadWrite);
         }
 
         public void Encode(CommandBuffer cmd, RenderTexture scratch, bool isColor, Texture physical, int2 origin)
@@ -182,6 +190,7 @@ namespace Landscape.RuntimeVirtualTexture
         {
             m_AstcColor?.Dispose();
             m_AstcData?.Dispose();
+            m_BlockHandle.Release();
             m_Blocks.Release();
             Object.Destroy(m_Blocks);
         }
