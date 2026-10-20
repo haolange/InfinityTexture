@@ -7,13 +7,14 @@
 
 half4 VTFragmentPBR(InputData inputData, VTSurface surface)
 {
-    half3 diffuse = surface.baseColor * (1.0 - surface.metallic);
+    half oneMinusReflectivity = (1.0 - 0.08 * surface.specular) * (1.0 - surface.metallic);
+    half3 diffuse = surface.baseColor * oneMinusReflectivity;
     half3 specular = lerp(0.08 * surface.specular, surface.baseColor, surface.metallic);
     half reflectivity = ReflectivitySpecular(specular);
     half alpha = 1.0;
 
     BRDFData brdfData;
-    InitializeBRDFDataDirect(surface.baseColor, diffuse, specular, reflectivity, 1.0 - reflectivity, 1.0 - surface.roughness, alpha, brdfData);
+    InitializeBRDFDataDirect(surface.baseColor, diffuse, specular, reflectivity, oneMinusReflectivity, 1.0 - surface.roughness, alpha, brdfData);
     BRDFData noClearCoat = (BRDFData)0;
 
     half4 shadowMask = CalculateShadowMask(inputData);
