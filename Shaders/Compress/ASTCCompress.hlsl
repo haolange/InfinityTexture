@@ -115,13 +115,13 @@ float4 AstcUnquantizeColor(uint4 q)
 void AstcPrincipalEndpoints(uint count, float4 mask, out float4 e0, out float4 e1)
 {
     float4 mean = 0;
-    for (uint i = 0; i < count; ++i) { mean += s_AstcTexels[i]; }
+    for (uint meanIndex = 0; meanIndex < count; ++meanIndex) { mean += s_AstcTexels[meanIndex]; }
     mean /= count;
 
     float4x4 covariance = 0;
-    for (uint i = 0; i < count; ++i)
+    for (uint covarianceIndex = 0; covarianceIndex < count; ++covarianceIndex)
     {
-        float4 d = (s_AstcTexels[i] - mean) * mask;
+        float4 d = (s_AstcTexels[covarianceIndex] - mean) * mask;
         covariance[0] += d * d.x;
         covariance[1] += d * d.y;
         covariance[2] += d * d.z;
@@ -138,9 +138,9 @@ void AstcPrincipalEndpoints(uint count, float4 mask, out float4 e0, out float4 e
     axis = normalize(axis);
 
     float tMin = 1e9, tMax = -1e9;
-    for (uint i = 0; i < count; ++i)
+    for (uint projectionIndex = 0; projectionIndex < count; ++projectionIndex)
     {
-        float t = dot((s_AstcTexels[i] - mean) * mask, axis);
+        float t = dot((s_AstcTexels[projectionIndex] - mean) * mask, axis);
         tMin = min(tMin, t);
         tMax = max(tMax, t);
     }

@@ -57,7 +57,7 @@ void EncodeETC2(uint3 id : SV_DispatchThreadID)
     _Blocks[id.xy] = CompressBlock_ETC2_RGBA(rgb, alpha);
 }
 
-[numthreads(8, 8, 1)]
+[numthreads(4, 4, 1)]
 void EncodeASTC(uint3 id : SV_DispatchThreadID)
 {
     if (any(id.xy >= _BlockCount)) { return; }

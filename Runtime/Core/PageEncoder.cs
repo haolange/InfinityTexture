@@ -135,6 +135,7 @@ namespace Landscape.RuntimeVirtualTexture
         readonly ComputeShader m_Shader;
         readonly int m_Kernel;
         readonly int2 m_BlockCount;
+        readonly int2 m_ThreadGroupSize;
         readonly RenderTexture m_Blocks;
         readonly AstcEncoding m_AstcColor;
         readonly AstcEncoding m_AstcData;
@@ -143,6 +144,8 @@ namespace Landscape.RuntimeVirtualTexture
         {
             m_Shader = shader;
             m_Kernel = shader.FindKernel(format.kernel);
+            shader.GetKernelThreadGroupSizes(m_Kernel, out uint threadsX, out uint threadsY, out _);
+            m_ThreadGroupSize = new int2((int)threadsX, (int)threadsY);
             if (format.compression == EPageCompression.ASTC)
             {
                 m_AstcColor = new AstcEncoding(AstcLayout.Of(format.astcBlock, true));
@@ -171,7 +174,7 @@ namespace Landscape.RuntimeVirtualTexture
                 cmd.SetComputeIntParams(m_Shader, s_AstcIseConfigID, astc.iseConfig);
                 cmd.SetComputeIntParams(m_Shader, s_AstcPlaneConfigID, astc.planeConfig);
             }
-            cmd.DispatchCompute(m_Shader, m_Kernel, (m_BlockCount.x + 7) / 8, (m_BlockCount.y + 7) / 8, 1);
+            cmd.DispatchCompute(m_Shader, m_Kernel, (m_BlockCount.x + m_ThreadGroupSize.x - 1) / m_ThreadGroupSize.x, (m_BlockCount.y + m_ThreadGroupSize.y - 1) / m_ThreadGroupSize.y, 1);
             cmd.CopyTexture(m_Blocks, 0, 0, 0, 0, m_BlockCount.x, m_BlockCount.y, physical, 0, 0, origin.x, origin.y);
         }
 
