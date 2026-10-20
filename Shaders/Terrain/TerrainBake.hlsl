@@ -6,7 +6,6 @@
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Packing.hlsl"
-#include "StochasticSampling.hlsl"
 
 #define DECLARE_TERRAIN_LAYER(i) \
     Texture2D _AlbedoTexture##i; \
@@ -73,10 +72,10 @@ Varyings vert(uint vertexID : SV_VertexID)
 LayerSample SampleLayer(Texture2D albedoTexture, Texture2D normalTexture, Texture2D maskTexture, float4 params, float4 remapScale, float4 remapOffset, float4 tileOffset, float2 scratchUV)
 {
     float2 uv = scratchUV * tileOffset.xy + tileOffset.zw;
-    half3 cw; float2 uv1, uv2, uv3, dx, dy;
-    float4 albedo = StochasticSample2DWeightsR(albedoTexture, Global_trilinear_repeat_sampler, uv, cw, uv1, uv2, uv3, dx, dy, 0.5, 0.15);
-    float4 normal = StochasticSample2D(normalTexture, Global_trilinear_repeat_sampler, cw, uv1, uv2, uv3, dx, dy);
-    float4 mask = StochasticSample2D(maskTexture, Global_trilinear_repeat_sampler, cw, uv1, uv2, uv3, dx, dy) * remapScale + remapOffset;
+    float2 dx = ddx(uv), dy = ddy(uv);
+    float4 albedo = albedoTexture.SampleGrad(Global_trilinear_repeat_sampler, uv, dx, dy);
+    float4 normal = normalTexture.SampleGrad(Global_trilinear_repeat_sampler, uv, dx, dy);
+    float4 mask = maskTexture.SampleGrad(Global_trilinear_repeat_sampler, uv, dx, dy) * remapScale + remapOffset;
 
     bool hasMask = params.z > 0.5;
     float metallic = hasMask ? mask.r : params.x;
@@ -107,7 +106,12 @@ void Accumulate(inout BakeOutput output, float weight, LayerSample layer)
 
 BakeOutput frag(Varyings input)
 {
-    float4 weights = saturate(SAMPLE_TEXTURE2D(_SplatTexture, sampler_SplatTexture, input.uv0 * _SplatTileOffset.xy + _SplatTileOffset.zw));
+    uint width, height;
+    _SplatTexture.GetDimensions(width, height);
+    float2 size = float2(width, height);
+    float2 terrainUV = input.uv0 * _SplatTileOffset.xy + _SplatTileOffset.zw;
+    float2 controlUV = (terrainUV * (size - 1.0) + 0.5) / size;
+    float4 weights = saturate(SAMPLE_TEXTURE2D(_SplatTexture, sampler_SplatTexture, controlUV));
 #ifdef TERRAIN_SPLAT_ADDPASS
     clip(dot(weights, 1.0) <= 0.005 ? -1.0 : 1.0);
 #endif

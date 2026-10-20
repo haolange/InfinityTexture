@@ -23,6 +23,11 @@ void SplatmapFragment(Varyings IN, out half4 outColor : SV_Target0)
     VTSurface surface;
     if (_VTReady != 0 && all(uv >= 0.0) && all(uv < 1.0) && VTSampleSurface(uv, dx, dy, surface))
     {
+#ifdef TERRAIN_SPLAT_ADDPASS
+        // 驻留页已包含所有 splat，原生附加层只参与缺页时的回退。
+        outColor = 0;
+        return;
+#else
 #ifdef _ALPHATEST_ON
         ClipHoles(IN.uvMainAndLM.xy);
 #endif
@@ -33,6 +38,7 @@ void SplatmapFragment(Varyings IN, out half4 outColor : SV_Target0)
         SplatmapFinalColor(color, inputData.fogCoord);
         outColor = half4(color.rgb, 1);
         return;
+#endif
     }
     StandardSplatmapFragment(IN, outColor);
 }
