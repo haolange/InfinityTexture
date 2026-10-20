@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using Unity.Collections;
 using UnityEngine.Rendering;
@@ -17,6 +18,7 @@ namespace Landscape.RuntimeVirtualTexture
         static readonly int s_ReadyID = Shader.PropertyToID("_VTReady");
         static readonly int s_LayerCountID = Shader.PropertyToID("_VTLayerCount");
         static readonly int s_FilterParamsID = Shader.PropertyToID("_VTFilterParams");
+        internal static readonly ProfilingSampler bakeSampler = new ProfilingSampler("VT Bake Page");
 
         public static VirtualTextureSystem active { get; private set; }
 
@@ -24,6 +26,15 @@ namespace Landscape.RuntimeVirtualTexture
         public readonly RequestPipeline requests;
         public readonly IndirectMap indirectMap;
         public readonly PhysicalLayers physical;
+        public readonly RoundResult round = new RoundResult();
+        public readonly FeedbackReadback readback;
+        public bool indirectReady;
+
+        readonly List<Camera> m_Cameras = new List<Camera>(4);
+        readonly List<Camera> m_SeenCameras = new List<Camera>(4);
+        int m_NextCamera;
+        int m_ConsumedFrame = -1;
+        bool m_ReadbackScheduled;
 
         readonly IPageProducer m_Producer;
 
@@ -37,6 +48,9 @@ namespace Landscape.RuntimeVirtualTexture
             indirectMap = new IndirectMap(settings.pageCount, poolCapacity, settings.indirectShader);
             EPageLayer[] layers = PhysicalLayers.Enabled(settings.layers);
             physical = new PhysicalLayers(settings, layers, settings.format, settings.encodeShader);
+            readback = new FeedbackReadback(requests.Schedule);
+            RenderPipelineManager.beginContextRendering += BeginContext;
+            RenderPipelineManager.endContextRendering += EndContext;
 
             Shader.SetGlobalVector(s_ParamsID, new Vector4(settings.pageCount, settings.mipCount, settings.pageTexels, (int)settings.pageBorder));
             Shader.SetGlobalVector(s_PoolParamsID, new Vector4(settings.slotTexels, 1.0f / settings.poolTexels, 0, 0));
@@ -46,20 +60,82 @@ namespace Landscape.RuntimeVirtualTexture
             active = this;
         }
 
+        void BeginContext(ScriptableRenderContext context, List<Camera> cameras)
+        {
+            m_SeenCameras.Clear();
+            for (int i = m_Cameras.Count - 1; i >= 0; --i)
+            {
+                Camera camera = m_Cameras[i];
+                if (camera == null || !camera.isActiveAndEnabled || !cameras.Contains(camera)) { RemoveCamera(i); }
+            }
+        }
+
+        void EndContext(ScriptableRenderContext context, List<Camera> cameras)
+        {
+            for (int i = m_Cameras.Count - 1; i >= 0; --i)
+            {
+                if (!m_SeenCameras.Contains(m_Cameras[i])) { RemoveCamera(i); }
+            }
+        }
+
+        void RemoveCamera(int index)
+        {
+            m_Cameras.RemoveAt(index);
+            if (index < m_NextCamera) { --m_NextCamera; }
+            if (m_NextCamera >= m_Cameras.Count) { m_NextCamera = 0; }
+        }
+
+        public bool TryTakeRound()
+        {
+            if (m_ConsumedFrame == Time.frameCount || !requests.TryTakeResult(round)) { return false; }
+            m_ConsumedFrame = Time.frameCount;
+            return true;
+        }
+
+        public bool ReserveReadback(Camera camera)
+        {
+            if (!m_SeenCameras.Contains(camera)) { m_SeenCameras.Add(camera); }
+            if (!m_Cameras.Contains(camera)) { m_Cameras.Add(camera); }
+            if (requests.isBusy || readback.inFlight || m_ReadbackScheduled) { return false; }
+            if (m_Cameras.Count > 0 && m_Cameras[m_NextCamera] != camera) { return false; }
+            m_ReadbackScheduled = true;
+            return true;
+        }
+
+        public void RequestReadback(CommandBuffer cmd, RenderTexture feedback)
+        {
+            readback.Request(cmd, feedback);
+            m_ReadbackScheduled = false;
+            if (m_Cameras.Count > 0) { m_NextCamera = (m_NextCamera + 1) % m_Cameras.Count; }
+        }
+
         /// <summary>设置与当前平台是否能建出这套虚拟纹理；不能时给出原因，调用方保持非 VT 着色。</summary>
         public static bool CanCreate(VirtualTextureAsset settings, out string error)
         {
             if (!settings.Validate(out error)) { return false; }
+            if ((long)settings.poolSize * ((long)settings.pageTexels + 2 * (int)settings.pageBorder) > SystemInfo.maxTextureSize || settings.pageCount > SystemInfo.maxTextureSize)
+            {
+                error = "物理图尺寸超出当前平台上限";
+                return false;
+            }
+            if (!SystemInfo.supportsAsyncGPUReadback || !SystemInfo.IsFormatSupported(GraphicsFormat.R32_UInt, GraphicsFormatUsage.Render))
+            {
+                error = "当前平台不支持 R32_UInt 反馈绘制和异步回读";
+                return false;
+            }
 
             PageFormat format = settings.format;
             foreach (EPageLayer layer in PhysicalLayers.Enabled(settings.layers))
             {
                 GraphicsFormat physicalFormat = format.PhysicalFormat(PhysicalLayers.IsColor(layer));
                 if (!SystemInfo.IsFormatSupported(physicalFormat, GraphicsFormatUsage.Sample)) { error = $"当前平台不支持 {physicalFormat}"; return false; }
+                GraphicsFormat scratchFormat = PageFormat.Of(EPageCompression.None).PhysicalFormat(PhysicalLayers.IsColor(layer));
+                if (!SystemInfo.IsFormatSupported(scratchFormat, GraphicsFormatUsage.Render)) { error = $"当前平台不支持 {scratchFormat} 烘焙目标"; return false; }
             }
             if (format.isCompressed)
             {
                 if (!SystemInfo.supportsComputeShaders) { error = "当前平台不支持 compute shader，无法压缩物理页"; return false; }
+                if (!SystemInfo.IsFormatSupported(GraphicsFormat.R32G32B32A32_UInt, GraphicsFormatUsage.LoadStore)) { error = "当前平台不支持压缩块图的随机写入"; return false; }
                 if ((SystemInfo.copyTextureSupport & (CopyTextureSupport.DifferentTypes | CopyTextureSupport.RTToTexture)) != (CopyTextureSupport.DifferentTypes | CopyTextureSupport.RTToTexture))
                 {
                     error = "当前平台不支持把块图拷贝进压缩纹理";
@@ -78,23 +154,30 @@ namespace Landscape.RuntimeVirtualTexture
             for (int i = 0; i < bakes.Length; ++i)
             {
                 BakeOrder bake = bakes[i];
-                physical.BindScratch(cmd);
-                m_Producer.Bake(cmd, new PageBakeRequest
+                using (new ProfilingScope(cmd, bakeSampler))
                 {
-                    page = bake.page,
-                    uvRect = VirtualTextureMath.PageUVRect(bake.page, settings.pageCount, settings.pageTexels, (int)settings.pageBorder)
-                });
+                    physical.BindScratch(cmd);
+                    m_Producer.Bake(cmd, new PageBakeRequest
+                    {
+                        page = bake.page,
+                        uvRect = VirtualTextureMath.PageUVRect(bake.page, settings.pageCount, settings.pageTexels, (int)settings.pageBorder)
+                    });
+                }
                 physical.Encode(cmd, requests.pool->SlotCoord(bake.slot));
             }
         }
 
         public void Dispose()
         {
+            RenderPipelineManager.beginContextRendering -= BeginContext;
+            RenderPipelineManager.endContextRendering -= EndContext;
+            readback.Dispose();
             if (active == this) { active = null; }
             Shader.SetGlobalInt(s_ReadyID, 0);
             requests.Dispose();
             indirectMap.Dispose();
             physical.Dispose();
+            round.Dispose();
         }
     }
 }

@@ -9,6 +9,41 @@ namespace Landscape.RuntimeVirtualTexture.Tests
     {
         const int SlotTexels = 256 + 2 * 4; // 264
 
+        [TestCase(0, 256, 8, 512, 30)]
+        [TestCase(16, 0, 8, 512, 30)]
+        [TestCase(16, 256, 0, 512, 30)]
+        [TestCase(16, 256, 8, 0, 30)]
+        [TestCase(16, 256, 8, 512, 0)]
+        public void InvalidAllocationAndQueueLimitsAreRejected(int poolSize, int pageTexels, int bakes, int queue, int timeout)
+        {
+            var asset = ScriptableObject.CreateInstance<VirtualTextureAsset>();
+            try
+            {
+                asset.poolSize = poolSize;
+                asset.pageTexels = pageTexels;
+                asset.bakesPerRound = bakes;
+                asset.queueCapacity = queue;
+                asset.queueTimeout = timeout;
+                Assert.IsFalse(asset.Validate(out string error));
+                StringAssert.DoesNotContain("shader", error);
+            }
+            finally { Object.DestroyImmediate(asset); }
+        }
+
+        [Test]
+        public void InvalidAstcBlockIsRejectedBeforeAlignmentDivision()
+        {
+            var asset = ScriptableObject.CreateInstance<VirtualTextureAsset>();
+            try
+            {
+                asset.compression = EPageCompression.ASTC;
+                asset.astcBlock = (EAstcBlock)0;
+                Assert.IsFalse(asset.Validate(out string error));
+                StringAssert.Contains("astcBlock", error);
+            }
+            finally { Object.DestroyImmediate(asset); }
+        }
+
         [Test]
         public void FixedRateFormatsUseFourByFourBlocks()
         {

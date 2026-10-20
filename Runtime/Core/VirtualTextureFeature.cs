@@ -4,6 +4,7 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
+using Unity.Profiling;
 
 namespace Landscape.RuntimeVirtualTexture
 {
@@ -23,6 +24,12 @@ namespace Landscape.RuntimeVirtualTexture
     internal class VirtualTexturePass : ScriptableRenderPass
     {
         static readonly int s_FeedbackScaleID = Shader.PropertyToID("_VTFeedbackScale");
+        static readonly ProfilerMarker s_Record = new ProfilerMarker("VT Record");
+        static readonly ProfilingSampler[] s_PassSamplers =
+        {
+            new ProfilingSampler("VT Bake"), new ProfilingSampler("VT Indirect"),
+            new ProfilingSampler("VT Feedback"), new ProfilingSampler("VT Readback")
+        };
 
         class BakeData
         {
@@ -34,6 +41,7 @@ namespace Landscape.RuntimeVirtualTexture
         {
             public IndirectMap indirectMap;
             public RoundResult round;
+            public bool update;
         }
 
         class FeedbackData
@@ -47,57 +55,45 @@ namespace Landscape.RuntimeVirtualTexture
 
         class ReadbackData
         {
-            public FeedbackReadback readback;
+            public VirtualTextureSystem system;
             public TextureHandle feedback;
         }
 
         readonly ShaderTagId m_ShaderTag = new ShaderTagId("VTFeedback");
         readonly FilteringSettings m_Filtering;
-        readonly FeedbackReadback m_Readback;
-        readonly RoundResult m_Round = new RoundResult();
-        VirtualTextureSystem m_System;
-        bool m_IndirectReady;
 
         public VirtualTexturePass(LayerMask layerMask)
         {
             m_Filtering = new FilteringSettings(RenderQueueRange.opaque, layerMask);
-            m_Readback = new FeedbackReadback(OnFeedbackArrived);
-        }
-
-        static void OnFeedbackArrived(Unity.Collections.NativeArray<uint> pixels)
-        {
-            VirtualTextureSystem.active?.requests.Schedule(pixels);
         }
 
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
         {
+            using var record = s_Record.Auto();
             VirtualTextureSystem system = Application.isPlaying ? VirtualTextureSystem.active : null;
-            if (system != m_System)
-            {
-                m_Readback.Cancel();
-                m_Round.Clear();
-                m_IndirectReady = false;
-                m_System = system;
-            }
             if (system == null) { return; }
 
             var cameraData = frameData.Get<UniversalCameraData>();
             if (cameraData.cameraType != CameraType.Game) { return; }
 
-            bool hasRound = system.requests.TryTakeResult(m_Round);
-            if (hasRound && m_Round.bakes.Length > 0) { AddBakePass(renderGraph, system); }
-            if (!m_IndirectReady || (hasRound && m_Round.residencyChanged)) { AddIndirectPass(renderGraph, system); }
+            bool hasRound = system.TryTakeRound();
+            bool bake = hasRound && system.round.bakes.Length > 0;
+            system.physical.ImportResources(renderGraph, bake);
+            if (bake) { AddBakePass(renderGraph, system); }
+            AddIndirectPass(renderGraph, system, !system.indirectReady || (hasRound && system.round.residencyChanged));
 
             TextureHandle feedback = AddFeedbackPass(renderGraph, frameData, cameraData);
-            if (!system.requests.isBusy && !m_Readback.inFlight) { AddReadbackPass(renderGraph, feedback); }
+            if (system.ReserveReadback(cameraData.camera)) { AddReadbackPass(renderGraph, feedback, system); }
         }
 
         void AddBakePass(RenderGraph renderGraph, VirtualTextureSystem system)
         {
-            using (var builder = renderGraph.AddUnsafePass<BakeData>("VT Bake", out var data, ProfilingSampler.Get(EVirtualTexturePass.Bake)))
+            using (var builder = renderGraph.AddUnsafePass<BakeData>("VT Bake", out var data, s_PassSamplers[(int)EVirtualTexturePass.Bake]))
             {
                 data.system = system;
-                data.round = m_Round;
+                data.round = system.round;
+                system.physical.UseResources(builder, AccessFlags.ReadWrite);
+                builder.AllowGlobalStateModification(true);
                 builder.AllowPassCulling(false);
                 builder.SetRenderFunc(static (BakeData d, UnsafeGraphContext context) =>
                 {
@@ -106,23 +102,27 @@ namespace Landscape.RuntimeVirtualTexture
             }
         }
 
-        void AddIndirectPass(RenderGraph renderGraph, VirtualTextureSystem system)
+        void AddIndirectPass(RenderGraph renderGraph, VirtualTextureSystem system, bool update)
         {
-            using (var builder = renderGraph.AddUnsafePass<IndirectData>("VT Indirect", out var data, ProfilingSampler.Get(EVirtualTexturePass.Indirect)))
+            using (var builder = renderGraph.AddUnsafePass<IndirectData>("VT Indirect", out var data, s_PassSamplers[(int)EVirtualTexturePass.Indirect]))
             {
                 data.indirectMap = system.indirectMap;
-                data.round = m_Round;
-                builder.UseTexture(renderGraph.ImportTexture(system.indirectMap.texture), AccessFlags.Write);
+                data.round = system.round;
+                data.update = update;
+                TextureHandle indirect = renderGraph.ImportTexture(system.indirectMap.texture);
+                builder.UseTexture(indirect, update ? AccessFlags.Write : AccessFlags.Read);
+                builder.SetGlobalTextureAfterPass(indirect, Shader.PropertyToID("_VTIndirectMap"));
+                system.physical.UseResources(builder, AccessFlags.Read);
                 builder.AllowGlobalStateModification(true);
                 builder.AllowPassCulling(false);
                 builder.SetRenderFunc(static (IndirectData d, UnsafeGraphContext context) =>
                 {
                     CommandBuffer cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
-                    d.indirectMap.Update(cmd, d.round.indirectWrites, d.round.levelRanges);
+                    if (d.update) { d.indirectMap.Update(cmd, d.round.indirectWrites, d.round.levelRanges); }
                     VirtualTextureSystem.SetReady(cmd);
                 });
             }
-            m_IndirectReady = true;
+            system.indirectReady = true;
         }
 
         TextureHandle AddFeedbackPass(RenderGraph renderGraph, ContextContainer frameData, UniversalCameraData cameraData)
@@ -150,13 +150,13 @@ namespace Landscape.RuntimeVirtualTexture
             };
             RendererListHandle rendererList = renderGraph.CreateRendererList(new RendererListParams(renderingData.cullResults, drawing, m_Filtering));
 
-            using (var builder = renderGraph.AddRasterRenderPass<FeedbackData>("VT Feedback", out var data, ProfilingSampler.Get(EVirtualTexturePass.Feedback)))
+            using (var builder = renderGraph.AddRasterRenderPass<FeedbackData>("VT Feedback", out var data, s_PassSamplers[(int)EVirtualTexturePass.Feedback]))
             {
                 data.rendererList = rendererList;
                 data.feedbackScale = (Vector2)FeedbackLayout.Scale(renderSize);
                 data.view = cameraData.GetViewMatrix();
-                data.projection = cameraData.GetGPUProjectionMatrix();
-                data.projectionNoJitter = cameraData.GetGPUProjectionMatrixNoJitter();
+                data.projection = GL.GetGPUProjectionMatrix(cameraData.GetProjectionMatrix(), !frameData.Get<UniversalResourceData>().isActiveTargetBackBuffer);
+                data.projectionNoJitter = GL.GetGPUProjectionMatrix(cameraData.camera.nonJitteredProjectionMatrix, true);
 
                 builder.SetRenderAttachment(feedback, 0, AccessFlags.Write);
                 builder.SetRenderAttachmentDepth(depth, AccessFlags.Write);
@@ -175,27 +175,21 @@ namespace Landscape.RuntimeVirtualTexture
             return feedback;
         }
 
-        void AddReadbackPass(RenderGraph renderGraph, TextureHandle feedback)
+        void AddReadbackPass(RenderGraph renderGraph, TextureHandle feedback, VirtualTextureSystem system)
         {
-            using (var builder = renderGraph.AddUnsafePass<ReadbackData>("VT Readback", out var data, ProfilingSampler.Get(EVirtualTexturePass.Readback)))
+            using (var builder = renderGraph.AddUnsafePass<ReadbackData>("VT Readback", out var data, s_PassSamplers[(int)EVirtualTexturePass.Readback]))
             {
-                data.readback = m_Readback;
+                data.system = system;
                 data.feedback = feedback;
                 builder.UseTexture(feedback, AccessFlags.Read);
                 builder.AllowPassCulling(false);
                 builder.SetRenderFunc(static (ReadbackData d, UnsafeGraphContext context) =>
                 {
-                    d.readback.Request(CommandBufferHelpers.GetNativeCommandBuffer(context.cmd), d.feedback);
+                    d.system.RequestReadback(CommandBufferHelpers.GetNativeCommandBuffer(context.cmd), d.feedback);
                 });
             }
         }
 
-        public void Dispose()
-        {
-            m_Readback.Dispose();
-            m_Round.Dispose();
-            m_System = null;
-        }
     }
 
     /// <summary>URP 渲染特性：把 VirtualTexturePass 加到每个 Game 相机的不透明物体之前。</summary>
@@ -218,7 +212,6 @@ namespace Landscape.RuntimeVirtualTexture
 
         protected override void Dispose(bool disposing)
         {
-            m_Pass?.Dispose();
             m_Pass = null;
         }
     }

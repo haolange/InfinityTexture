@@ -3,6 +3,7 @@ using UnityEngine;
 using Unity.Mathematics;
 using UnityEngine.Rendering;
 using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering.RenderGraphModule;
 using Object = UnityEngine.Object;
 
 namespace Landscape.RuntimeVirtualTexture
@@ -32,6 +33,10 @@ namespace Landscape.RuntimeVirtualTexture
             public EPageLayer kind;
             public Texture physical;
             public RenderTexture scratch;
+            public RTHandle physicalHandle;
+            public RTHandle scratchHandle;
+            public TextureHandle physicalResource;
+            public TextureHandle scratchResource;
         }
 
         static readonly int[] s_GlobalIDs =
@@ -77,9 +82,36 @@ namespace Landscape.RuntimeVirtualTexture
                     physical = CreatePhysical($"VTPhysical{layers[i]}", asset.poolTexels, format.PhysicalFormat(isColor), format.isCompressed),
                     scratch = CreateRenderTexture($"VTScratch{layers[i]}", m_SlotTexels, scratchFormat)
                 };
+                m_Layers[i].physicalHandle = RTHandles.Alloc(m_Layers[i].physical);
+                m_Layers[i].scratchHandle = RTHandles.Alloc(m_Layers[i].scratch);
                 m_ScratchTargets[i] = m_Layers[i].scratch;
                 Shader.SetGlobalTexture(s_GlobalIDs[(int)layers[i]], m_Layers[i].physical);
             }
+        }
+
+        public void ImportResources(RenderGraph graph, bool bake)
+        {
+            foreach (Layer layer in m_Layers)
+            {
+                layer.physicalResource = graph.ImportTexture(layer.physicalHandle);
+                if (bake) { layer.scratchResource = graph.ImportTexture(layer.scratchHandle); }
+            }
+            if (bake) { m_Encoder?.ImportResources(graph); }
+        }
+
+        public void UseResources(IBaseRenderGraphBuilder builder, AccessFlags access)
+        {
+            foreach (Layer layer in m_Layers)
+            {
+                TextureHandle physical = layer.physicalResource;
+                builder.UseTexture(physical, access);
+                builder.SetGlobalTextureAfterPass(physical, s_GlobalIDs[(int)layer.kind]);
+                if ((access & AccessFlags.Write) != 0)
+                {
+                    builder.UseTexture(layer.scratchResource, AccessFlags.ReadWrite);
+                }
+            }
+            if ((access & AccessFlags.Write) != 0) { m_Encoder?.UseResources(builder); }
         }
 
         /// <summary>绑定并清空 scratch，按层的顺序作为 MRT。</summary>
@@ -134,6 +166,8 @@ namespace Landscape.RuntimeVirtualTexture
             m_Encoder?.Dispose();
             foreach (Layer layer in m_Layers)
             {
+                layer.physicalHandle.Release();
+                layer.scratchHandle.Release();
                 Shader.SetGlobalTexture(s_GlobalIDs[(int)layer.kind], Texture2D.blackTexture);
                 if (layer.physical is RenderTexture renderTexture) { renderTexture.Release(); }
                 layer.scratch.Release();

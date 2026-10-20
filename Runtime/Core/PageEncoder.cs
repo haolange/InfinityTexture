@@ -3,6 +3,7 @@ using UnityEngine;
 using Unity.Mathematics;
 using UnityEngine.Rendering;
 using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering.RenderGraphModule;
 using Object = UnityEngine.Object;
 
 namespace Landscape.RuntimeVirtualTexture
@@ -103,6 +104,7 @@ namespace Landscape.RuntimeVirtualTexture
     /// </summary>
     internal class PageEncoder : IDisposable
     {
+        internal static readonly ProfilingSampler encodeSampler = new ProfilingSampler("VT Encode");
         static readonly int s_SourceID = Shader.PropertyToID("_Source");
         static readonly int s_BlocksID = Shader.PropertyToID("_Blocks");
         static readonly int s_BlockCountID = Shader.PropertyToID("_BlockCount");
@@ -135,7 +137,10 @@ namespace Landscape.RuntimeVirtualTexture
         readonly ComputeShader m_Shader;
         readonly int m_Kernel;
         readonly int2 m_BlockCount;
+        readonly int2 m_ThreadGroupSize;
         readonly RenderTexture m_Blocks;
+        readonly RTHandle m_BlockHandle;
+        TextureHandle m_BlockResource;
         readonly AstcEncoding m_AstcColor;
         readonly AstcEncoding m_AstcData;
 
@@ -143,6 +148,8 @@ namespace Landscape.RuntimeVirtualTexture
         {
             m_Shader = shader;
             m_Kernel = shader.FindKernel(format.kernel);
+            shader.GetKernelThreadGroupSizes(m_Kernel, out uint threadsX, out uint threadsY, out _);
+            m_ThreadGroupSize = new int2((int)threadsX, (int)threadsY);
             if (format.compression == EPageCompression.ASTC)
             {
                 m_AstcColor = new AstcEncoding(AstcLayout.Of(format.astcBlock, true));
@@ -155,10 +162,19 @@ namespace Landscape.RuntimeVirtualTexture
                 enableRandomWrite = true
             };
             m_Blocks.Create();
+            m_BlockHandle = RTHandles.Alloc(m_Blocks);
+        }
+
+        public void ImportResources(RenderGraph graph) => m_BlockResource = graph.ImportTexture(m_BlockHandle);
+
+        public void UseResources(IBaseRenderGraphBuilder builder)
+        {
+            builder.UseTexture(m_BlockResource, AccessFlags.ReadWrite);
         }
 
         public void Encode(CommandBuffer cmd, RenderTexture scratch, bool isColor, Texture physical, int2 origin)
         {
+            using var encode = new ProfilingScope(cmd, encodeSampler);
             cmd.SetComputeTextureParam(m_Shader, m_Kernel, s_SourceID, scratch);
             cmd.SetComputeTextureParam(m_Shader, m_Kernel, s_BlocksID, m_Blocks);
             cmd.SetComputeIntParam(m_Shader, s_BlockCountID, m_BlockCount.x);
@@ -171,7 +187,7 @@ namespace Landscape.RuntimeVirtualTexture
                 cmd.SetComputeIntParams(m_Shader, s_AstcIseConfigID, astc.iseConfig);
                 cmd.SetComputeIntParams(m_Shader, s_AstcPlaneConfigID, astc.planeConfig);
             }
-            cmd.DispatchCompute(m_Shader, m_Kernel, (m_BlockCount.x + 7) / 8, (m_BlockCount.y + 7) / 8, 1);
+            cmd.DispatchCompute(m_Shader, m_Kernel, (m_BlockCount.x + m_ThreadGroupSize.x - 1) / m_ThreadGroupSize.x, (m_BlockCount.y + m_ThreadGroupSize.y - 1) / m_ThreadGroupSize.y, 1);
             cmd.CopyTexture(m_Blocks, 0, 0, 0, 0, m_BlockCount.x, m_BlockCount.y, physical, 0, 0, origin.x, origin.y);
         }
 
@@ -179,6 +195,7 @@ namespace Landscape.RuntimeVirtualTexture
         {
             m_AstcColor?.Dispose();
             m_AstcData?.Dispose();
+            m_BlockHandle.Release();
             m_Blocks.Release();
             Object.Destroy(m_Blocks);
         }

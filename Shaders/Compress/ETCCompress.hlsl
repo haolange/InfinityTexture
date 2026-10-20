@@ -213,9 +213,9 @@ uint2 CompressBlock_ETC2_Alpha(in float BlockA[16])
     int bestError = 0x7FFFFFFF;
     for (int table = 0; table < 16; ++table)
     {
-        int span = EAC_MODIFIERS[table][7] - EAC_MODIFIERS[table][3];
-        int multiplier = clamp((maxAlpha - minAlpha + span / 2) / span, 1, 15);
-        int base = clamp((minAlpha + maxAlpha - (EAC_MODIFIERS[table][7] + EAC_MODIFIERS[table][3]) * multiplier + 1) / 2, 0, 255);
+        uint span = (uint)(EAC_MODIFIERS[table][7] - EAC_MODIFIERS[table][3]);
+        int multiplier = (int)clamp(((uint)(maxAlpha - minAlpha) + (span >> 1)) / span, 1u, 15u);
+        int base = min((int)((uint)max(0, minAlpha + maxAlpha - (EAC_MODIFIERS[table][7] + EAC_MODIFIERS[table][3]) * multiplier + 1) >> 1), 255);
 
         int error = 0;
         for (int p = 0; p < 16; ++p)

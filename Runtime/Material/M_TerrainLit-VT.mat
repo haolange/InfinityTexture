@@ -9,7 +9,7 @@ Material:
   m_PrefabAsset: {fileID: 0}
   m_Name: M_TerrainLit-VT
   m_Shader: {fileID: 4800000, guid: 04691e96727abdd4ebed0762df75cc74, type: 3}
-  m_ShaderKeywords: _NORMALMAP _TERRAIN_INSTANCED_PERPIXEL_NORMAL
+  m_ShaderKeywords: _MASKMAP _NORMALMAP _TERRAIN_INSTANCED_PERPIXEL_NORMAL
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0

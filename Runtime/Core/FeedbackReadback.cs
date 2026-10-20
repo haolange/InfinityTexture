@@ -3,6 +3,7 @@ using Unity.Mathematics;
 using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Rendering;
+using Unity.Profiling;
 
 namespace Landscape.RuntimeVirtualTexture
 {
@@ -22,28 +23,43 @@ namespace Landscape.RuntimeVirtualTexture
     /// </summary>
     internal class FeedbackReadback : IDisposable
     {
+        static readonly ProfilerMarker s_Complete = new ProfilerMarker("VT Readback Callback");
         readonly Action<NativeArray<uint>> m_OnArrived;
         bool m_InFlight;
-        int m_Generation;
+        sealed class Generation
+        {
+            public bool cancelled;
+            public readonly Action<AsyncGPUReadbackRequest> callback;
+
+            public Generation(FeedbackReadback owner)
+            {
+                callback = request =>
+                {
+                    if (!cancelled) { owner.OnComplete(request); }
+                };
+            }
+        }
+
+        Generation m_Generation;
 
         public bool inFlight => m_InFlight;
 
         public FeedbackReadback(Action<NativeArray<uint>> onArrived)
         {
             m_OnArrived = onArrived;
+            m_Generation = new Generation(this);
         }
 
         public void Request(CommandBuffer cmd, RenderTexture feedback)
         {
             if (m_InFlight) { return; }
             m_InFlight = true;
-            int generation = m_Generation;
-            cmd.RequestAsyncReadback(feedback, 0, request => OnComplete(request, generation));
+            cmd.RequestAsyncReadback(feedback, 0, m_Generation.callback);
         }
 
-        void OnComplete(AsyncGPUReadbackRequest request, int generation)
+        void OnComplete(AsyncGPUReadbackRequest request)
         {
-            if (generation != m_Generation) { return; }
+            using var complete = s_Complete.Auto();
             m_InFlight = false;
             if (request.hasError || !request.done) { return; }
             m_OnArrived(request.GetData<uint>());
@@ -52,10 +68,15 @@ namespace Landscape.RuntimeVirtualTexture
         /// <summary>丢弃在途请求：之后到达的回调会被忽略。</summary>
         public void Cancel()
         {
-            ++m_Generation;
+            m_Generation.cancelled = true;
+            m_Generation = new Generation(this);
             m_InFlight = false;
         }
 
-        public void Dispose() => Cancel();
+        public void Dispose()
+        {
+            m_Generation.cancelled = true;
+            m_InFlight = false;
+        }
     }
 }

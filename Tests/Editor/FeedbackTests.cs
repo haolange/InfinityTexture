@@ -1,10 +1,33 @@
 using NUnit.Framework;
 using Unity.Mathematics;
+using System;
+using System.Reflection;
+using UnityEngine.Rendering;
 
 namespace Landscape.RuntimeVirtualTexture.Tests
 {
     public class FeedbackTests
     {
+        [Test]
+        public void CancelledReadbackCannotReleaseANewerRequest()
+        {
+            using var readback = new FeedbackReadback(_ => Assert.Fail("过期回读不能提交反馈"));
+            const BindingFlags fields = BindingFlags.Instance | BindingFlags.NonPublic;
+            var generationField = typeof(FeedbackReadback).GetField("m_Generation", fields);
+            var flightField = typeof(FeedbackReadback).GetField("m_InFlight", fields);
+            object generation = generationField.GetValue(readback);
+            var callback = (Action<AsyncGPUReadbackRequest>)generation.GetType().GetField("callback").GetValue(generation);
+
+            readback.Cancel();
+            flightField.SetValue(readback, true);
+            callback(default);
+
+            Assert.IsTrue(readback.inFlight, "旧回调不能清除新请求的在途标记");
+            Assert.AreNotSame(generation, generationField.GetValue(readback));
+            readback.Dispose();
+            Assert.IsFalse(readback.inFlight);
+        }
+
         [Test]
         public void Size_IsRenderResolutionOverSixteenRoundedUp()
         {

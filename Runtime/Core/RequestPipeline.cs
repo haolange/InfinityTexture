@@ -3,6 +3,7 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Profiling;
 
 namespace Landscape.RuntimeVirtualTexture
 {
@@ -13,15 +14,6 @@ namespace Landscape.RuntimeVirtualTexture
         public NativeList<IndirectWrite> indirectWrites = new NativeList<IndirectWrite>(1024, Allocator.Persistent);
         public NativeArray<int2> levelRanges = new NativeArray<int2>(PageId.MaxMipCount, Allocator.Persistent);
         public bool residencyChanged;
-
-        /// <summary>换了一套虚拟纹理时清空，避免把旧结果画进新的间接表。</summary>
-        public void Clear()
-        {
-            bakes.Clear();
-            indirectWrites.Clear();
-            for (int i = 0; i < levelRanges.Length; ++i) { levelRanges[i] = int2.zero; }
-            residencyChanged = false;
-        }
 
         public void Dispose()
         {
@@ -38,6 +30,7 @@ namespace Landscape.RuntimeVirtualTexture
     /// </summary>
     internal unsafe class RequestPipeline : IDisposable
     {
+        static readonly ProfilerMarker s_Schedule = new ProfilerMarker("VT Request Schedule");
         public PageDirectory* directory { get; private set; }
         public PhysicalPool* pool { get; private set; }
 
@@ -90,6 +83,7 @@ namespace Landscape.RuntimeVirtualTexture
         /// <summary>回读到达时调用：拷贝反馈像素并调度这一轮。</summary>
         public void Schedule(NativeArray<uint> feedbackPixels)
         {
+            using var schedule = s_Schedule.Auto();
             if (m_Scheduled) { return; }
 
             if (!m_Pixels.IsCreated || m_Pixels.Length != feedbackPixels.Length)

@@ -29,6 +29,8 @@ namespace Landscape.RuntimeVirtualTexture
 
         TerrainPageProducer m_Producer;
         VirtualTextureSystem m_System;
+        Terrain[] m_Terrains;
+        Material[] m_OriginalMaterials;
 
         public float size => (int)volumeSize;
 
@@ -45,14 +47,26 @@ namespace Landscape.RuntimeVirtualTexture
                 return;
             }
 
-            Terrain[] terrains = FindObjectsByType<Terrain>(FindObjectsSortMode.InstanceID);
-            foreach (Terrain terrain in terrains) { terrain.materialTemplate = m_TerrainMaterial; }
-
+            Terrain[] terrains = Terrain.activeTerrains;
             Rect volumeRect = VolumeRect();
             Shader.SetGlobalVector(s_VolumeRectID, new Vector4(volumeRect.x, volumeRect.y, volumeRect.width, volumeRect.height));
 
             m_Producer = new TerrainPageProducer(terrains, volumeRect, m_BakeShader, virtualTexture.layers);
-            m_System = new VirtualTextureSystem(virtualTexture, m_Producer);
+            try { m_System = new VirtualTextureSystem(virtualTexture, m_Producer); }
+            catch
+            {
+                m_Producer.Dispose();
+                m_Producer = null;
+                throw;
+            }
+
+            m_Terrains = terrains;
+            m_OriginalMaterials = new Material[terrains.Length];
+            for (int i = 0; i < terrains.Length; ++i)
+            {
+                m_OriginalMaterials[i] = terrains[i].materialTemplate;
+                terrains[i].materialTemplate = m_TerrainMaterial;
+            }
         }
 
         void OnDisable()
@@ -61,6 +75,19 @@ namespace Landscape.RuntimeVirtualTexture
             m_Producer?.Dispose();
             m_System = null;
             m_Producer = null;
+            if (m_Terrains != null)
+            {
+                for (int i = 0; i < m_Terrains.Length; ++i)
+                {
+                    Terrain terrain = m_Terrains[i];
+                    if (terrain != null && terrain.materialTemplate == m_TerrainMaterial)
+                    {
+                        terrain.materialTemplate = m_OriginalMaterials[i];
+                    }
+                }
+                m_Terrains = null;
+                m_OriginalMaterials = null;
+            }
         }
 
         /// <summary>体积中心按半个体积对齐，避免移动组件时虚拟 uv 出现亚页偏移。</summary>

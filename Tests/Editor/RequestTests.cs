@@ -29,6 +29,52 @@ namespace Landscape.RuntimeVirtualTexture.Tests
         }
 
         [Test]
+        public void LargeFeedbackGrowsNativeContainersAcrossTheScheduledJobChain()
+        {
+            using var pipeline = new RequestPipeline(128, 16, 8, 512, 30);
+            using var result = new RoundResult();
+            var feedback = new NativeArray<uint>(128 * 128, Allocator.Temp);
+            try
+            {
+                for (int y = 0; y < 128; ++y)
+                {
+                    for (int x = 0; x < 128; ++x) { feedback[y * 128 + x] = new PageId(x, y, 0).packed; }
+                }
+
+                for (int round = 0; round < 2; ++round)
+                {
+                    pipeline.Schedule(feedback);
+                    while (!pipeline.TryTakeResult(result)) { JobHandle.ScheduleBatchedJobs(); }
+                    Assert.AreEqual(8, result.bakes.Length);
+                    var seen = new System.Collections.Generic.HashSet<PageId>();
+                    for (int i = 0; i < result.bakes.Length; ++i)
+                    {
+                        BakeOrder bake = result.bakes[i];
+                        Assert.IsTrue(seen.Add(bake.page));
+                        Assert.AreEqual(EPageState.Resident, pipeline.directory->Get(bake.page).state);
+                        Assert.AreEqual(bake.page, (*pipeline.pool)[bake.slot].owner);
+                    }
+                }
+            }
+            finally { feedback.Dispose(); }
+        }
+
+        [Test]
+        public void EmptyRoundClearsBakesWithoutRepublishingIndirectWrites()
+        {
+            Create(poolSize: 2);
+            RunRound(Repeat(new PageId(0, 0, 2), 1));
+            Assert.IsTrue(m_Round.residencyChanged);
+            Assert.Greater(m_Round.indirectWrites.Length, 0);
+
+            RunRound();
+
+            Assert.AreEqual(0, m_Bakes.Length);
+            Assert.IsFalse(m_Round.residencyChanged);
+            Assert.IsFalse(m_Pipeline.TryTakeResult(m_Round), "同一轮只能取一次");
+        }
+
+        [Test]
         public void Decode_RejectsEmptyAndOutOfRangePixels()
         {
             var pixels = new NativeArray<uint>(new[]

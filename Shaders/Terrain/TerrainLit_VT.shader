@@ -164,6 +164,10 @@ Shader "Landscape/TerrainLit_VT"
         //UsePass "Hidden/Nature/Terrain/Utilities/PICKING"
     }
     
+    Dependency "AddPassShader" = "Hidden/VirtualTexture/TerrainAdd"
+    Dependency "BaseMapShader" = "Hidden/Universal Render Pipeline/Terrain/Lit (Base Pass)"
+    Dependency "BaseMapGenShader" = "Hidden/Universal Render Pipeline/Terrain/Lit (Basemap Gen)"
+
     CustomEditor "UnityEditor.Rendering.Universal.TerrainLitShaderGUI"
 
     //Fallback "Hidden/Universal Render Pipeline/FallbackError"
