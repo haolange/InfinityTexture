@@ -27,6 +27,7 @@ namespace Landscape.RuntimeVirtualTexture
         const int AddSplatPass = 1;
 
         readonly Terrain[] m_Terrains;
+        readonly TerrainLayer[][] m_Layers;
         readonly Rect m_VolumeRect;
         readonly Material m_Material;
         readonly MaterialPropertyBlock m_Properties = new MaterialPropertyBlock();
@@ -34,6 +35,8 @@ namespace Landscape.RuntimeVirtualTexture
         public TerrainPageProducer(Terrain[] terrains, Rect volumeRect, Shader bakeShader, EPageLayers layers)
         {
             m_Terrains = terrains;
+            m_Layers = new TerrainLayer[terrains.Length][];
+            for (int i = 0; i < terrains.Length; ++i) { m_Layers[i] = terrains[i].terrainData.terrainLayers; }
             m_VolumeRect = volumeRect;
             m_Material = new Material(bakeShader);
             if (layers == EPageLayers.BaseColorNormal) { m_Material.EnableKeyword("_PAGE_NORMAL"); }
@@ -57,8 +60,9 @@ namespace Landscape.RuntimeVirtualTexture
         {
             Rect pageRect = ToWorld(request.uvRect);
 
-            foreach (Terrain terrain in m_Terrains)
+            for (int terrainIndex = 0; terrainIndex < m_Terrains.Length; ++terrainIndex)
             {
+                Terrain terrain = m_Terrains[terrainIndex];
                 TerrainData terrainData = terrain.terrainData;
                 Vector3 position = terrain.transform.position;
                 var terrainRect = new Rect(position.x, position.z, terrainData.size.x, terrainData.size.z);
@@ -77,14 +81,13 @@ namespace Landscape.RuntimeVirtualTexture
                 m_Properties.Clear();
                 m_Properties.SetMatrix(s_BakeMatrixID, BakeMatrix(target));
                 m_Properties.SetVector(s_SplatTileOffsetID, splatTileOffset);
-                DrawSplats(cmd, terrainData, splatTileOffset);
+                DrawSplats(cmd, terrainData, m_Layers[terrainIndex], splatTileOffset);
             }
         }
 
         /// <summary>每张 splat 控制图画一次：第一张直接写，后面的叠加。</summary>
-        void DrawSplats(CommandBuffer cmd, TerrainData terrainData, float4 splatTileOffset)
+        void DrawSplats(CommandBuffer cmd, TerrainData terrainData, TerrainLayer[] layers, float4 splatTileOffset)
         {
-            TerrainLayer[] layers = terrainData.terrainLayers;
             int layerIndex = 0;
             for (int splat = 0; splat < terrainData.alphamapTextureCount; ++splat)
             {
