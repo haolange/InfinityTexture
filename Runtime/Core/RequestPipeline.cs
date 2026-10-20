@@ -14,15 +14,6 @@ namespace Landscape.RuntimeVirtualTexture
         public NativeArray<int2> levelRanges = new NativeArray<int2>(PageId.MaxMipCount, Allocator.Persistent);
         public bool residencyChanged;
 
-        /// <summary>换了一套虚拟纹理时清空，避免把旧结果画进新的间接表。</summary>
-        public void Clear()
-        {
-            bakes.Clear();
-            indirectWrites.Clear();
-            for (int i = 0; i < levelRanges.Length; ++i) { levelRanges[i] = int2.zero; }
-            residencyChanged = false;
-        }
-
         public void Dispose()
         {
             bakes.Dispose();

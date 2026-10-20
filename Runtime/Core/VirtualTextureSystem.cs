@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using Unity.Collections;
 using UnityEngine.Rendering;
@@ -24,6 +25,14 @@ namespace Landscape.RuntimeVirtualTexture
         public readonly RequestPipeline requests;
         public readonly IndirectMap indirectMap;
         public readonly PhysicalLayers physical;
+        public readonly RoundResult round = new RoundResult();
+        public readonly FeedbackReadback readback;
+        public bool indirectReady;
+
+        readonly List<Camera> m_Cameras = new List<Camera>(4);
+        int m_NextCamera;
+        int m_ConsumedFrame = -1;
+        bool m_ReadbackScheduled;
 
         readonly IPageProducer m_Producer;
 
@@ -37,6 +46,8 @@ namespace Landscape.RuntimeVirtualTexture
             indirectMap = new IndirectMap(settings.pageCount, poolCapacity, settings.indirectShader);
             EPageLayer[] layers = PhysicalLayers.Enabled(settings.layers);
             physical = new PhysicalLayers(settings, layers, settings.format, settings.encodeShader);
+            readback = new FeedbackReadback(requests.Schedule);
+            RenderPipelineManager.beginContextRendering += BeginContext;
 
             Shader.SetGlobalVector(s_ParamsID, new Vector4(settings.pageCount, settings.mipCount, settings.pageTexels, (int)settings.pageBorder));
             Shader.SetGlobalVector(s_PoolParamsID, new Vector4(settings.slotTexels, 1.0f / settings.poolTexels, 0, 0));
@@ -44,6 +55,38 @@ namespace Landscape.RuntimeVirtualTexture
             Shader.SetGlobalVector(s_FilterParamsID, new Vector4((int)settings.filter, settings.anisoSamples, 0, 0));
             Shader.SetGlobalInt(s_ReadyID, 0);
             active = this;
+        }
+
+        void BeginContext(ScriptableRenderContext context, List<Camera> cameras)
+        {
+            m_Cameras.Clear();
+            foreach (Camera camera in cameras)
+            {
+                if (camera.cameraType == CameraType.Game && camera.isActiveAndEnabled) { m_Cameras.Add(camera); }
+            }
+            if (m_NextCamera >= m_Cameras.Count) { m_NextCamera = 0; }
+        }
+
+        public bool TryTakeRound()
+        {
+            if (m_ConsumedFrame == Time.frameCount || !requests.TryTakeResult(round)) { return false; }
+            m_ConsumedFrame = Time.frameCount;
+            return true;
+        }
+
+        public bool ReserveReadback(Camera camera)
+        {
+            if (requests.isBusy || readback.inFlight || m_ReadbackScheduled) { return false; }
+            if (m_Cameras.Count > 0 && m_Cameras[m_NextCamera] != camera) { return false; }
+            m_ReadbackScheduled = true;
+            return true;
+        }
+
+        public void RequestReadback(CommandBuffer cmd, RenderTexture feedback)
+        {
+            readback.Request(cmd, feedback);
+            m_ReadbackScheduled = false;
+            if (m_Cameras.Count > 0) { m_NextCamera = (m_NextCamera + 1) % m_Cameras.Count; }
         }
 
         /// <summary>设置与当前平台是否能建出这套虚拟纹理；不能时给出原因，调用方保持非 VT 着色。</summary>
@@ -103,11 +146,14 @@ namespace Landscape.RuntimeVirtualTexture
 
         public void Dispose()
         {
+            RenderPipelineManager.beginContextRendering -= BeginContext;
+            readback.Dispose();
             if (active == this) { active = null; }
             Shader.SetGlobalInt(s_ReadyID, 0);
             requests.Dispose();
             indirectMap.Dispose();
             physical.Dispose();
+            round.Dispose();
         }
     }
 }

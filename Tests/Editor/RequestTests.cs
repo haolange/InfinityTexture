@@ -29,6 +29,21 @@ namespace Landscape.RuntimeVirtualTexture.Tests
         }
 
         [Test]
+        public void EmptyRoundClearsBakesWithoutRepublishingIndirectWrites()
+        {
+            Create(poolSize: 2);
+            RunRound(Repeat(new PageId(0, 0, 2), 1));
+            Assert.IsTrue(m_Round.residencyChanged);
+            Assert.Greater(m_Round.indirectWrites.Length, 0);
+
+            RunRound();
+
+            Assert.AreEqual(0, m_Bakes.Length);
+            Assert.IsFalse(m_Round.residencyChanged);
+            Assert.IsFalse(m_Pipeline.TryTakeResult(m_Round), "同一轮只能取一次");
+        }
+
+        [Test]
         public void Decode_RejectsEmptyAndOutOfRangePixels()
         {
             var pixels = new NativeArray<uint>(new[]
