@@ -30,6 +30,7 @@ namespace Landscape.RuntimeVirtualTexture
         public bool indirectReady;
 
         readonly List<Camera> m_Cameras = new List<Camera>(4);
+        readonly List<Camera> m_SeenCameras = new List<Camera>(4);
         int m_NextCamera;
         int m_ConsumedFrame = -1;
         bool m_ReadbackScheduled;
@@ -48,6 +49,7 @@ namespace Landscape.RuntimeVirtualTexture
             physical = new PhysicalLayers(settings, layers, settings.format, settings.encodeShader);
             readback = new FeedbackReadback(requests.Schedule);
             RenderPipelineManager.beginContextRendering += BeginContext;
+            RenderPipelineManager.endContextRendering += EndContext;
 
             Shader.SetGlobalVector(s_ParamsID, new Vector4(settings.pageCount, settings.mipCount, settings.pageTexels, (int)settings.pageBorder));
             Shader.SetGlobalVector(s_PoolParamsID, new Vector4(settings.slotTexels, 1.0f / settings.poolTexels, 0, 0));
@@ -59,11 +61,26 @@ namespace Landscape.RuntimeVirtualTexture
 
         void BeginContext(ScriptableRenderContext context, List<Camera> cameras)
         {
-            m_Cameras.Clear();
-            foreach (Camera camera in cameras)
+            m_SeenCameras.Clear();
+            for (int i = m_Cameras.Count - 1; i >= 0; --i)
             {
-                if (camera.cameraType == CameraType.Game && camera.isActiveAndEnabled) { m_Cameras.Add(camera); }
+                Camera camera = m_Cameras[i];
+                if (camera == null || !camera.isActiveAndEnabled || !cameras.Contains(camera)) { RemoveCamera(i); }
             }
+        }
+
+        void EndContext(ScriptableRenderContext context, List<Camera> cameras)
+        {
+            for (int i = m_Cameras.Count - 1; i >= 0; --i)
+            {
+                if (!m_SeenCameras.Contains(m_Cameras[i])) { RemoveCamera(i); }
+            }
+        }
+
+        void RemoveCamera(int index)
+        {
+            m_Cameras.RemoveAt(index);
+            if (index < m_NextCamera) { --m_NextCamera; }
             if (m_NextCamera >= m_Cameras.Count) { m_NextCamera = 0; }
         }
 
@@ -76,6 +93,8 @@ namespace Landscape.RuntimeVirtualTexture
 
         public bool ReserveReadback(Camera camera)
         {
+            if (!m_SeenCameras.Contains(camera)) { m_SeenCameras.Add(camera); }
+            if (!m_Cameras.Contains(camera)) { m_Cameras.Add(camera); }
             if (requests.isBusy || readback.inFlight || m_ReadbackScheduled) { return false; }
             if (m_Cameras.Count > 0 && m_Cameras[m_NextCamera] != camera) { return false; }
             m_ReadbackScheduled = true;
@@ -147,6 +166,7 @@ namespace Landscape.RuntimeVirtualTexture
         public void Dispose()
         {
             RenderPipelineManager.beginContextRendering -= BeginContext;
+            RenderPipelineManager.endContextRendering -= EndContext;
             readback.Dispose();
             if (active == this) { active = null; }
             Shader.SetGlobalInt(s_ReadyID, 0);
