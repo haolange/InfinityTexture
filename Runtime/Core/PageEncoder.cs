@@ -139,6 +139,7 @@ namespace Landscape.RuntimeVirtualTexture
         readonly int2 m_ThreadGroupSize;
         readonly RenderTexture m_Blocks;
         readonly RTHandle m_BlockHandle;
+        TextureHandle m_BlockResource;
         readonly AstcEncoding m_AstcColor;
         readonly AstcEncoding m_AstcData;
 
@@ -163,9 +164,11 @@ namespace Landscape.RuntimeVirtualTexture
             m_BlockHandle = RTHandles.Alloc(m_Blocks);
         }
 
-        public void UseResources(RenderGraph graph, IBaseRenderGraphBuilder builder)
+        public void ImportResources(RenderGraph graph) => m_BlockResource = graph.ImportTexture(m_BlockHandle);
+
+        public void UseResources(IBaseRenderGraphBuilder builder)
         {
-            builder.UseTexture(graph.ImportTexture(m_BlockHandle), AccessFlags.ReadWrite);
+            builder.UseTexture(m_BlockResource, AccessFlags.ReadWrite);
         }
 
         public void Encode(CommandBuffer cmd, RenderTexture scratch, bool isColor, Texture physical, int2 origin)

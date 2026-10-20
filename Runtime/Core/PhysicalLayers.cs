@@ -35,6 +35,8 @@ namespace Landscape.RuntimeVirtualTexture
             public RenderTexture scratch;
             public RTHandle physicalHandle;
             public RTHandle scratchHandle;
+            public TextureHandle physicalResource;
+            public TextureHandle scratchResource;
         }
 
         static readonly int[] s_GlobalIDs =
@@ -87,19 +89,29 @@ namespace Landscape.RuntimeVirtualTexture
             }
         }
 
-        public void UseResources(RenderGraph graph, IBaseRenderGraphBuilder builder, AccessFlags access)
+        public void ImportResources(RenderGraph graph, bool bake)
         {
             foreach (Layer layer in m_Layers)
             {
-                TextureHandle physical = graph.ImportTexture(layer.physicalHandle);
+                layer.physicalResource = graph.ImportTexture(layer.physicalHandle);
+                if (bake) { layer.scratchResource = graph.ImportTexture(layer.scratchHandle); }
+            }
+            if (bake) { m_Encoder?.ImportResources(graph); }
+        }
+
+        public void UseResources(IBaseRenderGraphBuilder builder, AccessFlags access)
+        {
+            foreach (Layer layer in m_Layers)
+            {
+                TextureHandle physical = layer.physicalResource;
                 builder.UseTexture(physical, access);
                 builder.SetGlobalTextureAfterPass(physical, s_GlobalIDs[(int)layer.kind]);
                 if ((access & AccessFlags.Write) != 0)
                 {
-                    builder.UseTexture(graph.ImportTexture(layer.scratchHandle), AccessFlags.ReadWrite);
+                    builder.UseTexture(layer.scratchResource, AccessFlags.ReadWrite);
                 }
             }
-            if ((access & AccessFlags.Write) != 0) { m_Encoder?.UseResources(graph, builder); }
+            if ((access & AccessFlags.Write) != 0) { m_Encoder?.UseResources(builder); }
         }
 
         /// <summary>绑定并清空 scratch，按层的顺序作为 MRT。</summary>

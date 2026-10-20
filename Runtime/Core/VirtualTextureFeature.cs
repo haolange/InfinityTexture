@@ -24,6 +24,7 @@ namespace Landscape.RuntimeVirtualTexture
     {
         static readonly int s_FeedbackScaleID = Shader.PropertyToID("_VTFeedbackScale");
 
+
         class BakeData
         {
             public VirtualTextureSystem system;
@@ -69,7 +70,9 @@ namespace Landscape.RuntimeVirtualTexture
             if (cameraData.cameraType != CameraType.Game) { return; }
 
             bool hasRound = system.TryTakeRound();
-            if (hasRound && system.round.bakes.Length > 0) { AddBakePass(renderGraph, system); }
+            bool bake = hasRound && system.round.bakes.Length > 0;
+            system.physical.ImportResources(renderGraph, bake);
+            if (bake) { AddBakePass(renderGraph, system); }
             AddIndirectPass(renderGraph, system, !system.indirectReady || (hasRound && system.round.residencyChanged));
 
             TextureHandle feedback = AddFeedbackPass(renderGraph, frameData, cameraData);
@@ -82,7 +85,7 @@ namespace Landscape.RuntimeVirtualTexture
             {
                 data.system = system;
                 data.round = system.round;
-                system.physical.UseResources(renderGraph, builder, AccessFlags.ReadWrite);
+                system.physical.UseResources(builder, AccessFlags.ReadWrite);
                 builder.AllowGlobalStateModification(true);
                 builder.AllowPassCulling(false);
                 builder.SetRenderFunc(static (BakeData d, UnsafeGraphContext context) =>
@@ -102,7 +105,7 @@ namespace Landscape.RuntimeVirtualTexture
                 TextureHandle indirect = renderGraph.ImportTexture(system.indirectMap.texture);
                 builder.UseTexture(indirect, update ? AccessFlags.Write : AccessFlags.Read);
                 builder.SetGlobalTextureAfterPass(indirect, Shader.PropertyToID("_VTIndirectMap"));
-                system.physical.UseResources(renderGraph, builder, AccessFlags.Read);
+                system.physical.UseResources(builder, AccessFlags.Read);
                 builder.AllowGlobalStateModification(true);
                 builder.AllowPassCulling(false);
                 builder.SetRenderFunc(static (IndirectData d, UnsafeGraphContext context) =>
