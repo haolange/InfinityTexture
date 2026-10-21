@@ -1,0 +1,10 @@
+#pragma kernel ReadPhysical
+Texture2D<float4> _Input;
+RWStructuredBuffer<float4> _Output;
+uint _Width;
+[numthreads(8,8,1)]
+void ReadPhysical(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id.xy >= _Width)) { return; }
+    _Output[id.y * _Width + id.x] = _Input.Load(int3(id.xy, 0));
+}

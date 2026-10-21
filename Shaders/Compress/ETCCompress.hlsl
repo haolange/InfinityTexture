@@ -200,7 +200,7 @@ uint2 CompressBlock_ETC2_RGB(in float3 Block[16])
 // 64 位按大端存放：基准 8 位 | 倍率 4 位 | 表号 4 位 | 16 个 3 位索引（像素按列优先）。
 uint2 CompressBlock_ETC2_Alpha(in float BlockA[16])
 {
-    int alpha[16];
+    int alpha[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     int minAlpha = 255, maxAlpha = 0;
     for (int k = 0; k < 16; ++k)
     {
@@ -209,21 +209,15 @@ uint2 CompressBlock_ETC2_Alpha(in float BlockA[16])
         maxAlpha = max(maxAlpha, alpha[k]);
     }
 
-    if (minAlpha == maxAlpha)
-    {
-        // 倍率 0 精确表示常量，索引无需搜索。
-        return uint2(SwapEndian32((uint)minAlpha << 24), 0);
-    }
-
-    int bestTable = 0, bestMultiplier = 1, bestBase = minAlpha;
+    int bestTable = 0, bestMultiplier = minAlpha == maxAlpha ? 0 : 1, bestBase = minAlpha;
     int bestError = 0x7FFFFFFF;
-    for (int table = 0; table < 16; ++table)
+    for (int table = 0; table < 16 && minAlpha != maxAlpha; ++table)
     {
         uint span = (uint)(EAC_MODIFIERS[table][7] - EAC_MODIFIERS[table][3]);
         int multiplier = (int)clamp(((uint)(maxAlpha - minAlpha) + (span >> 1)) / span, 1u, 15u);
         int base = min((int)((uint)max(0, minAlpha + maxAlpha - (EAC_MODIFIERS[table][7] + EAC_MODIFIERS[table][3]) * multiplier + 1) >> 1), 255);
 
-        int decoded[8];
+        int decoded[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
         [unroll] for (int i = 0; i < 8; ++i) { decoded[i] = clamp(base + EAC_MODIFIERS[table][i] * multiplier, 0, 255); }
         int error = 0;
         for (int p = 0; p < 16; ++p)
@@ -242,7 +236,7 @@ uint2 CompressBlock_ETC2_Alpha(in float BlockA[16])
     }
 
     uint indicesHigh = 0, indicesLow = 0;  // 48 位索引的高 16 位与低 32 位
-    for (int p = 0; p < 16; ++p)
+    for (int p = 0; p < 16 && minAlpha != maxAlpha; ++p)
     {
         int selected = 0, best = 0x7FFFFFFF;
         for (int i = 0; i < 8; ++i)

@@ -205,10 +205,10 @@ namespace Landscape.RuntimeVirtualTexture.Tests
         {
             PageFormat x6 = PageFormat.Of(EPageCompression.ASTC, EAstcBlock.X6);
             Assert.AreEqual(new int2(6, 6), x6.blockSize);
-            Assert.AreEqual(GraphicsFormat.RGBA_ASTC6X6_SRGB, x6.PhysicalFormat(true));
-            Assert.AreEqual(GraphicsFormat.RGBA_ASTC6X6_UNorm, x6.PhysicalFormat(false));
-            Assert.AreEqual(GraphicsFormat.RGBA_ASTC4X4_UNorm, PageFormat.Of(EPageCompression.ASTC, EAstcBlock.X4).PhysicalFormat(false));
-            Assert.AreEqual(GraphicsFormat.RGBA_ASTC8X8_SRGB, PageFormat.Of(EPageCompression.ASTC, EAstcBlock.X8).PhysicalFormat(true));
+            Assert.AreEqual(GraphicsFormat.RGBA_ASTC6X6_SRGB, x6.ForLayer(EPageLayer.BaseColor).physicalFormat);
+            Assert.AreEqual(GraphicsFormat.RGBA_ASTC6X6_UNorm, x6.ForLayer(EPageLayer.Mask).physicalFormat);
+            Assert.AreEqual(GraphicsFormat.RGBA_ASTC4X4_UNorm, PageFormat.Of(EPageCompression.ASTC, EAstcBlock.X4).ForLayer(EPageLayer.Mask).physicalFormat);
+            Assert.AreEqual(GraphicsFormat.RGBA_ASTC8X8_SRGB, PageFormat.Of(EPageCompression.ASTC, EAstcBlock.X8).ForLayer(EPageLayer.BaseColor).physicalFormat);
 
             // 264 = 256 + 2 × 4 可被 4、6、8 整除。
             const int slot = 264;

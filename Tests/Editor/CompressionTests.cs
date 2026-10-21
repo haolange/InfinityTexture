@@ -55,12 +55,12 @@ namespace Landscape.RuntimeVirtualTexture.Tests
         [Test]
         public void ColorLayersAreSrgbDataLayersAreNot()
         {
-            Assert.AreEqual(GraphicsFormat.RGBA_DXT5_SRGB, PageFormat.Of(EPageCompression.BC).PhysicalFormat(true));
-            Assert.AreEqual(GraphicsFormat.RGBA_DXT5_UNorm, PageFormat.Of(EPageCompression.BC).PhysicalFormat(false));
-            Assert.AreEqual(GraphicsFormat.RGBA_ETC2_SRGB, PageFormat.Of(EPageCompression.ETC2).PhysicalFormat(true));
-            Assert.AreEqual(GraphicsFormat.RGBA_ETC2_UNorm, PageFormat.Of(EPageCompression.ETC2).PhysicalFormat(false));
-            Assert.AreEqual(GraphicsFormat.R8G8B8A8_SRGB, PageFormat.Of(EPageCompression.None).PhysicalFormat(true));
-            Assert.AreEqual(GraphicsFormat.R8G8B8A8_UNorm, PageFormat.Of(EPageCompression.None).PhysicalFormat(false));
+            Assert.AreEqual(GraphicsFormat.RGBA_DXT1_SRGB, PageFormat.Of(EPageCompression.BC).ForLayer(EPageLayer.BaseColor).physicalFormat);
+            Assert.AreEqual(GraphicsFormat.RGBA_DXT5_UNorm, PageFormat.Of(EPageCompression.BC).ForLayer(EPageLayer.Mask).physicalFormat);
+            Assert.AreEqual(GraphicsFormat.RGB_ETC2_SRGB, PageFormat.Of(EPageCompression.ETC2).ForLayer(EPageLayer.BaseColor).physicalFormat);
+            Assert.AreEqual(GraphicsFormat.RGBA_ETC2_UNorm, PageFormat.Of(EPageCompression.ETC2).ForLayer(EPageLayer.Mask).physicalFormat);
+            Assert.AreEqual(GraphicsFormat.R8G8B8A8_SRGB, PageFormat.Of(EPageCompression.None).ForLayer(EPageLayer.BaseColor).physicalFormat);
+            Assert.AreEqual(GraphicsFormat.R8G8B8A8_UNorm, PageFormat.Of(EPageCompression.None).ForLayer(EPageLayer.Mask).physicalFormat);
         }
 
         [Test]
@@ -69,11 +69,30 @@ namespace Landscape.RuntimeVirtualTexture.Tests
             PageFormat bc = PageFormat.Of(EPageCompression.BC);
             Assert.IsTrue(bc.IsAligned(SlotTexels));
             Assert.AreEqual(new int2(66, 66), bc.BlocksPerSlot(SlotTexels));
-            Assert.AreEqual(66 * 66 * 16, bc.SlotBytes(SlotTexels));
+            Assert.AreEqual(66 * 66 * 8, bc.SlotBytes(SlotTexels));
             Assert.AreEqual(SlotTexels * SlotTexels * 4, PageFormat.Of(EPageCompression.None).SlotBytes(SlotTexels));
 
-            // BC3 / ETC2 RGBA8 都是每像素 1 字节。
-            Assert.AreEqual(SlotTexels * SlotTexels, bc.SlotBytes(SlotTexels));
+            // BC 颜色层 BC1 每像素半字节，数据层每像素一字节。
+            Assert.AreEqual(SlotTexels * SlotTexels / 2, bc.SlotBytes(SlotTexels));
+            Assert.AreEqual(SlotTexels * SlotTexels, bc.ForLayer(EPageLayer.Normal).SlotBytes(SlotTexels));
+        }
+
+        [Test]
+        public void PerLayerFormatsUseMatchingBlockWidths()
+        {
+            var bc = PageFormat.Of(EPageCompression.BC);
+            Assert.AreEqual(GraphicsFormat.RGBA_DXT1_SRGB, bc.physicalFormat);
+            Assert.AreEqual(GraphicsFormat.RG_BC5_UNorm, bc.ForLayer(EPageLayer.Normal).physicalFormat);
+            Assert.AreEqual(GraphicsFormat.RGBA_DXT5_UNorm, bc.ForLayer(EPageLayer.Mask).physicalFormat);
+            Assert.AreEqual(GraphicsFormat.R32G32_UInt, bc.blockFormat);
+            Assert.AreEqual(GraphicsFormat.R32G32B32A32_UInt, bc.ForLayer(EPageLayer.Normal).blockFormat);
+            Assert.AreEqual(8, bc.blockBytes);
+            Assert.AreEqual(16, bc.ForLayer(EPageLayer.Normal).blockBytes);
+            Assert.AreEqual(SlotTexels * SlotTexels * 5 / 2, bc.SlotBytes(SlotTexels) + bc.ForLayer(EPageLayer.Normal).SlotBytes(SlotTexels) + bc.ForLayer(EPageLayer.Mask).SlotBytes(SlotTexels));
+            var etc = PageFormat.Of(EPageCompression.ETC2);
+            Assert.AreEqual(GraphicsFormat.RGB_ETC2_SRGB, etc.physicalFormat);
+            Assert.AreEqual(8, etc.blockBytes);
+            Assert.AreEqual(16, etc.ForLayer(EPageLayer.Normal).blockBytes);
         }
 
         [Test]

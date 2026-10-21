@@ -19,7 +19,7 @@
 | 间接表 | 带完整 mip 的 GPU 间接表；第 k 级只描述虚拟 mip k | `IndirectMap`、`Shaders/Core/IndirectMap.shader` |
 | 物理页 | 每个启用层一张物理图，无硬件 mip，只采样 0 级 | `PhysicalLayers` |
 | 烘焙 | 生产者把一页的各层画进 scratch | `IPageProducer` |
-| 压缩 | 把 scratch 编码成块，写进物理槽（BC3 / ETC2 / ASTC） | `PageEncoder`、`AstcLayout`、`Shaders/Compress` |
+| 压缩 | 把 scratch 编码成块，写进物理槽（BC1 / BC5 / BC3 / ETC2 RGB / ETC2 RGBA / ASTC） | `PageEncoder`、`AstcLayout`、`Shaders/Compress` |
 | 着色采样 | lod、间接查找、物理 uv、过滤、层解码、PBR 光照 | `Shaders/Core/VirtualTextureCommon.hlsl`、`VirtualTextureLighting.hlsl` |
 
 ## 底层与生产者的边界
@@ -29,6 +29,9 @@
   - 地址计算：虚拟 uv 与自身空间互换；
   - 按烘焙单把各层画进底层给出的 scratch。
 - 新的生产者（Decal、SVT 等）只新增生产者代码与地址计算。间接表、物理池、反馈解析、LRU、压缩不允许复制。
+
+- 压缩格式按层选择：BC 的颜色 / 法线 / Mask 为 BC1 / BC5 / BC3；ETC2 颜色 RGB8、数据 RGBA8。块图按 64 / 128 位按需共享，禁止用固定 128 位预算描述所有层。
+- 生产者的法线 scratch 仍为 G=y、A=x；BC5 编码为 R=x、G=y，底层采样后统一到既有解码约定。颜色的 Linear / sRGB 转换只发生在既有烘焙、编码与硬件采样通路。
 
 ## 状态与并发
 

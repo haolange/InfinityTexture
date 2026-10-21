@@ -12,6 +12,8 @@ float2 _VTFeedbackScale;
 
 // 启用的物理层数：1 BaseColor，2 +Normal，3 +Mask
 int _VTLayerCount;
+// BC5 解码到 RG；其他格式保持 G=y、A=x。
+int _VTNormalIsRG;
 // x: 过滤方式（0 双线性，1 三线性，2 各向异性，对应 C# EPageFilter）  y: 各向异性最多查找次数
 float4 _VTFilterParams;
 
@@ -98,7 +100,11 @@ VTTexels VTSampleTexels(float2 physicalUV)
     texels.baseColor = SAMPLE_TEXTURE2D_LOD(_VTPhysicalBaseColor, sampler_VTLinearClamp, physicalUV, 0);
     texels.normal = VT_FLAT_NORMAL;
     texels.mask = VT_DEFAULT_MASK;
-    if (_VTLayerCount > 1) { texels.normal = SAMPLE_TEXTURE2D_LOD(_VTPhysicalNormal, sampler_VTLinearClamp, physicalUV, 0); }
+    if (_VTLayerCount > 1)
+    {
+        texels.normal = SAMPLE_TEXTURE2D_LOD(_VTPhysicalNormal, sampler_VTLinearClamp, physicalUV, 0);
+        if (_VTNormalIsRG != 0) { texels.normal = float4(0, texels.normal.g, 0, texels.normal.r); }
+    }
     if (_VTLayerCount > 2) { texels.mask = SAMPLE_TEXTURE2D_LOD(_VTPhysicalMask, sampler_VTLinearClamp, physicalUV, 0); }
     return texels;
 }

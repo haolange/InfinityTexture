@@ -120,34 +120,30 @@ uint2 GetPackedAlphaBlockIndices(in float Block[16], in float MinAlpha, in float
     return PackedIndices;
 }
 
-// Compress a BC3 block
-uint4 CompressBC3Block(in float3 BlockRGB[16], in float BlockA[16])
+uint2 CompressBC1Block(in float3 block[16])
 {
-    float3 MinColor, MaxColor;
-    GetMinMax(BlockRGB, MinColor, MaxColor);
+    float3 low, high;
+    GetMinMax(block, low, high);
+    uint low565 = Float3ToUint565_Floor(low);
+    uint high565 = Float3ToUint565_Ceil(high);
+    uint indices = low565 < high565 ? GetPackedColorBlockIndices(block, low, high) : 0;
+    return uint2((low565 << 16) | high565, indices);
+}
 
-    uint MinColor565 = Float3ToUint565_Floor(MinColor);
-    uint MaxColor565 = Float3ToUint565_Ceil(MaxColor);
+uint2 CompressBC4Block(in float block[16])
+{
+    float low, high;
+    GetMinMax(block, low, high);
+    uint low8 = (uint)round(low * 255.0);
+    uint high8 = (uint)round(high * 255.0);
+    uint2 indices = 0;
+    if (low8 < high8) { indices = GetPackedAlphaBlockIndices(block, low, high); }
+    return uint2((low8 << 8) | high8 | indices.x, indices.y);
+}
 
-    float MinAlpha, MaxAlpha;
-    GetMinMax(BlockA, MinAlpha, MaxAlpha);
-
-    uint MinAlphaUint = (uint) round(MinAlpha * 255.f);
-    uint MaxAlphaUint = (uint) round(MaxAlpha * 255.f);
-
-    uint ColorIndices = 0;
-    if (MinColor565 < MaxColor565)
-    {
-        ColorIndices = GetPackedColorBlockIndices(BlockRGB, MinColor, MaxColor);
-    }
-
-    uint2 AlphaIndices = 0;
-    if (MinAlphaUint < MaxAlphaUint)
-    {
-        AlphaIndices = GetPackedAlphaBlockIndices(BlockA, MinAlpha, MaxAlpha);
-    }
-
-    return uint4((MinAlphaUint << 8) | MaxAlphaUint | AlphaIndices.x, AlphaIndices.y, (MinColor565 << 16) | MaxColor565, ColorIndices);
+uint4 CompressBC3Block(in float3 blockRGB[16], in float blockA[16])
+{
+    return uint4(CompressBC4Block(blockA), CompressBC1Block(blockRGB));
 }
 
 #endif

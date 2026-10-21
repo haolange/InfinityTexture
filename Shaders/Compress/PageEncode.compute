@@ -1,7 +1,10 @@
-// 压缩通路：把一页大小的 scratch 编码成 128 位块（BC3 / ETC2 RGBA8 / ASTC），每个线程一块，一个块写成 _Blocks 的一个 texel。
+// 压缩通路：每个线程把 scratch 的一块编码为 64 / 128 位，写入对应 UInt 块图。
 // 颜色层先把线性值转成 sRGB 再编码（物理图为 *_SRGB 格式）；数据层原样编码。
 
+#pragma kernel EncodeBC1
+#pragma kernel EncodeBC5
 #pragma kernel EncodeBC3
+#pragma kernel EncodeETC2RGB
 #pragma kernel EncodeETC2
 #pragma kernel EncodeASTC
 
@@ -11,6 +14,7 @@
 
 Texture2D<float4> _Source;
 RWTexture2D<uint4> _Blocks;
+RWTexture2D<uint2> _Blocks64;
 uint _BlockCount;     // 每边块数
 uint _SourceIsColor;  // 1：颜色层
 uint4 _AstcBlockConfig;  // 块边长、网格宽、网格高、块模式
@@ -37,6 +41,38 @@ void LoadBlock4x4(uint2 block, out float3 rgb[16], out float alpha[16])
         rgb[i] = c.rgb;
         alpha[i] = c.a;
     }
+}
+
+[numthreads(8, 8, 1)]
+void EncodeBC1(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id.xy >= _BlockCount)) { return; }
+    float3 rgb[16]; float alpha[16];
+    LoadBlock4x4(id.xy, rgb, alpha);
+    _Blocks64[id.xy] = CompressBC1Block(rgb);
+}
+
+[numthreads(8, 8, 1)]
+void EncodeBC5(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id.xy >= _BlockCount)) { return; }
+    float x[16], y[16];
+    [unroll] for (uint i = 0; i < 16; ++i)
+    {
+        float4 texel = LoadTexel(id.xy * 4 + uint2(i % 4, i / 4));
+        x[i] = texel.a;
+        y[i] = texel.g;
+    }
+    _Blocks[id.xy] = uint4(CompressBC4Block(x), CompressBC4Block(y));
+}
+
+[numthreads(8, 8, 1)]
+void EncodeETC2RGB(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id.xy >= _BlockCount)) { return; }
+    float3 rgb[16]; float alpha[16];
+    LoadBlock4x4(id.xy, rgb, alpha);
+    _Blocks64[id.xy] = CompressBlock_ETC2_RGB(rgb);
 }
 
 [numthreads(8, 8, 1)]

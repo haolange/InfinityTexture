@@ -16,6 +16,7 @@ namespace Landscape.RuntimeVirtualTexture
         static readonly int s_ParamsID = Shader.PropertyToID("_VTParams");
         static readonly int s_PoolParamsID = Shader.PropertyToID("_VTPoolParams");
         static readonly int s_LayerCountID = Shader.PropertyToID("_VTLayerCount");
+        static readonly int s_NormalIsRGID = Shader.PropertyToID("_VTNormalIsRG");
         static readonly int s_FilterParamsID = Shader.PropertyToID("_VTFilterParams");
         internal static readonly ProfilingSampler bakeSampler = new ProfilingSampler("VT Bake Page");
 
@@ -56,6 +57,7 @@ namespace Landscape.RuntimeVirtualTexture
             Shader.SetGlobalVector(s_ParamsID, new Vector4(settings.pageCount, settings.mipCount, settings.pageTexels, (int)settings.pageBorder));
             Shader.SetGlobalVector(s_PoolParamsID, new Vector4(settings.slotTexels, 1.0f / settings.poolTexels, 0, 0));
             Shader.SetGlobalInt(s_LayerCountID, layers.Length);
+            Shader.SetGlobalInt(s_NormalIsRGID, settings.compression == EPageCompression.BC ? 1 : 0);
             Shader.SetGlobalVector(s_FilterParamsID, new Vector4((int)settings.filter, settings.anisoSamples, 0, 0));
             active = this;
             // 原生材质没有反馈 pass；根页先走同一条请求链，避免启动依赖反馈。
@@ -135,15 +137,15 @@ namespace Landscape.RuntimeVirtualTexture
             PageFormat format = settings.format;
             foreach (EPageLayer layer in PhysicalLayers.Enabled(settings.layers))
             {
-                GraphicsFormat physicalFormat = format.PhysicalFormat(PhysicalLayers.IsColor(layer));
+                GraphicsFormat physicalFormat = format.ForLayer(layer).physicalFormat;
                 if (!SystemInfo.IsFormatSupported(physicalFormat, GraphicsFormatUsage.Sample)) { error = $"当前平台不支持 {physicalFormat}"; return false; }
-                GraphicsFormat scratchFormat = PageFormat.Of(EPageCompression.None).PhysicalFormat(PhysicalLayers.IsColor(layer));
+                GraphicsFormat scratchFormat = PageFormat.Of(EPageCompression.None).ForLayer(layer).physicalFormat;
                 if (!SystemInfo.IsFormatSupported(scratchFormat, GraphicsFormatUsage.Render)) { error = $"当前平台不支持 {scratchFormat} 烘焙目标"; return false; }
+                if (format.isCompressed && !SystemInfo.IsFormatSupported(format.ForLayer(layer).blockFormat, GraphicsFormatUsage.LoadStore)) { error = $"当前平台不支持 {format.ForLayer(layer).blockFormat} 压缩块图随机写入"; return false; }
             }
             if (format.isCompressed)
             {
                 if (!SystemInfo.supportsComputeShaders) { error = "当前平台不支持 compute shader，无法压缩物理页"; return false; }
-                if (!SystemInfo.IsFormatSupported(GraphicsFormat.R32G32B32A32_UInt, GraphicsFormatUsage.LoadStore)) { error = "当前平台不支持压缩块图的随机写入"; return false; }
                 if ((SystemInfo.copyTextureSupport & (CopyTextureSupport.DifferentTypes | CopyTextureSupport.RTToTexture)) != (CopyTextureSupport.DifferentTypes | CopyTextureSupport.RTToTexture))
                 {
                     error = "当前平台不支持把块图拷贝进压缩纹理";

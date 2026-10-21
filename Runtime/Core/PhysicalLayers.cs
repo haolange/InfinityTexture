@@ -70,16 +70,15 @@ namespace Landscape.RuntimeVirtualTexture
             m_SlotTexels = asset.slotTexels;
             m_Layers = new Layer[layers.Length];
             m_ScratchTargets = new RenderTargetIdentifier[layers.Length];
-            m_Encoder = format.isCompressed ? new PageEncoder(encodeShader, format, m_SlotTexels) : null;
+            m_Encoder = format.isCompressed ? new PageEncoder(encodeShader, format, m_SlotTexels, layers) : null;
 
             for (int i = 0; i < layers.Length; ++i)
             {
-                bool isColor = IsColor(layers[i]);
-                GraphicsFormat scratchFormat = PageFormat.Of(EPageCompression.None).PhysicalFormat(isColor);
+                GraphicsFormat scratchFormat = PageFormat.Of(EPageCompression.None).ForLayer(layers[i]).physicalFormat;
                 m_Layers[i] = new Layer
                 {
                     kind = layers[i],
-                    physical = CreatePhysical($"VTPhysical{layers[i]}", asset.poolTexels, format.PhysicalFormat(isColor), format.isCompressed),
+                    physical = CreatePhysical($"VTPhysical{layers[i]}", asset.poolTexels, format.ForLayer(layers[i]).physicalFormat, format.isCompressed),
                     scratch = CreateRenderTexture($"VTScratch{layers[i]}", m_SlotTexels, scratchFormat)
                 };
                 m_Layers[i].physicalHandle = RTHandles.Alloc(m_Layers[i].physical);
@@ -127,7 +126,7 @@ namespace Landscape.RuntimeVirtualTexture
             int2 origin = slotCoord * m_SlotTexels;
             foreach (Layer layer in m_Layers)
             {
-                if (m_Encoder != null) { m_Encoder.Encode(cmd, layer.scratch, IsColor(layer.kind), layer.physical, origin); }
+                if (m_Encoder != null) { m_Encoder.Encode(cmd, layer.scratch, layer.kind, layer.physical, origin); }
                 else { cmd.CopyTexture(layer.scratch, 0, 0, 0, 0, m_SlotTexels, m_SlotTexels, layer.physical, 0, 0, origin.x, origin.y); }
             }
         }
