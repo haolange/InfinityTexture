@@ -171,8 +171,8 @@ namespace Landscape.RuntimeVirtualTexture
                 Shader.SetGlobalTexture(s_GlobalIDs[(int)layer.kind], Texture2D.blackTexture);
                 if (layer.physical is RenderTexture renderTexture) { renderTexture.Release(); }
                 layer.scratch.Release();
-                Object.Destroy(layer.physical);
-                Object.Destroy(layer.scratch);
+                CoreUtils.Destroy(layer.physical);
+                CoreUtils.Destroy(layer.scratch);
             }
         }
     }

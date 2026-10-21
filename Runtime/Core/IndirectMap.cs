@@ -145,9 +145,9 @@ namespace Landscape.RuntimeVirtualTexture
             Shader.SetGlobalTexture(s_IndirectMapID, Texture2D.blackTexture);
             texture.Release();
             m_Texture.Release();
-            Object.Destroy(m_Texture);
+            CoreUtils.Destroy(m_Texture);
             m_Writes.Dispose();
-            Object.Destroy(m_Material);
+            CoreUtils.Destroy(m_Material);
         }
     }
 }
