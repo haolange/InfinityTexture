@@ -303,7 +303,9 @@ namespace Landscape.RuntimeVirtualTexture
         public const int ColorUnquantOffset = ColorQuantOffset + 256;
         public const int WeightQuantOffset = ColorUnquantOffset + 256;
         public const int WeightUnquantOffset = WeightQuantOffset + 65;
-        public const int TableSize = WeightUnquantOffset + 32;
+        public const int InfillOffset = WeightUnquantOffset + 32;
+        public const int GridNormOffset = InfillOffset + 64 * 2;
+        public const int TableSize = GridNormOffset + 36;
 
         /// <summary>一档配置的全部查找表：ISE 编码、端点 0..255 与权重 0..64 的量化 / 反量化。</summary>
         public static uint[] BuildTables(Config config)
@@ -319,6 +321,28 @@ namespace Landscape.RuntimeVirtualTexture
             for (int i = 0; i < endpoint.levels; ++i) { tables[ColorUnquantOffset + i] = (uint)UnquantizeColor(endpoint, i); }
             Copy(QuantizeTable(64, weight.levels, value => UnquantizeWeight(weight, value)), WeightQuantOffset);
             for (int i = 0; i < weight.levels; ++i) { tables[WeightUnquantOffset + i] = (uint)UnquantizeWeight(weight, i); }
+            int scale = (1024 + config.block / 2) / (config.block - 1);
+            for (int y = 0; y < config.block; ++y)
+            {
+                int gy = (scale * y * (config.gridHeight - 1) + 32) >> 6;
+                int jy = gy >> 4, fy = gy & 15;
+                for (int x = 0; x < config.block; ++x)
+                {
+                    int gx = (scale * x * (config.gridWidth - 1) + 32) >> 6;
+                    int jx = gx >> 4, fx = gx & 15;
+                    int w11 = (fx * fy + 8) >> 4;
+                    int[] corners = { jx + jy * config.gridWidth, jx + 1 + jy * config.gridWidth, jx + (jy + 1) * config.gridWidth, jx + 1 + (jy + 1) * config.gridWidth };
+                    int[] weights = { 16 - fx - fy + w11, fx - w11, fy - w11, w11 };
+                    int offset = InfillOffset + (y * config.block + x) * 2;
+                    for (int i = 0; i < 4; ++i)
+                    {
+                        // 零权重角点可在网格外，着色器跳过它。
+                        tables[offset] |= (uint)corners[i] << (i * 8);
+                        tables[offset + 1] |= (uint)weights[i] << (i * 8);
+                        if (weights[i] != 0) { tables[GridNormOffset + corners[i]] += (uint)weights[i]; }
+                    }
+                }
+            }
             return tables;
         }
     }

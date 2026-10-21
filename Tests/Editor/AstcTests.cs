@@ -172,6 +172,35 @@ namespace Landscape.RuntimeVirtualTexture.Tests
         }
 
         [Test]
+        public void InfillTablesCoverEachTexelAndNormalizeEachGridPoint()
+        {
+            foreach (EAstcBlock block in Enum.GetValues(typeof(EAstcBlock)))
+            foreach (bool isColor in new[] { true, false })
+            {
+                var config = AstcLayout.Of(block, isColor);
+                uint[] tables = AstcLayout.BuildTables(config);
+                var norms = new uint[36];
+                for (int pixel = 0; pixel < config.block * config.block; ++pixel)
+                {
+                    uint corners = tables[AstcLayout.InfillOffset + pixel * 2];
+                    uint weights = tables[AstcLayout.InfillOffset + pixel * 2 + 1];
+                    uint sum = 0;
+                    for (int i = 0; i < 4; ++i)
+                    {
+                        uint w = (weights >> (8 * i)) & 255;
+                        if (w == 0) { continue; }
+                        uint corner = (corners >> (8 * i)) & 255;
+                        Assert.Less(corner, config.gridWidth * config.gridHeight);
+                        norms[corner] += w;
+                        sum += w;
+                    }
+                    Assert.AreEqual(16, sum);
+                }
+                for (int i = 0; i < norms.Length; ++i) { Assert.AreEqual(norms[i], tables[AstcLayout.GridNormOffset + i]); }
+            }
+        }
+
+        [Test]
         public void PageFormatUsesBlockSizeAndSrgbForColor()
         {
             PageFormat x6 = PageFormat.Of(EPageCompression.ASTC, EAstcBlock.X6);

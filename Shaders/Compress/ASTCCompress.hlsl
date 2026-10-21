@@ -13,6 +13,8 @@
 #define ASTC_COLOR_UNQUANT_OFFSET   624
 #define ASTC_WEIGHT_QUANT_OFFSET    880
 #define ASTC_WEIGHT_UNQUANT_OFFSET  945
+#define ASTC_INFILL_OFFSET          977
+#define ASTC_GRID_NORM_OFFSET       1105
 
 #define ASTC_ISE_BITS   0
 #define ASTC_ISE_TRIT   1
@@ -182,35 +184,25 @@ uint4 CompressBlock_ASTC(AstcConfig config)
     float alphaRange = u1.a - u0.a;
     float gridSum[36];
     float gridAlphaSum[36];
-    float gridNorm[36];
-    for (uint g = 0; g < 36; ++g) { gridSum[g] = 0; gridAlphaSum[g] = 0; gridNorm[g] = 0; }
-
-    uint scaleFactor = (1024 + size / 2) / (size - 1);
+    for (uint g = 0; g < 36; ++g) { gridSum[g] = 0; gridAlphaSum[g] = 0; }
     for (uint t = 0; t < size; ++t)
     {
-        uint gt = (scaleFactor * t * (config.gridHeight - 1) + 32) >> 6;
-        uint jt = gt >> 4, ft = gt & 15;
         for (uint s = 0; s < size; ++s)
         {
-            uint gs = (scaleFactor * s * (config.gridWidth - 1) + 32) >> 6;
-            uint js = gs >> 4, fs = gs & 15;
-
             float4 texel = s_AstcTexels[t * size + s];
             float ideal = axisLength2 > 0 ? saturate(dot((texel - u0) * planeMask, axis) / axisLength2) : 0;
             float idealAlpha = alphaRange != 0 ? saturate((texel.a - u0.a) / alphaRange) : 0;
 
-            uint w11 = (fs * ft + 8) >> 4;
-            uint w10 = ft - w11;
-            uint w01 = fs - w11;
-            uint w00 = 16 - fs - ft + w11;
-            uint corners[4] = { js + jt * config.gridWidth, js + 1 + jt * config.gridWidth, js + (jt + 1) * config.gridWidth, js + 1 + (jt + 1) * config.gridWidth };
-            uint cornerWeights[4] = { w00, w01, w10, w11 };
-            for (uint c = 0; c < 4; ++c)
+            uint infill = ASTC_INFILL_OFFSET + (t * size + s) * 2;
+            uint corners = _AstcTables[infill];
+            uint weights = _AstcTables[infill + 1];
+            [unroll] for (uint c = 0; c < 4; ++c)
             {
-                if (cornerWeights[c] == 0) { continue; }
-                gridSum[corners[c]] += ideal * cornerWeights[c];
-                gridAlphaSum[corners[c]] += idealAlpha * cornerWeights[c];
-                gridNorm[corners[c]] += cornerWeights[c];
+                uint weight = (weights >> (c * 8)) & 255;
+                if (weight == 0) { continue; }
+                uint corner = (corners >> (c * 8)) & 255;
+                gridSum[corner] += ideal * weight;
+                if (dual) { gridAlphaSum[corner] += idealAlpha * weight; }
             }
         }
     }
@@ -232,8 +224,9 @@ uint4 CompressBlock_ASTC(AstcConfig config)
     uint planes = dual ? 2 : 1;
     for (uint w = 0; w < gridCount; ++w)
     {
-        float weight = gridNorm[w] > 0 ? gridSum[w] / gridNorm[w] : 0;
-        float alphaWeight = gridNorm[w] > 0 ? gridAlphaSum[w] / gridNorm[w] : 0;
+        float norm = _AstcTables[ASTC_GRID_NORM_OFFSET + w];
+        float weight = norm > 0 ? gridSum[w] / norm : 0;
+        float alphaWeight = norm > 0 ? gridAlphaSum[w] / norm : 0;
         s_AstcValues[w * planes] = _AstcTables[ASTC_WEIGHT_QUANT_OFFSET + (uint)round(weight * 64.0)];
         if (dual) { s_AstcValues[w * planes + 1] = _AstcTables[ASTC_WEIGHT_QUANT_OFFSET + (uint)round(alphaWeight * 64.0)]; }
     }
