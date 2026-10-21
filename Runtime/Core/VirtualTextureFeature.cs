@@ -39,6 +39,7 @@ namespace Landscape.RuntimeVirtualTexture
 
         class IndirectData
         {
+            public VirtualTextureSystem system;
             public IndirectMap indirectMap;
             public RoundResult round;
             public bool update;
@@ -82,6 +83,8 @@ namespace Landscape.RuntimeVirtualTexture
             if (bake) { AddBakePass(renderGraph, system); }
             AddIndirectPass(renderGraph, system, !system.indirectReady || (hasRound && system.round.residencyChanged));
 
+            if (!system.rootReady) { return; }
+
             TextureHandle feedback = AddFeedbackPass(renderGraph, frameData, cameraData);
             if (system.ReserveReadback(cameraData.camera)) { AddReadbackPass(renderGraph, feedback, system); }
         }
@@ -106,6 +109,7 @@ namespace Landscape.RuntimeVirtualTexture
         {
             using (var builder = renderGraph.AddUnsafePass<IndirectData>("VT Indirect", out var data, s_PassSamplers[(int)EVirtualTexturePass.Indirect]))
             {
+                data.system = system;
                 data.indirectMap = system.indirectMap;
                 data.round = system.round;
                 data.update = update;
@@ -119,10 +123,9 @@ namespace Landscape.RuntimeVirtualTexture
                 {
                     CommandBuffer cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
                     if (d.update) { d.indirectMap.Update(cmd, d.round.indirectWrites, d.round.levelRanges); }
-                    VirtualTextureSystem.SetReady(cmd);
+                    d.system.Publish();
                 });
             }
-            system.indirectReady = true;
         }
 
         TextureHandle AddFeedbackPass(RenderGraph renderGraph, ContextContainer frameData, UniversalCameraData cameraData)

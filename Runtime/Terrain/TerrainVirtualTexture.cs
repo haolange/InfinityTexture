@@ -1,4 +1,6 @@
 using UnityEngine;
+using System.Collections.Generic;
+using UnityEngine.Rendering;
 
 namespace Landscape.RuntimeVirtualTexture
 {
@@ -31,6 +33,8 @@ namespace Landscape.RuntimeVirtualTexture
         VirtualTextureSystem m_System;
         Terrain[] m_Terrains;
         Material[] m_OriginalMaterials;
+        float[] m_OriginalBasemapDistances;
+        bool m_UsingVirtualTexture;
 
         public float size => (int)volumeSize;
 
@@ -46,9 +50,27 @@ namespace Landscape.RuntimeVirtualTexture
                 Debug.LogError($"{name}: {error}", virtualTexture);
                 return;
             }
+            if (VirtualTextureSystem.active != null)
+            {
+                Debug.LogError($"{name}: 已有启用的虚拟纹理体积", this);
+                return;
+            }
 
-            Terrain[] terrains = Terrain.activeTerrains;
             Rect volumeRect = VolumeRect();
+            var covered = new List<Terrain>();
+            foreach (Terrain terrain in Terrain.activeTerrains)
+            {
+                Vector3 position = terrain.transform.position;
+                Vector3 terrainSize = terrain.terrainData.size;
+                var bounds = new Rect(position.x, position.z, terrainSize.x, terrainSize.z);
+                if (Covers(volumeRect, bounds)) { covered.Add(terrain); }
+                else if (volumeRect.Overlaps(bounds))
+                {
+                    Debug.LogWarning($"{terrain.name}: 地形未完整包含在 VT 体积内，保持原始材质", terrain);
+                }
+            }
+            if (covered.Count == 0) { return; }
+            Terrain[] terrains = covered.ToArray();
             Shader.SetGlobalVector(s_VolumeRectID, new Vector4(volumeRect.x, volumeRect.y, volumeRect.width, volumeRect.height));
 
             m_Producer = new TerrainPageProducer(terrains, volumeRect, m_BakeShader, virtualTexture.layers);
@@ -62,31 +84,72 @@ namespace Landscape.RuntimeVirtualTexture
 
             m_Terrains = terrains;
             m_OriginalMaterials = new Material[terrains.Length];
+            m_OriginalBasemapDistances = new float[terrains.Length];
             for (int i = 0; i < terrains.Length; ++i)
             {
-                m_OriginalMaterials[i] = terrains[i].materialTemplate;
-                terrains[i].materialTemplate = m_TerrainMaterial;
+                Material original = terrains[i].materialTemplate;
+                if (original == m_TerrainMaterial)
+                {
+                    original = GraphicsSettings.currentRenderPipeline.defaultTerrainMaterial;
+                    terrains[i].materialTemplate = original;
+                }
+                m_OriginalMaterials[i] = original;
+                m_OriginalBasemapDistances[i] = terrains[i].basemapDistance;
+            }
+            RenderPipelineManager.beginCameraRendering += BeginCameraRendering;
+        }
+
+        internal static bool Covers(Rect volume, Rect bounds) =>
+            bounds.xMin >= volume.xMin && bounds.yMin >= volume.yMin &&
+            bounds.xMax <= volume.xMax && bounds.yMax <= volume.yMax;
+
+        void BeginCameraRendering(ScriptableRenderContext context, Camera camera)
+        {
+            bool useVirtualTexture = camera.cameraType == CameraType.Game && m_System != null && VirtualTextureSystem.active == m_System && m_System.rootReady;
+            if (useVirtualTexture == m_UsingVirtualTexture) { return; }
+            m_UsingVirtualTexture = useVirtualTexture;
+            if (!useVirtualTexture) { RestoreMaterials(); return; }
+            for (int i = 0; i < m_Terrains.Length; ++i)
+            {
+                Terrain terrain = m_Terrains[i];
+                if (terrain == null) { continue; }
+                // 远处同样使用 VT，不能让 Terrain 切回原生 basemap 绘制。
+                terrain.basemapDistance = float.MaxValue;
+                terrain.materialTemplate = m_TerrainMaterial;
             }
         }
 
         void OnDisable()
         {
+            RenderPipelineManager.beginCameraRendering -= BeginCameraRendering;
             m_System?.Dispose();
             m_Producer?.Dispose();
             m_System = null;
             m_Producer = null;
+            RestoreMaterials();
+            m_UsingVirtualTexture = false;
+            m_Terrains = null;
+            m_OriginalMaterials = null;
+            m_OriginalBasemapDistances = null;
+        }
+
+        void RestoreMaterials()
+        {
             if (m_Terrains != null)
             {
                 for (int i = 0; i < m_Terrains.Length; ++i)
                 {
                     Terrain terrain = m_Terrains[i];
-                    if (terrain != null && terrain.materialTemplate == m_TerrainMaterial)
+                    if (terrain == null) { continue; }
+                    if (terrain.materialTemplate == m_TerrainMaterial)
                     {
                         terrain.materialTemplate = m_OriginalMaterials[i];
                     }
+                    if (terrain.basemapDistance == float.MaxValue)
+                    {
+                        terrain.basemapDistance = m_OriginalBasemapDistances[i];
+                    }
                 }
-                m_Terrains = null;
-                m_OriginalMaterials = null;
             }
         }
 

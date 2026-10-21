@@ -15,7 +15,6 @@ namespace Landscape.RuntimeVirtualTexture
     {
         static readonly int s_ParamsID = Shader.PropertyToID("_VTParams");
         static readonly int s_PoolParamsID = Shader.PropertyToID("_VTPoolParams");
-        static readonly int s_ReadyID = Shader.PropertyToID("_VTReady");
         static readonly int s_LayerCountID = Shader.PropertyToID("_VTLayerCount");
         static readonly int s_FilterParamsID = Shader.PropertyToID("_VTFilterParams");
         internal static readonly ProfilingSampler bakeSampler = new ProfilingSampler("VT Bake Page");
@@ -29,6 +28,8 @@ namespace Landscape.RuntimeVirtualTexture
         public readonly RoundResult round = new RoundResult();
         public readonly FeedbackReadback readback;
         public bool indirectReady;
+        public bool rootReady { get; private set; }
+        bool m_RootBaked;
 
         readonly List<Camera> m_Cameras = new List<Camera>(4);
         readonly List<Camera> m_SeenCameras = new List<Camera>(4);
@@ -56,8 +57,15 @@ namespace Landscape.RuntimeVirtualTexture
             Shader.SetGlobalVector(s_PoolParamsID, new Vector4(settings.slotTexels, 1.0f / settings.poolTexels, 0, 0));
             Shader.SetGlobalInt(s_LayerCountID, layers.Length);
             Shader.SetGlobalVector(s_FilterParamsID, new Vector4((int)settings.filter, settings.anisoSamples, 0, 0));
-            Shader.SetGlobalInt(s_ReadyID, 0);
             active = this;
+            // 原生材质没有反馈 pass；根页先走同一条请求链，避免启动依赖反馈。
+            var bootstrap = new NativeArray<uint>(1, Allocator.Temp);
+            try
+            {
+                bootstrap[0] = new PageId(0, 0, settings.mipCount - 1).packed;
+                requests.Schedule(bootstrap);
+            }
+            finally { bootstrap.Dispose(); }
         }
 
         void BeginContext(ScriptableRenderContext context, List<Camera> cameras)
@@ -145,8 +153,12 @@ namespace Landscape.RuntimeVirtualTexture
             return true;
         }
 
-        /// <summary>间接表第一次清空后才允许着色器读虚拟纹理。</summary>
-        public static void SetReady(CommandBuffer cmd) => cmd.SetGlobalInt(s_ReadyID, 1);
+        /// <summary>烘焙与间接表命令录制完成；生产者可在下一帧切换到 VT 材质。</summary>
+        public void Publish()
+        {
+            indirectReady = true;
+            rootReady = m_RootBaked;
+        }
 
         /// <summary>烘焙通路：逐页清空 scratch → 生产者画内容 → 编码进物理槽。</summary>
         public void Bake(CommandBuffer cmd, NativeList<BakeOrder> bakes)
@@ -164,6 +176,7 @@ namespace Landscape.RuntimeVirtualTexture
                     });
                 }
                 physical.Encode(cmd, requests.pool->SlotCoord(bake.slot));
+                if (bake.page.mip == settings.mipCount - 1) { m_RootBaked = true; }
             }
         }
 
@@ -173,7 +186,7 @@ namespace Landscape.RuntimeVirtualTexture
             RenderPipelineManager.endContextRendering -= EndContext;
             readback.Dispose();
             if (active == this) { active = null; }
-            Shader.SetGlobalInt(s_ReadyID, 0);
+            rootReady = false;
             requests.Dispose();
             indirectMap.Dispose();
             physical.Dispose();
