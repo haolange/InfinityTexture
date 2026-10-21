@@ -29,6 +29,24 @@ namespace Landscape.RuntimeVirtualTexture.Tests
         }
 
         [Test]
+        public void EmptyFeedbackBootstrapsAndKeepsTheRootResident()
+        {
+            Create(poolSize: 2);
+            var root = new PageId(0, 0, 4);
+            RunRound();
+            AssertBakes(root);
+            int rootSlot = m_Pipeline.directory->Get(root).slot;
+            for (int i = 0; i < 16; ++i)
+            {
+                RunRound(Repeat(new PageId(i % 4, i / 4, 2), 1));
+                RunRound();
+                Assert.AreEqual(EPageState.Resident, State(root));
+                Assert.AreEqual(rootSlot, m_Pipeline.directory->Get(root).slot);
+                Assert.AreEqual(root, (*m_Pipeline.pool)[rootSlot].owner);
+            }
+        }
+
+        [Test]
         public void LargeFeedbackGrowsNativeContainersAcrossTheScheduledJobChain()
         {
             using var pipeline = new RequestPipeline(128, 16, 8, 512, 30);

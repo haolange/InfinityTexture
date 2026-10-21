@@ -58,6 +58,7 @@ namespace Landscape.RuntimeVirtualTexture
         /// </summary>
         public static float2 PhysicalTexel(float2 uv, int2 slotCoord, int pageMip, int pageCount, int pageTexels, int border)
         {
+            uv = math.clamp(uv, 0, 1 - 1e-7f);
             float2 offset = math.frac(uv * (pageCount >> pageMip));
             return (float2)slotCoord * (pageTexels + 2 * border) + border + offset * pageTexels;
         }

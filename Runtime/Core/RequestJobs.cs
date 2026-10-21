@@ -146,6 +146,8 @@ namespace Landscape.RuntimeVirtualTexture
                     page = page.parent;
                 }
             }
+            // 根页始终参与触碰，空反馈也不能让兜底页进入可淘汰集合。
+            weights.TryAdd(new PageId(0, 0, directory->maxMip), 1);
         }
 
         int TouchResidentAndCollectFree()

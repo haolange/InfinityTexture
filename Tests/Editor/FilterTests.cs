@@ -1,10 +1,33 @@
 using NUnit.Framework;
 using Unity.Mathematics;
+using UnityEngine;
 
 namespace Landscape.RuntimeVirtualTexture.Tests
 {
     public class FilterTests
     {
+        [TestCase(0, 0, 10, 10, true)]
+        [TestCase(2, 2, 4, 4, true)]
+        [TestCase(-1, 2, 4, 4, false)]
+        [TestCase(8, 2, 4, 4, false)]
+        [TestCase(20, 20, 4, 4, false)]
+        public void OnlyFullyCoveredSurfacesSwitchToVirtualTexturing(float x, float y, float width, float height, bool covered)
+        {
+            Assert.AreEqual(covered, TerrainVirtualTexture.Covers(new Rect(0, 0, 10, 10), new Rect(x, y, width, height)));
+        }
+
+        [Test]
+        public void FilterTapsClampAtTheDomainEdgesInsteadOfWrappingInsideThePage()
+        {
+            float2 low = VirtualTextureMath.PhysicalTexel(new float2(-.01f), new int2(0), 4, 16, 256, 4);
+            float2 high = VirtualTextureMath.PhysicalTexel(new float2(1.01f), new int2(0), 4, 16, 256, 4);
+            Assert.AreEqual(4, low.x);
+            Assert.AreEqual(4, low.y);
+            Assert.Greater(high.x, 259.99f);
+            Assert.Less(high.x, 260);
+            Assert.AreEqual(high.x, high.y);
+        }
+
         [Test]
         public void RequestMip_BilinearRoundsOthersFloor()
         {
