@@ -18,7 +18,6 @@ namespace Landscape.RuntimeVirtualTexture
         static readonly int s_PoolParamsID = Shader.PropertyToID("_VTPoolParams");
         static readonly int s_LayerCountID = Shader.PropertyToID("_VTLayerCount");
         static readonly int s_NormalIsRGID = Shader.PropertyToID("_VTNormalIsRG");
-        static readonly int s_FilterParamsID = Shader.PropertyToID("_VTFilterParams");
         internal static readonly ProfilingSampler bakeSampler = new ProfilingSampler("VT Bake Page");
 
         public static VirtualTextureSystem active { get; private set; }
@@ -59,7 +58,6 @@ namespace Landscape.RuntimeVirtualTexture
             Shader.SetGlobalVector(s_PoolParamsID, new Vector4(settings.slotTexels, 1.0f / settings.poolTexels, 0, 0));
             Shader.SetGlobalInteger(s_LayerCountID, layers.Length);
             Shader.SetGlobalInteger(s_NormalIsRGID, settings.compression == EPageCompression.BC ? 1 : 0);
-            Shader.SetGlobalVector(s_FilterParamsID, new Vector4((int)settings.filter, settings.anisoSamples, 0, 0));
             active = this;
             // 原生材质没有反馈 pass；根页先走同一条请求链，避免启动依赖反馈。
             var bootstrap = new NativeArray<uint>(1, Allocator.Temp);

@@ -25,6 +25,7 @@ namespace Landscape.RuntimeVirtualTexture
     {
         static readonly int s_TemporalEnabledID = Shader.PropertyToID("_VTTemporalEnabled");
         static readonly int s_TemporalSeedID = Shader.PropertyToID("_VTTemporalSeed");
+        static readonly int s_FilterParamsID = Shader.PropertyToID("_VTFilterParams");
         static readonly int s_FeedbackScaleID = Shader.PropertyToID("_VTFeedbackScale");
         static readonly ProfilerMarker s_Record = new ProfilerMarker("VT Record");
         static readonly ProfilingSampler[] s_PassSamplers =
@@ -47,6 +48,7 @@ namespace Landscape.RuntimeVirtualTexture
             public bool update;
             public bool temporal;
             public int temporalSeed;
+            public Vector4 filterParams;
         }
 
         class FeedbackData
@@ -134,6 +136,7 @@ namespace Landscape.RuntimeVirtualTexture
                 data.update = update;
                 data.temporal = system.settings.temporalMip && system.settings.filter != EPageFilter.Bilinear && system.rootReady && TemporalMipAvailable(cameraData);
                 data.temporalSeed = unchecked(Time.frameCount * 747796405);
+                data.filterParams = new Vector4((int)system.settings.filter, system.settings.anisoSamples, 0, 0);
                 TextureHandle indirect = renderGraph.ImportTexture(system.indirectMap.texture);
                 builder.UseTexture(indirect, update ? AccessFlags.Write : AccessFlags.Read);
                 builder.SetGlobalTextureAfterPass(indirect, Shader.PropertyToID("_VTIndirectMap"));
@@ -146,6 +149,7 @@ namespace Landscape.RuntimeVirtualTexture
                     if (d.update) { d.indirectMap.Update(cmd, d.round.indirectWrites, d.round.levelRanges); }
                     cmd.SetGlobalInteger(s_TemporalEnabledID, d.temporal ? 1 : 0);
                     cmd.SetGlobalInteger(s_TemporalSeedID, d.temporalSeed);
+                    cmd.SetGlobalVector(s_FilterParamsID, d.filterParams);
                     d.system.Publish();
                 });
             }
