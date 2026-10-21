@@ -182,9 +182,8 @@ uint4 CompressBlock_ASTC(AstcConfig config)
     float4 axis = (u1 - u0) * planeMask;
     float axisLength2 = dot(axis, axis);
     float alphaRange = u1.a - u0.a;
-    float gridSum[36];
-    float gridAlphaSum[36];
-    for (uint g = 0; g < 36; ++g) { gridSum[g] = 0; gridAlphaSum[g] = 0; }
+    float2 gridSum[36];
+    for (uint g = 0; g < 36; ++g) { gridSum[g] = 0; }
     for (uint t = 0; t < size; ++t)
     {
         for (uint s = 0; s < size; ++s)
@@ -201,8 +200,7 @@ uint4 CompressBlock_ASTC(AstcConfig config)
                 uint weight = (weights >> (c * 8)) & 255;
                 if (weight == 0) { continue; }
                 uint corner = (corners >> (c * 8)) & 255;
-                gridSum[corner] += ideal * weight;
-                if (dual) { gridAlphaSum[corner] += idealAlpha * weight; }
+                gridSum[corner] += float2(ideal, idealAlpha) * weight;
             }
         }
     }
@@ -225,8 +223,8 @@ uint4 CompressBlock_ASTC(AstcConfig config)
     for (uint w = 0; w < gridCount; ++w)
     {
         float norm = _AstcTables[ASTC_GRID_NORM_OFFSET + w];
-        float weight = norm > 0 ? gridSum[w] / norm : 0;
-        float alphaWeight = norm > 0 ? gridAlphaSum[w] / norm : 0;
+        float weight = norm > 0 ? gridSum[w].x / norm : 0;
+        float alphaWeight = norm > 0 ? gridSum[w].y / norm : 0;
         s_AstcValues[w * planes] = _AstcTables[ASTC_WEIGHT_QUANT_OFFSET + (uint)round(weight * 64.0)];
         if (dual) { s_AstcValues[w * planes + 1] = _AstcTables[ASTC_WEIGHT_QUANT_OFFSET + (uint)round(alphaWeight * 64.0)]; }
     }

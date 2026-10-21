@@ -217,22 +217,18 @@ uint2 CompressBlock_ETC2_Alpha(in float BlockA[16])
         int multiplier = (int)clamp(((uint)(maxAlpha - minAlpha) + (span >> 1)) / span, 1u, 15u);
         int base = min((int)((uint)max(0, minAlpha + maxAlpha - (EAC_MODIFIERS[table][7] + EAC_MODIFIERS[table][3]) * multiplier + 1) >> 1), 255);
 
-        int decoded[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-        [unroll] for (int i = 0; i < 8; ++i) { decoded[i] = clamp(base + EAC_MODIFIERS[table][i] * multiplier, 0, 255); }
         int error = 0;
         for (int p = 0; p < 16; ++p)
         {
             int best = 0x7FFFFFFF;
             for (int i = 0; i < 8; ++i)
             {
-                int d = decoded[i] - alpha[p];
+                int d = clamp(base + EAC_MODIFIERS[table][i] * multiplier, 0, 255) - alpha[p];
                 best = min(best, d * d);
             }
             error += best;
-            if (error >= bestError) { break; }
         }
         if (error < bestError) { bestError = error; bestTable = table; bestMultiplier = multiplier; bestBase = base; }
-        if (bestError == 0) { break; }
     }
 
     uint indicesHigh = 0, indicesLow = 0;  // 48 位索引的高 16 位与低 32 位
