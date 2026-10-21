@@ -59,6 +59,7 @@ uint VTRequestMip(float lod)
 struct VTAddress
 {
     float2 physicalUV;
+    uint3 resident;
     bool valid;
 };
 
@@ -74,6 +75,7 @@ VTAddress VTLookup(float2 uv, uint mip)
 
     VTAddress address;
     address.physicalUV = texel * _VTPoolParams.y;
+    address.resident = uint3((uint2)round(entry.rg), pageMip);
     address.valid = entry.a > 127.5;
     return address;
 }
@@ -147,7 +149,16 @@ VTTexels VTTrilinear(float2 uv, float lod, inout bool valid)
     float level = clamp(lod, 0.0, (float)VT_MAX_MIP);
     uint fine = (uint)floor(level);
     uint coarse = (uint)ceil(level);
-    return VTLerpTexels(VTBilinear(uv, fine, valid), VTBilinear(uv, coarse, valid), level - fine);
+    VTAddress a = VTLookup(uv, fine);
+    valid = valid && a.valid;
+    VTTexels result = VTSampleTexels(a.physicalUV);
+    if (fine == coarse) { return result; }
+
+    VTAddress b = VTLookup(uv, coarse);
+    valid = valid && b.valid;
+    // 同一个 uv 落到同一驻留页时，物理坐标也相同。
+    if (all(a.resident == b.resident)) { return result; }
+    return VTLerpTexels(result, VTSampleTexels(b.physicalUV), level - fine);
 }
 
 // 沿足迹长轴均匀取 taps 个点，每点做同样的三线性查找后平均。

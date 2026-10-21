@@ -13,7 +13,7 @@ Runtime Procedural Virtual Texture for Unity Terrain in Universal Render Pipelin
 |---|---|---|
 | T0 环境与基线 | 已验证 | Metal EditMode 67/0/0；GPU recorder 不支持；单一临时宿主 |
 | T1 编码等价优化 | 已验证 | 随机块 17,024 UInt 字与基线一致；完整测试 68/0/0；未宣称 GPU 提速 |
-| T2 确定性过滤 | 待处理 | 相同 mip / 驻留祖先重复采样 |
+| T2 确定性过滤 | 已验证 | 六组 GPU 对照、三层输出误差 ≤1e-6；完整测试 74/0/0 |
 | T3 按层压缩格式 | 待处理 | BC1 + BC5 + BC3；ETC2 RGB + RGBA |
 | T4 时间随机 mip | 待处理 | 默认关闭，公开 URP API 与 TAA 验收 |
 | T5 硬件各向异性 | 待处理 | 梯度、border 与实际收益门槛 |
