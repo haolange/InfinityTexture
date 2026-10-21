@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Unity.Mathematics;
 using Unity.Collections;
 using UnityEngine.Rendering;
 using UnityEngine.Experimental.Rendering;
@@ -162,23 +163,31 @@ namespace Landscape.RuntimeVirtualTexture
             rootReady = m_RootBaked;
         }
 
-        /// <summary>烘焙通路：逐页清空 scratch → 生产者画内容 → 编码进物理槽。</summary>
+        /// <summary>烘焙通路：在有界工作集中烘焙 → 编码 → 复制进物理槽。</summary>
         public void Bake(CommandBuffer cmd, NativeList<BakeOrder> bakes)
         {
-            for (int i = 0; i < bakes.Length; ++i)
+            Span<int2> slots = stackalloc int2[physical.batchSize];
+            for (int first = 0; first < bakes.Length; first += physical.batchSize)
             {
-                BakeOrder bake = bakes[i];
-                using (new ProfilingScope(cmd, bakeSampler))
+                int count = math.min(physical.batchSize, bakes.Length - first);
+                bool rootBaked = false;
+                for (int page = 0; page < count; ++page)
                 {
-                    physical.BindScratch(cmd);
-                    m_Producer.Bake(cmd, new PageBakeRequest
+                    BakeOrder bake = bakes[first + page];
+                    slots[page] = requests.pool->SlotCoord(bake.slot);
+                    using (new ProfilingScope(cmd, bakeSampler))
                     {
-                        page = bake.page,
-                        uvRect = VirtualTextureMath.PageUVRect(bake.page, settings.pageCount, settings.pageTexels, (int)settings.pageBorder)
-                    });
+                        physical.BindScratch(cmd, page);
+                        m_Producer.Bake(cmd, new PageBakeRequest
+                        {
+                            page = bake.page,
+                            uvRect = VirtualTextureMath.PageUVRect(bake.page, settings.pageCount, settings.pageTexels, (int)settings.pageBorder)
+                        });
+                    }
+                    rootBaked |= bake.page.mip == settings.mipCount - 1;
                 }
-                physical.Encode(cmd, requests.pool->SlotCoord(bake.slot));
-                if (bake.page.mip == settings.mipCount - 1) { m_RootBaked = true; }
+                physical.Encode(cmd, slots.Slice(0, count));
+                m_RootBaked |= rootBaked;
             }
         }
 

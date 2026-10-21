@@ -53,6 +53,9 @@ namespace Landscape.RuntimeVirtualTexture
             }
         }
 
+        // 按完整通路实测选择工作集；大 ASTC 块的数据层并发会降低吞吐。
+        public int batchSize => compression == EPageCompression.BC || compression == EPageCompression.ETC2 || (compression == EPageCompression.ASTC && astcBlock == EAstcBlock.X4) ? 4 : 1;
+
         public bool isCompressed => compression != EPageCompression.None;
 
         public GraphicsFormat physicalFormat
@@ -148,16 +151,24 @@ namespace Landscape.RuntimeVirtualTexture
         readonly PageFormat m_Format;
         readonly int2 m_BlockCount;
         readonly int2 m_ThreadGroupSize;
-        readonly RenderTexture[] m_Blocks = new RenderTexture[2];
-        readonly RTHandle[] m_BlockHandles = new RTHandle[2];
-        readonly TextureHandle[] m_BlockResources = new TextureHandle[2];
+        readonly RenderTexture[] m_Blocks;
+        readonly RTHandle[] m_BlockHandles;
+        readonly TextureHandle[] m_BlockResources;
+        readonly bool m_GroupLayers;
+        readonly int m_LayerCount;
         readonly AstcEncoding m_AstcColor;
         readonly AstcEncoding m_AstcData;
 
-        public PageEncoder(ComputeShader shader, PageFormat format, int slotTexels, EPageLayer[] layers)
+        public PageEncoder(ComputeShader shader, PageFormat format, int slotTexels, EPageLayer[] layers, int batchSize)
         {
             m_Shader = shader;
             m_Format = format;
+            m_GroupLayers = format.batchSize > 1;
+            m_LayerCount = layers.Length;
+            int count = m_GroupLayers ? batchSize * layers.Length : 1;
+            m_Blocks = new RenderTexture[count];
+            m_BlockHandles = new RTHandle[count];
+            m_BlockResources = new TextureHandle[count];
             foreach (EPageLayer layer in layers) { m_Kernels[(int)layer] = shader.FindKernel(format.ForLayer(layer).kernel); }
             shader.GetKernelThreadGroupSizes(m_Kernels[(int)layers[0]], out uint threadsX, out uint threadsY, out _);
             m_ThreadGroupSize = new int2((int)threadsX, (int)threadsY);
@@ -167,19 +178,22 @@ namespace Landscape.RuntimeVirtualTexture
                 m_AstcData = new AstcEncoding(AstcLayout.Of(format.astcBlock, false));
             }
             m_BlockCount = format.BlocksPerSlot(slotTexels);
-            foreach (EPageLayer layer in layers)
+            for (int page = 0; page < batchSize; ++page)
             {
-                PageFormat layerFormat = format.ForLayer(layer);
-                int index = layerFormat.blockBytes == 8 ? 0 : 1;
-                if (m_Blocks[index] != null) { continue; }
-                var blocks = new RenderTexture(m_BlockCount.x, m_BlockCount.y, layerFormat.blockFormat, GraphicsFormat.None, 1)
+                foreach (EPageLayer layer in layers)
                 {
-                    name = "VTEncodedBlocks" + layerFormat.blockBytes,
-                    enableRandomWrite = true
-                };
-                blocks.Create();
-                m_Blocks[index] = blocks;
-                m_BlockHandles[index] = RTHandles.Alloc(blocks);
+                    PageFormat layerFormat = format.ForLayer(layer);
+                    int index = BlockIndex(page, layer);
+                    if (m_Blocks[index] != null) { continue; }
+                    var blocks = new RenderTexture(m_BlockCount.x, m_BlockCount.y, layerFormat.blockFormat, GraphicsFormat.None, 1)
+                    {
+                        name = m_GroupLayers ? $"VTEncodedBlocks{layer}{page}" : "VTEncodedBlocksShared",
+                        enableRandomWrite = true
+                    };
+                    blocks.Create();
+                    m_Blocks[index] = blocks;
+                    m_BlockHandles[index] = RTHandles.Alloc(blocks);
+                }
             }
         }
 
@@ -199,13 +213,14 @@ namespace Landscape.RuntimeVirtualTexture
             }
         }
 
-        public void Encode(CommandBuffer cmd, RenderTexture scratch, EPageLayer layer, Texture physical, int2 origin)
+        int BlockIndex(int page, EPageLayer layer) => m_GroupLayers ? page * m_LayerCount + (int)layer : 0;
+
+        public void Dispatch(CommandBuffer cmd, RenderTexture scratch, EPageLayer layer, int page)
         {
-            using var encode = new ProfilingScope(cmd, encodeSampler);
             bool isColor = layer == EPageLayer.BaseColor;
             int kernel = m_Kernels[(int)layer];
             bool narrow = m_Format.ForLayer(layer).blockBytes == 8;
-            RenderTexture blocks = m_Blocks[narrow ? 0 : 1];
+            RenderTexture blocks = m_Blocks[BlockIndex(page, layer)];
             cmd.SetComputeTextureParam(m_Shader, kernel, s_SourceID, scratch);
             cmd.SetComputeTextureParam(m_Shader, kernel, narrow ? s_Blocks64ID : s_BlocksID, blocks);
             cmd.SetComputeIntParam(m_Shader, s_BlockCountID, m_BlockCount.x);
@@ -219,7 +234,11 @@ namespace Landscape.RuntimeVirtualTexture
                 cmd.SetComputeIntParams(m_Shader, s_AstcPlaneConfigID, astc.planeConfig);
             }
             cmd.DispatchCompute(m_Shader, kernel, (m_BlockCount.x + m_ThreadGroupSize.x - 1) / m_ThreadGroupSize.x, (m_BlockCount.y + m_ThreadGroupSize.y - 1) / m_ThreadGroupSize.y, 1);
-            cmd.CopyTexture(blocks, 0, 0, 0, 0, m_BlockCount.x, m_BlockCount.y, physical, 0, 0, origin.x, origin.y);
+        }
+
+        public void Copy(CommandBuffer cmd, EPageLayer layer, int page, Texture physical, int2 origin)
+        {
+            cmd.CopyTexture(m_Blocks[BlockIndex(page, layer)], 0, 0, 0, 0, m_BlockCount.x, m_BlockCount.y, physical, 0, 0, origin.x, origin.y);
         }
 
         public void Dispose()

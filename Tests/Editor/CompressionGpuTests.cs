@@ -39,8 +39,8 @@ namespace Landscape.RuntimeVirtualTexture.Tests
                 {
                     var slot = pass == 0 ? new int2(0) : new int2(1);
                     cmd.Clear();
-                    actual.BindScratch(cmd); cmd.ClearRenderTarget(false, true, colors[pass]); actual.Encode(cmd, slot);
-                    reference.BindScratch(cmd); cmd.ClearRenderTarget(false, true, colors[pass]); reference.Encode(cmd, slot);
+                    actual.BindScratch(cmd, 0); cmd.ClearRenderTarget(false, true, colors[pass]); actual.Encode(cmd, new[] { slot });
+                    reference.BindScratch(cmd, 0); cmd.ClearRenderTarget(false, true, colors[pass]); reference.Encode(cmd, new[] { slot });
                     Graphics.ExecuteCommandBuffer(cmd);
                     for (int layer = 0; layer < 3; ++layer)
                     {
@@ -65,6 +65,68 @@ namespace Landscape.RuntimeVirtualTexture.Tests
                         {
                             Color a = data[0], b = baseline[0];
                             Assert.LessOrEqual(Mathf.Abs(a.g - b.g), .06f);
+                        }
+                    }
+                }
+            }
+            finally { cmd.Dispose(); actual?.Dispose(); reference?.Dispose(); Object.DestroyImmediate(asset); }
+        }
+
+        [TestCase(EPageCompression.None, EAstcBlock.X4)]
+        [TestCase(EPageCompression.BC, EAstcBlock.X4)]
+        [TestCase(EPageCompression.ETC2, EAstcBlock.X4)]
+        [TestCase(EPageCompression.ASTC, EAstcBlock.X4)]
+        [TestCase(EPageCompression.ASTC, EAstcBlock.X6)]
+        [TestCase(EPageCompression.ASTC, EAstcBlock.X8)]
+        public void PartialBatchesPreserveEachPageAndOverwriteOnlyTheirSlots(EPageCompression compression, EAstcBlock block)
+        {
+            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null || !SystemInfo.supportsAsyncGPUReadback) { Assert.Ignore("Requires GPU readback"); }
+            var asset = ScriptableObject.CreateInstance<VirtualTextureAsset>();
+            asset.poolSize = 2; asset.pageTexels = 16; asset.pageBorder = EBorder.X4; asset.compression = compression; asset.astcBlock = block; asset.bakesPerRound = 3;
+            asset.indirectShader = Shader.Find("Hidden/VirtualTexture/IndirectMap");
+            asset.encodeShader = AssetDatabase.LoadAssetAtPath<ComputeShader>("Packages/com.infinity.virtual-texture/Shaders/Compress/PageEncode.compute");
+            PhysicalLayers actual = null, reference = null;
+            var cmd = new CommandBuffer();
+            try
+            {
+                if (!VirtualTextureSystem.CanCreate(asset, out string reason)) { Assert.Ignore(reason); }
+                var layers = PhysicalLayers.Enabled(EPageLayers.BaseColorNormalMask);
+                actual = new PhysicalLayers(asset, layers, asset.format, asset.encodeShader);
+                var physical = new[] { Shader.GetGlobalTexture("_VTPhysicalBaseColor"), Shader.GetGlobalTexture("_VTPhysicalNormal"), Shader.GetGlobalTexture("_VTPhysicalMask") };
+                reference = new PhysicalLayers(asset, layers, PageFormat.Of(EPageCompression.None), null);
+                var expected = new[] { Shader.GetGlobalTexture("_VTPhysicalBaseColor"), Shader.GetGlobalTexture("_VTPhysicalNormal"), Shader.GetGlobalTexture("_VTPhysicalMask") };
+                var slots = new[] { new int2(0, 0), new int2(1, 0), new int2(0, 1), new int2(1, 1) };
+                for (int round = 0; round < 2; ++round)
+                {
+                    cmd.Clear();
+                    for (int first = 0; first < slots.Length; first += actual.batchSize)
+                    {
+                        int count = math.min(actual.batchSize, slots.Length - first);
+                        for (int page = 0; page < count; ++page)
+                        {
+                            var color = new Color(.2f + (first + page) * .13f, .3f + round * .2f, .6f, .4f + page * .1f);
+                            actual.BindScratch(cmd, page); cmd.ClearRenderTarget(false, true, color);
+                            reference.BindScratch(cmd, 0); cmd.ClearRenderTarget(false, true, color); reference.Encode(cmd, new[] { slots[first + page] });
+                        }
+                        actual.Encode(cmd, new System.ReadOnlySpan<int2>(slots, first, count));
+                    }
+                    Graphics.ExecuteCommandBuffer(cmd);
+                    for (int layer = 0; layer < 3; ++layer)
+                    {
+                        Color[] values = Read(physical[layer]), baseline = Read(expected[layer]);
+                        for (int i = 0; i < values.Length; ++i)
+                        {
+                            Color a = values[i], b = baseline[i];
+                            if (layer == 1)
+                            {
+                                Assert.LessOrEqual(Mathf.Abs((compression == EPageCompression.BC ? a.r : a.a) - b.a), .035f);
+                                Assert.LessOrEqual(Mathf.Abs(a.g - b.g), .06f);
+                            }
+                            else
+                            {
+                                Assert.LessOrEqual(Mathf.Max(Mathf.Abs(a.r - b.r), Mathf.Abs(a.g - b.g), Mathf.Abs(a.b - b.b)), .06f);
+                                if (layer == 2) { Assert.LessOrEqual(Mathf.Abs(a.a - b.a), .06f); }
+                            }
                         }
                     }
                 }

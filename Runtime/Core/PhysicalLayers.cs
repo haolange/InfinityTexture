@@ -22,7 +22,7 @@ namespace Landscape.RuntimeVirtualTexture
     }
 
     /// <summary>
-    /// 物理页通路：每个启用层一张物理图，外加一张一页大小的 scratch。
+    /// 物理页通路：每个启用层一张物理图，外加最多四组一页大小的 scratch。
     /// 物理图不生成 mip，着色器只采样 0 级；border 只服务于这一次双线性。
     /// 烘焙时生产者画进 scratch，再由 Encode 写进目标槽（需要时先经 PageEncoder 压缩）。
     /// </summary>
@@ -32,11 +32,11 @@ namespace Landscape.RuntimeVirtualTexture
         {
             public EPageLayer kind;
             public Texture physical;
-            public RenderTexture scratch;
+            public RenderTexture[] scratch;
             public RTHandle physicalHandle;
-            public RTHandle scratchHandle;
+            public RTHandle[] scratchHandles;
             public TextureHandle physicalResource;
-            public TextureHandle scratchResource;
+            public TextureHandle[] scratchResources;
         }
 
         static readonly int[] s_GlobalIDs =
@@ -61,7 +61,9 @@ namespace Landscape.RuntimeVirtualTexture
 
         readonly int m_SlotTexels;
         readonly Layer[] m_Layers;
-        readonly RenderTargetIdentifier[] m_ScratchTargets;
+        readonly RenderTargetIdentifier[][] m_ScratchTargets;
+        readonly bool m_GroupLayers;
+        public readonly int batchSize;
         readonly PageEncoder m_Encoder;
 
         /// <param name="encodeShader">压缩时使用的编码 compute；不压缩时为 null。</param>
@@ -69,8 +71,11 @@ namespace Landscape.RuntimeVirtualTexture
         {
             m_SlotTexels = asset.slotTexels;
             m_Layers = new Layer[layers.Length];
-            m_ScratchTargets = new RenderTargetIdentifier[layers.Length];
-            m_Encoder = format.isCompressed ? new PageEncoder(encodeShader, format, m_SlotTexels, layers) : null;
+            batchSize = math.min(format.batchSize, asset.bakesPerRound);
+            m_GroupLayers = format.batchSize > 1;
+            m_ScratchTargets = new RenderTargetIdentifier[batchSize][];
+            for (int page = 0; page < batchSize; ++page) { m_ScratchTargets[page] = new RenderTargetIdentifier[layers.Length]; }
+            m_Encoder = format.isCompressed ? new PageEncoder(encodeShader, format, m_SlotTexels, layers, batchSize) : null;
 
             for (int i = 0; i < layers.Length; ++i)
             {
@@ -79,11 +84,18 @@ namespace Landscape.RuntimeVirtualTexture
                 {
                     kind = layers[i],
                     physical = CreatePhysical($"VTPhysical{layers[i]}", asset.poolTexels, format.ForLayer(layers[i]).physicalFormat, format.isCompressed),
-                    scratch = CreateRenderTexture($"VTScratch{layers[i]}", m_SlotTexels, scratchFormat)
+                    scratch = new RenderTexture[batchSize],
+                    scratchHandles = new RTHandle[batchSize],
+                    scratchResources = new TextureHandle[batchSize]
                 };
                 m_Layers[i].physicalHandle = RTHandles.Alloc(m_Layers[i].physical);
-                m_Layers[i].scratchHandle = RTHandles.Alloc(m_Layers[i].scratch);
-                m_ScratchTargets[i] = m_Layers[i].scratch;
+                for (int page = 0; page < batchSize; ++page)
+                {
+                    var scratch = CreateRenderTexture($"VTScratch{layers[i]}{page}", m_SlotTexels, scratchFormat);
+                    m_Layers[i].scratch[page] = scratch;
+                    m_Layers[i].scratchHandles[page] = RTHandles.Alloc(scratch);
+                    m_ScratchTargets[page][i] = scratch;
+                }
                 Shader.SetGlobalTexture(s_GlobalIDs[(int)layers[i]], m_Layers[i].physical);
             }
         }
@@ -93,7 +105,10 @@ namespace Landscape.RuntimeVirtualTexture
             foreach (Layer layer in m_Layers)
             {
                 layer.physicalResource = graph.ImportTexture(layer.physicalHandle);
-                if (bake) { layer.scratchResource = graph.ImportTexture(layer.scratchHandle); }
+                if (bake)
+                {
+                    for (int page = 0; page < batchSize; ++page) { layer.scratchResources[page] = graph.ImportTexture(layer.scratchHandles[page]); }
+                }
             }
             if (bake) { m_Encoder?.ImportResources(graph); }
         }
@@ -107,27 +122,41 @@ namespace Landscape.RuntimeVirtualTexture
                 builder.SetGlobalTextureAfterPass(physical, s_GlobalIDs[(int)layer.kind]);
                 if ((access & AccessFlags.Write) != 0)
                 {
-                    builder.UseTexture(layer.scratchResource, AccessFlags.ReadWrite);
+                    for (int page = 0; page < batchSize; ++page) { builder.UseTexture(layer.scratchResources[page], AccessFlags.ReadWrite); }
                 }
             }
             if ((access & AccessFlags.Write) != 0) { m_Encoder?.UseResources(builder); }
         }
 
         /// <summary>绑定并清空 scratch，按层的顺序作为 MRT。</summary>
-        public void BindScratch(CommandBuffer cmd)
+        public void BindScratch(CommandBuffer cmd, int page)
         {
-            cmd.SetRenderTarget(m_ScratchTargets, m_ScratchTargets[0]);
+            cmd.SetRenderTarget(m_ScratchTargets[page], m_ScratchTargets[page][0]);
             cmd.ClearRenderTarget(false, true, Color.clear);
         }
 
-        /// <summary>把 scratch 写进物理槽 slotCoord：不压缩时直接拷贝，否则先编码成块。</summary>
-        public void Encode(CommandBuffer cmd, int2 slotCoord)
+        /// <summary>同一工作集先编码再复制。大 ASTC 块逐层串行复用块图，避免实测吞吐回退。</summary>
+        public void Encode(CommandBuffer cmd, ReadOnlySpan<int2> slots)
         {
-            int2 origin = slotCoord * m_SlotTexels;
-            foreach (Layer layer in m_Layers)
+            int count = slots.Length * m_Layers.Length;
+            int stride = m_GroupLayers ? count : 1;
+            for (int first = 0; first < count; first += stride)
             {
-                if (m_Encoder != null) { m_Encoder.Encode(cmd, layer.scratch, layer.kind, layer.physical, origin); }
-                else { cmd.CopyTexture(layer.scratch, 0, 0, 0, 0, m_SlotTexels, m_SlotTexels, layer.physical, 0, 0, origin.x, origin.y); }
+                using var encode = new ProfilingScope(cmd, m_Encoder != null ? PageEncoder.encodeSampler : null);
+                for (int work = first; work < first + stride; ++work)
+                {
+                    int page = work / m_Layers.Length;
+                    Layer layer = m_Layers[work % m_Layers.Length];
+                    m_Encoder?.Dispatch(cmd, layer.scratch[page], layer.kind, page);
+                }
+                for (int work = first; work < first + stride; ++work)
+                {
+                    int page = work / m_Layers.Length;
+                    Layer layer = m_Layers[work % m_Layers.Length];
+                    int2 origin = slots[page] * m_SlotTexels;
+                    if (m_Encoder != null) { m_Encoder.Copy(cmd, layer.kind, page, layer.physical, origin); }
+                    else { cmd.CopyTexture(layer.scratch[page], 0, 0, 0, 0, m_SlotTexels, m_SlotTexels, layer.physical, 0, 0, origin.x, origin.y); }
+                }
             }
         }
 
@@ -166,12 +195,15 @@ namespace Landscape.RuntimeVirtualTexture
             foreach (Layer layer in m_Layers)
             {
                 layer.physicalHandle.Release();
-                layer.scratchHandle.Release();
                 Shader.SetGlobalTexture(s_GlobalIDs[(int)layer.kind], Texture2D.blackTexture);
                 if (layer.physical is RenderTexture renderTexture) { renderTexture.Release(); }
-                layer.scratch.Release();
                 CoreUtils.Destroy(layer.physical);
-                CoreUtils.Destroy(layer.scratch);
+                for (int page = 0; page < batchSize; ++page)
+                {
+                    layer.scratchHandles[page].Release();
+                    layer.scratch[page].Release();
+                    CoreUtils.Destroy(layer.scratch[page]);
+                }
             }
         }
     }
