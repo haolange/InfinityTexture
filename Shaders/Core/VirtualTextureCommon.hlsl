@@ -66,6 +66,7 @@ struct VTAddress
 // 页内偏移用对齐前的 uv，按页实际所在的 mip 计算。与 C# VirtualTextureMath.PhysicalTexel 同式。
 VTAddress VTLookup(float2 uv, uint mip)
 {
+    uv = clamp(uv, 0.0, 1.0 - 1e-7);
     float4 entry = SAMPLE_TEXTURE2D_LOD(_VTIndirectMap, sampler_VTPointClamp, uv, mip) * 255.0;
     uint pageMip = (uint)round(entry.b);
     float2 offset = frac(uv * (VT_PAGE_COUNT >> pageMip));

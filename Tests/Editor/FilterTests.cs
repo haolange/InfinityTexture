@@ -6,6 +6,18 @@ namespace Landscape.RuntimeVirtualTexture.Tests
     public class FilterTests
     {
         [Test]
+        public void FilterTapsClampAtTheDomainEdgesInsteadOfWrappingInsideThePage()
+        {
+            float2 low = VirtualTextureMath.PhysicalTexel(new float2(-.01f), new int2(0), 4, 16, 256, 4);
+            float2 high = VirtualTextureMath.PhysicalTexel(new float2(1.01f), new int2(0), 4, 16, 256, 4);
+            Assert.AreEqual(4, low.x);
+            Assert.AreEqual(4, low.y);
+            Assert.Greater(high.x, 259.99f);
+            Assert.Less(high.x, 260);
+            Assert.AreEqual(high.x, high.y);
+        }
+
+        [Test]
         public void RequestMip_BilinearRoundsOthersFloor()
         {
             Assert.AreEqual(3, VirtualTextureMath.RequestMip(2.6f, EPageFilter.Bilinear, 10));
