@@ -23,7 +23,6 @@ TEXTURE2D(_VTIndirectMap);
 TEXTURE2D(_VTPhysicalBaseColor);
 TEXTURE2D(_VTPhysicalNormal);
 TEXTURE2D(_VTPhysicalMask);
-SAMPLER(sampler_VTPointClamp);
 SAMPLER(sampler_VTLinearClamp);
 
 #define VT_PAGE_COUNT   ((uint)_VTParams.x)
@@ -70,7 +69,9 @@ struct VTAddress
 VTAddress VTLookup(float2 uv, uint mip)
 {
     uv = clamp(uv, 0.0, 1.0 - 1e-7);
-    float4 entry = SAMPLE_TEXTURE2D_LOD(_VTIndirectMap, sampler_VTPointClamp, uv, mip) * 255.0;
+    uint side = VT_PAGE_COUNT >> mip;
+    uint2 cell = min((uint2)(uv * side), side - 1);
+    float4 entry = LOAD_TEXTURE2D_LOD(_VTIndirectMap, cell, mip) * 255.0;
     uint pageMip = (uint)round(entry.b);
     float2 offset = frac(uv * (VT_PAGE_COUNT >> pageMip));
     float2 texel = round(entry.rg) * _VTPoolParams.x + VT_BORDER + offset * VT_PAGE_TEXELS;

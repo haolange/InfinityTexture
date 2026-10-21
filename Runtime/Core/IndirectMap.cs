@@ -134,7 +134,7 @@ namespace Landscape.RuntimeVirtualTexture
                 if (range.y == 0) { continue; }
 
                 m_Properties.SetBuffer(s_WritesID, m_Writes);
-                m_Properties.SetInt(s_WriteBaseID, range.x);
+                m_Properties.SetInteger(s_WriteBaseID, range.x);
                 m_Properties.SetFloat(s_LevelSizeID, m_Texture.width >> level);
                 cmd.DrawProcedural(Matrix4x4.identity, m_Material, 0, MeshTopology.Triangles, 6, range.y, m_Properties);
             }

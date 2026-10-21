@@ -56,8 +56,8 @@ namespace Landscape.RuntimeVirtualTexture
 
             Shader.SetGlobalVector(s_ParamsID, new Vector4(settings.pageCount, settings.mipCount, settings.pageTexels, (int)settings.pageBorder));
             Shader.SetGlobalVector(s_PoolParamsID, new Vector4(settings.slotTexels, 1.0f / settings.poolTexels, 0, 0));
-            Shader.SetGlobalInt(s_LayerCountID, layers.Length);
-            Shader.SetGlobalInt(s_NormalIsRGID, settings.compression == EPageCompression.BC ? 1 : 0);
+            Shader.SetGlobalInteger(s_LayerCountID, layers.Length);
+            Shader.SetGlobalInteger(s_NormalIsRGID, settings.compression == EPageCompression.BC ? 1 : 0);
             Shader.SetGlobalVector(s_FilterParamsID, new Vector4((int)settings.filter, settings.anisoSamples, 0, 0));
             active = this;
             // 原生材质没有反馈 pass；根页先走同一条请求链，避免启动依赖反馈。
