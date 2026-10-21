@@ -168,17 +168,22 @@ VTTexels VTTrilinear(float2 uv, float lod, inout bool valid, float random)
     float level = clamp(lod, 0.0, (float)VT_MAX_MIP);
     uint fine = (uint)floor(level);
     uint coarse = (uint)ceil(level);
-    if (_VTTemporalEnabled != 0) { return VTBilinear(uv, random < level - fine ? coarse : fine, valid); }
+    if (_VTTemporalEnabled != 0)
+    {
+        fine = random < level - fine ? coarse : fine;
+        coarse = fine;
+    }
     VTAddress a = VTLookup(uv, fine);
     valid = valid && a.valid;
     VTTexels result = VTSampleTexels(a.physicalUV);
-    if (fine == coarse) { return result; }
-
-    VTAddress b = VTLookup(uv, coarse);
-    valid = valid && b.valid;
-    // 同一个 uv 落到同一驻留页时，物理坐标也相同。
-    if (all(a.resident == b.resident)) { return result; }
-    return VTLerpTexels(result, VTSampleTexels(b.physicalUV), level - fine);
+    if (fine != coarse)
+    {
+        VTAddress b = VTLookup(uv, coarse);
+        valid = valid && b.valid;
+        // 同一个 uv 落到同一驻留页时，物理坐标也相同。
+        if (any(a.resident != b.resident)) { result = VTLerpTexels(result, VTSampleTexels(b.physicalUV), level - fine); }
+    }
+    return result;
 }
 
 // 沿足迹长轴均匀取 taps 个点，每点做同样的三线性查找后平均。
