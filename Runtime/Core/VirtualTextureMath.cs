@@ -1,4 +1,5 @@
 using Unity.Mathematics;
+using UnityEngine;
 
 namespace Landscape.RuntimeVirtualTexture
 {
@@ -7,6 +8,22 @@ namespace Landscape.RuntimeVirtualTexture
     /// </summary>
     internal static class VirtualTextureMath
     {
+        public static bool IsPixelJitter(Matrix4x4 projection, Matrix4x4 unjittered, int width, int height)
+        {
+            if (width < 1 || height < 1 || math.abs(unjittered.determinant) < 1e-10f) { return false; }
+            Matrix4x4 delta = projection * unjittered.inverse;
+            float x = delta.m03, y = delta.m13;
+            if (!math.isfinite(x) || !math.isfinite(y) || math.abs(x) > 4f / width || math.abs(y) > 4f / height || math.abs(x) + math.abs(y) < 1e-8f) { return false; }
+            delta.m03 = delta.m13 = 0;
+            for (int row = 0; row < 4; ++row)
+            for (int column = 0; column < 4; ++column)
+            {
+                float value = delta[row, column];
+                if (!math.isfinite(value) || math.abs(value - (row == column ? 1f : 0f)) > 1e-5f) { return false; }
+            }
+            return true;
+        }
+
         /// <summary>page 在间接表第 level 级上覆盖的格子：xy 起点，zw 宽高。要求 level ≤ page.mip。</summary>
         public static int4 Footprint(in PageId page, int level)
         {

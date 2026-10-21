@@ -6,12 +6,14 @@ Shader "Hidden/VirtualTexture/Tests/Filter"
         {
             ZTest Always ZWrite Off Cull Off
             HLSLPROGRAM
+            #pragma target 4.5
             #pragma vertex Vert
             #pragma fragment Frag
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "../../Shaders/Core/VirtualTextureCommon.hlsl"
             float _TestLod;
             int _TestLayer;
+            int _TestTemporal;
             struct Varyings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; };
             Varyings Vert(uint id : SV_VertexID)
             {
@@ -24,9 +26,14 @@ Shader "Hidden/VirtualTexture/Tests/Filter"
             float4 Frag(Varyings i) : SV_Target
             {
                 bool valid = true, expectedValid = true;
+                if (_TestTemporal == 1)
+                {
+                    VTTexels selected = VTTrilinear(i.uv, _TestLod, valid, VTTemporalRandom(i.positionCS.xy));
+                    return float4(selected.baseColor.rgb, valid ? 1 : 0);
+                }
                 float level = clamp(_TestLod, 0.0, (float)VT_MAX_MIP);
                 VTTexels expected = VTLerpTexels(VTBilinear(i.uv, (uint)floor(level), expectedValid), VTBilinear(i.uv, (uint)ceil(level), expectedValid), frac(level));
-                VTTexels actual = VTTrilinear(i.uv, _TestLod, valid);
+                VTTexels actual = VTTrilinear(i.uv, _TestLod, valid, 0);
                 return valid == expectedValid ? abs(SelectLayer(expected) - SelectLayer(actual)) : 1;
             }
             ENDHLSL

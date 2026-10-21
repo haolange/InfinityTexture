@@ -43,6 +43,8 @@
 - 启动先通过同一条页请求通路烘焙根页；根页始终驻留并覆盖细页缺失。
 - 根页的物理内容与间接表发布后，生产者在 Game 相机剔除前把完整位于体积内的地形切换为纯 VT 材质；其他相机和跨边界地形保持原始材质。
 - VT 地形的前向、深度、阴影和反馈不声明原始 splat 图层，不使用 additive 或原生 basemap pass；源图层只在烘焙时采样。禁用后恢复原始材质和 basemap 距离。
+- 间接表是离散页地址，使用整数格子与显式 mip 的 Load 读取；绑定 HLSL int / uint 使用真正的 Integer API。
+- temporalMip 默认关闭。仅对有上一帧有效 TAA 积累、当前像素抖动已确认的 Game / UniversalRenderer 基础相机启用；其他状态保持确定性过滤。反馈始终请求确定性的细 mip 及祖先；同一片元各向异性 taps 共用一次 mip 选择。
 - 地形烘焙以连续图层 UV 生成 stochastic 偏移；颜色、法线、mask 共用位置和权重，所有 SampleGrad 使用偏移前的 UV 梯度。
 
 ## 命名

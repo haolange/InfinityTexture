@@ -6,6 +6,21 @@ namespace Landscape.RuntimeVirtualTexture.Tests
 {
     public class FilterTests
     {
+        [Test]
+        public void TemporalMipDefaultsOffAndRequiresPixelScaleJitter()
+        {
+            var asset = ScriptableObject.CreateInstance<VirtualTextureAsset>();
+            try { Assert.IsFalse(asset.temporalMip); }
+            finally { Object.DestroyImmediate(asset); }
+            Matrix4x4 p = Matrix4x4.Perspective(60, 16f / 9, .1f, 1000);
+            Assert.IsFalse(VirtualTextureMath.IsPixelJitter(p, p, 1920, 1080));
+            Matrix4x4 jitter = Matrix4x4.Translate(new Vector3(.5f / 1920, -.5f / 1080, 0));
+            Assert.IsTrue(VirtualTextureMath.IsPixelJitter(jitter * p, p, 1920, 1080));
+            Assert.IsFalse(VirtualTextureMath.IsPixelJitter(Matrix4x4.Scale(new Vector3(1.1f, 1, 1)) * p, p, 1920, 1080));
+            Assert.IsFalse(VirtualTextureMath.IsPixelJitter(Matrix4x4.Translate(new Vector3(.01f, 0, 0)) * p, p, 1920, 1080));
+            Assert.IsFalse(VirtualTextureMath.IsPixelJitter(p, Matrix4x4.zero, 1920, 1080));
+        }
+
         [TestCase(0, 0, 10, 10, true)]
         [TestCase(2, 2, 4, 4, true)]
         [TestCase(-1, 2, 4, 4, false)]

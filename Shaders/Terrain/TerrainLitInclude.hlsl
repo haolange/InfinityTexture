@@ -48,7 +48,7 @@ half4 TerrainFrag(Varyings input) : SV_TARGET
     float2 uv = (input.positionWS.xz - _VTVolumeRect.xy) / _VTVolumeRect.zw;
     float2 texels = uv * VT_TEXEL_SCALE;
     VTSurface surface;
-    bool valid = VTSampleSurface(uv, ddx(texels), ddy(texels), surface);
+    bool valid = VTSampleSurface(uv, ddx(texels), ddy(texels), input.positionCS.xy, surface);
     clip(valid ? 1 : -1);
 
     half3 normalWS = normalize(input.normalWS);

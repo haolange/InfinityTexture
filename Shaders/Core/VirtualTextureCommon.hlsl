@@ -14,6 +14,18 @@ float2 _VTFeedbackScale;
 int _VTLayerCount;
 // BC5 解码到 RG；其他格式保持 G=y、A=x。
 int _VTNormalIsRG;
+int _VTTemporalEnabled;
+uint _VTTemporalSeed;
+
+float VTTemporalRandom(float2 positionSS)
+{
+    uint2 pixel = (uint2)positionSS;
+    uint hash = pixel.x * 0x8DA6B343u ^ pixel.y * 0xD8163841u ^ _VTTemporalSeed;
+    hash ^= hash >> 16; hash *= 0x7FEB352Du;
+    hash ^= hash >> 15; hash *= 0x846CA68Bu;
+    hash ^= hash >> 16;
+    return (hash >> 8) * (1.0 / 16777216.0);
+}
 // x: 过滤方式（0 双线性，1 三线性，2 各向异性，对应 C# EPageFilter）  y: 各向异性最多查找次数
 float4 _VTFilterParams;
 
@@ -151,11 +163,12 @@ VTTexels VTBilinear(float2 uv, uint mip, inout bool valid)
 }
 
 // floor(lod) 与 ceil(lod) 两级各查一次再插值。
-VTTexels VTTrilinear(float2 uv, float lod, inout bool valid)
+VTTexels VTTrilinear(float2 uv, float lod, inout bool valid, float random)
 {
     float level = clamp(lod, 0.0, (float)VT_MAX_MIP);
     uint fine = (uint)floor(level);
     uint coarse = (uint)ceil(level);
+    if (_VTTemporalEnabled != 0) { return VTBilinear(uv, random < level - fine ? coarse : fine, valid); }
     VTAddress a = VTLookup(uv, fine);
     valid = valid && a.valid;
     VTTexels result = VTSampleTexels(a.physicalUV);
@@ -169,30 +182,31 @@ VTTexels VTTrilinear(float2 uv, float lod, inout bool valid)
 }
 
 // 沿足迹长轴均匀取 taps 个点，每点做同样的三线性查找后平均。
-VTTexels VTAnisotropic(float2 uv, float2 dx, float2 dy, float lod, uint taps, inout bool valid)
+VTTexels VTAnisotropic(float2 uv, float2 dx, float2 dy, float lod, uint taps, inout bool valid, float random)
 {
     float2 majorAxis = (dot(dx, dx) > dot(dy, dy) ? dx : dy) / VT_TEXEL_SCALE;
     VTTexels sum = (VTTexels)0;
     for (uint i = 0; i < taps; ++i)
     {
         float2 offset = majorAxis * ((i + 0.5) / taps - 0.5);
-        sum = VTLerpTexels(sum, VTTrilinear(uv + offset, lod, valid), 1.0 / (i + 1));
+        sum = VTLerpTexels(sum, VTTrilinear(uv + offset, lod, valid, random), 1.0 / (i + 1));
     }
     return sum;
 }
 
 // 着色采样：dx / dy 为虚拟像素坐标（uv × VT_TEXEL_SCALE）的屏幕导数，需在分支外求得。
 // 返回 false 表示该处还没有任何驻留页（连根页都没有）。
-bool VTSampleSurface(float2 uv, float2 dx, float2 dy, out VTSurface surface)
+bool VTSampleSurface(float2 uv, float2 dx, float2 dy, float2 positionSS, out VTSurface surface)
 {
     uint taps;
     float lod = VTFilterLod(dx, dy, taps);
     bool valid = true;
 
+    float random = _VTTemporalEnabled != 0 ? VTTemporalRandom(positionSS) : 0;
     VTTexels texels;
     if (VT_FILTER == VT_BILINEAR) { texels = VTBilinear(uv, VTRequestMip(lod), valid); }
-    else if (VT_FILTER == VT_TRILINEAR) { texels = VTTrilinear(uv, lod, valid); }
-    else { texels = VTAnisotropic(uv, dx, dy, lod, taps, valid); }
+    else if (VT_FILTER == VT_TRILINEAR) { texels = VTTrilinear(uv, lod, valid, random); }
+    else { texels = VTAnisotropic(uv, dx, dy, lod, taps, valid, random); }
 
     surface = VTDecodeSurface(texels);
     return valid;

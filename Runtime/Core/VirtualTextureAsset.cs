@@ -49,6 +49,8 @@ namespace Landscape.RuntimeVirtualTexture
 
         [Header("Sampling")]
         public EPageFilter filter = EPageFilter.Trilinear;
+        [Tooltip("使用 TAA 时间积累概率选择相邻虚拟 mip；仅在已验证的 TAA 相机状态下生效")]
+        public bool temporalMip;
         [Tooltip("各向异性时沿长轴的最多查找次数")]
         [Range(2, 16)]
         public int anisoSamples = 4;

@@ -23,6 +23,8 @@ namespace Landscape.RuntimeVirtualTexture
     /// </summary>
     internal class VirtualTexturePass : ScriptableRenderPass
     {
+        static readonly int s_TemporalEnabledID = Shader.PropertyToID("_VTTemporalEnabled");
+        static readonly int s_TemporalSeedID = Shader.PropertyToID("_VTTemporalSeed");
         static readonly int s_FeedbackScaleID = Shader.PropertyToID("_VTFeedbackScale");
         static readonly ProfilerMarker s_Record = new ProfilerMarker("VT Record");
         static readonly ProfilingSampler[] s_PassSamplers =
@@ -43,6 +45,8 @@ namespace Landscape.RuntimeVirtualTexture
             public IndirectMap indirectMap;
             public RoundResult round;
             public bool update;
+            public bool temporal;
+            public int temporalSeed;
         }
 
         class FeedbackData
@@ -81,12 +85,27 @@ namespace Landscape.RuntimeVirtualTexture
             bool bake = hasRound && system.round.bakes.Length > 0;
             system.physical.ImportResources(renderGraph, bake);
             if (bake) { AddBakePass(renderGraph, system); }
-            AddIndirectPass(renderGraph, system, !system.indirectReady || (hasRound && system.round.residencyChanged));
+            AddIndirectPass(renderGraph, system, cameraData, !system.indirectReady || (hasRound && system.round.residencyChanged));
 
             if (!system.rootReady) { return; }
 
             TextureHandle feedback = AddFeedbackPass(renderGraph, frameData, cameraData);
             if (system.ReserveReadback(cameraData.camera)) { AddReadbackPass(renderGraph, feedback, system); }
+        }
+
+        internal static bool TemporalMipAvailable(UniversalCameraData data)
+        {
+            Camera camera = data.camera;
+            if (data.cameraType != CameraType.Game || !(data.renderer is UniversalRenderer) || camera.stereoEnabled ||
+                data.antialiasing != AntialiasingMode.TemporalAntiAliasing || !data.postProcessEnabled ||
+                data.cameraTargetDescriptor.msaaSamples != 1 || camera.allowDynamicResolution ||
+                !camera.TryGetComponent<UniversalAdditionalCameraData>(out var additional) || additional.renderType != CameraRenderType.Base || additional.resetHistory ||
+                additional.cameraStack.Count != 0) { return false; }
+
+            // 历史对象每帧都可能存在；必须证明上一帧真的积累过，且当前投影只有像素级抖动。
+            var history = data.historyManager?.GetHistoryForRead<TaaHistory>();
+            return history != null && history.GetAccumulationTexture() != null && history.GetAccumulationVersion() == Time.frameCount - 1 &&
+                VirtualTextureMath.IsPixelJitter(data.GetProjectionMatrix(), camera.nonJitteredProjectionMatrix, data.cameraTargetDescriptor.width, data.cameraTargetDescriptor.height);
         }
 
         void AddBakePass(RenderGraph renderGraph, VirtualTextureSystem system)
@@ -105,7 +124,7 @@ namespace Landscape.RuntimeVirtualTexture
             }
         }
 
-        void AddIndirectPass(RenderGraph renderGraph, VirtualTextureSystem system, bool update)
+        void AddIndirectPass(RenderGraph renderGraph, VirtualTextureSystem system, UniversalCameraData cameraData, bool update)
         {
             using (var builder = renderGraph.AddUnsafePass<IndirectData>("VT Indirect", out var data, s_PassSamplers[(int)EVirtualTexturePass.Indirect]))
             {
@@ -113,6 +132,8 @@ namespace Landscape.RuntimeVirtualTexture
                 data.indirectMap = system.indirectMap;
                 data.round = system.round;
                 data.update = update;
+                data.temporal = system.settings.temporalMip && system.settings.filter != EPageFilter.Bilinear && system.rootReady && TemporalMipAvailable(cameraData);
+                data.temporalSeed = unchecked(Time.frameCount * 747796405);
                 TextureHandle indirect = renderGraph.ImportTexture(system.indirectMap.texture);
                 builder.UseTexture(indirect, update ? AccessFlags.Write : AccessFlags.Read);
                 builder.SetGlobalTextureAfterPass(indirect, Shader.PropertyToID("_VTIndirectMap"));
@@ -123,6 +144,8 @@ namespace Landscape.RuntimeVirtualTexture
                 {
                     CommandBuffer cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
                     if (d.update) { d.indirectMap.Update(cmd, d.round.indirectWrites, d.round.levelRanges); }
+                    cmd.SetGlobalInteger(s_TemporalEnabledID, d.temporal ? 1 : 0);
+                    cmd.SetGlobalInteger(s_TemporalSeedID, d.temporalSeed);
                     d.system.Publish();
                 });
             }
