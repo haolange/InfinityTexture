@@ -3,7 +3,6 @@ using UnityEngine;
 using Unity.Mathematics;
 using UnityEngine.Rendering;
 using Unity.Profiling;
-using Object = UnityEngine.Object;
 
 namespace Landscape.RuntimeVirtualTexture
 {
@@ -136,7 +135,7 @@ namespace Landscape.RuntimeVirtualTexture
 
         public void Dispose()
         {
-            Object.Destroy(m_Material);
+            CoreUtils.Destroy(m_Material);
         }
     }
 }
