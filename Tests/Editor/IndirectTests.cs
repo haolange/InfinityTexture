@@ -81,6 +81,7 @@ namespace Landscape.RuntimeVirtualTexture.Tests
         static void AssertLevels(PageId[] resident)
         {
             var pool = new PhysicalPool(4);
+            var directory = new PageDirectory(PageCount);
             var changed = new NativeReference<bool>(true, Allocator.TempJob);
             var scratch = new NativeList<ResidentPage>(16, Allocator.TempJob);
             var writes = new NativeList<IndirectWrite>(64, Allocator.TempJob);
@@ -88,7 +89,7 @@ namespace Landscape.RuntimeVirtualTexture.Tests
             try
             {
                 var slots = new Dictionary<PageId, int>();
-                foreach (PageId page in resident) { slots[page] = pool.Allocate(page, out _); }
+                foreach (PageId page in resident) { slots[page] = pool.Allocate(ref directory, page, out _); }
 
                 new IndirectBuildJob
                 {
@@ -134,6 +135,7 @@ namespace Landscape.RuntimeVirtualTexture.Tests
             }
             finally
             {
+                directory.Dispose();
                 pool.Dispose();
                 changed.Dispose();
                 scratch.Dispose();

@@ -42,7 +42,7 @@ namespace Landscape.RuntimeVirtualTexture.Tests
                 RunRound();
                 Assert.AreEqual(EPageState.Resident, State(root));
                 Assert.AreEqual(rootSlot, m_Pipeline.directory->Get(root).slot);
-                Assert.AreEqual(root, (*m_Pipeline.pool)[rootSlot].owner);
+                Assert.AreEqual(root, m_Pipeline.pool->SlotOwner(rootSlot));
             }
         }
 
@@ -70,7 +70,7 @@ namespace Landscape.RuntimeVirtualTexture.Tests
                         BakeOrder bake = result.bakes[i];
                         Assert.IsTrue(seen.Add(bake.page));
                         Assert.AreEqual(EPageState.Resident, pipeline.directory->Get(bake.page).state);
-                        Assert.AreEqual(bake.page, (*pipeline.pool)[bake.slot].owner);
+                        Assert.AreEqual(bake.page, pipeline.pool->SlotOwner(bake.slot));
                     }
                 }
             }
@@ -144,7 +144,7 @@ namespace Landscape.RuntimeVirtualTexture.Tests
                 ref PageEntry entry = ref m_Pipeline.directory->Get(m_Bakes[i].page);
                 Assert.AreEqual(EPageState.Resident, entry.state);
                 Assert.AreEqual(m_Bakes[i].slot, entry.slot);
-                Assert.AreEqual(m_Bakes[i].page, (*m_Pipeline.pool)[entry.slot].owner);
+                Assert.AreEqual(m_Bakes[i].page, m_Pipeline.pool->SlotOwner(entry.slot));
             }
             Assert.AreEqual(EPageState.Queued, State(page));
         }
@@ -193,7 +193,54 @@ namespace Landscape.RuntimeVirtualTexture.Tests
             Assert.AreEqual(c, m_Bakes[0].page);
             Assert.AreEqual(EPageState.Free, State(a));
             Assert.AreEqual(EPageState.Resident, State(b));
-            Assert.AreEqual(c, (*m_Pipeline.pool)[m_Bakes[0].slot].owner);
+            Assert.AreEqual(c, m_Pipeline.pool->SlotOwner(m_Bakes[0].slot));
+        }
+
+        [Test]
+        public void Resolve_TouchOnlyRoundReordersWithoutChangingResidency()
+        {
+            Create(poolSize: 2);
+            var root = new PageId(0, 0, 4);
+            var parent = new PageId(0, 0, 3);
+            var a = new PageId(0, 0, 2);
+            var b = new PageId(1, 1, 2);
+            var c = new PageId(1, 0, 2);
+
+            RunRound(Concat(Repeat(a, 1), Repeat(b, 1)));
+
+            PageId[] resident = { root, parent, a, b };
+            var states = new EPageState[resident.Length];
+            var slots = new int[resident.Length];
+            var owners = new PageId[resident.Length];
+            for (int i = 0; i < resident.Length; ++i)
+            {
+                ref PageEntry entry = ref m_Pipeline.directory->Get(resident[i]);
+                states[i] = entry.state;
+                slots[i] = entry.slot;
+                owners[i] = m_Pipeline.pool->SlotOwner(entry.slot);
+                Assert.AreEqual(EPageState.Resident, states[i]);
+            }
+
+            RunRound(Repeat(a, 1));
+
+            Assert.AreEqual(0, m_Bakes.Length);
+            Assert.IsFalse(m_Round.residencyChanged);
+            for (int i = 0; i < resident.Length; ++i)
+            {
+                ref PageEntry entry = ref m_Pipeline.directory->Get(resident[i]);
+                Assert.AreEqual(states[i], entry.state);
+                Assert.AreEqual(slots[i], entry.slot);
+                Assert.AreEqual(owners[i], m_Pipeline.pool->SlotOwner(entry.slot));
+            }
+
+            RunRound(Repeat(c, 1));
+
+            Assert.AreEqual(1, m_Bakes.Length);
+            Assert.AreEqual(c, m_Bakes[0].page);
+            Assert.AreEqual(slots[3], m_Bakes[0].slot);
+            Assert.AreEqual(EPageState.Free, State(b));
+            Assert.AreEqual(EPageState.Resident, State(a));
+            Assert.AreEqual(c, m_Pipeline.pool->SlotOwner(m_Bakes[0].slot));
         }
 
         [Test]

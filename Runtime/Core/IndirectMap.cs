@@ -48,7 +48,7 @@ namespace Landscape.RuntimeVirtualTexture
             resident.Clear();
             for (int slot = 0; slot < pool->capacity; ++slot)
             {
-                PageId owner = (*pool)[slot].owner;
+                PageId owner = pool->SlotOwner(slot);
                 if (owner.isValid) { resident.Add(new ResidentPage { page = owner, slot = slot }); }
             }
             resident.Sort(new CoarseFirst());

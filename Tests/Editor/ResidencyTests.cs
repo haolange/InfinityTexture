@@ -48,62 +48,73 @@ namespace Landscape.RuntimeVirtualTexture.Tests
         }
 
         [Test]
-        public void Pool_StartsInSlotOrder()
+        public void Order_StartsInSlotOrder()
         {
-            var pool = new PhysicalPool(2);
+            var order = new LruOrder(4);
             try
             {
-                CollectionAssert.AreEqual(new[] { 0, 1, 2, 3 }, OldestToNewest(ref pool));
-                AssertLinksConsistent(ref pool);
+                CollectionAssert.AreEqual(new[] { 0, 1, 2, 3 }, OldestToNewest(ref order));
+                AssertLinksConsistent(ref order);
             }
-            finally { pool.Dispose(); }
+            finally { order.Dispose(); }
         }
 
         [Test]
-        public void Pool_TouchMovesSlotToNewestEnd()
+        public void Order_TouchMovesSlotToNewestEnd()
         {
-            var pool = new PhysicalPool(2);
+            var order = new LruOrder(4);
             try
             {
-                pool.Touch(0);
-                pool.Touch(2);
-                pool.Touch(2);
-                CollectionAssert.AreEqual(new[] { 1, 3, 0, 2 }, OldestToNewest(ref pool));
-                AssertLinksConsistent(ref pool);
+                order.Touch(0);
+                order.Touch(2);
+                order.Touch(2);
+                CollectionAssert.AreEqual(new[] { 1, 3, 0, 2 }, OldestToNewest(ref order));
+                AssertLinksConsistent(ref order);
 
-                pool.Touch(3);
-                CollectionAssert.AreEqual(new[] { 1, 0, 2, 3 }, OldestToNewest(ref pool));
-                AssertLinksConsistent(ref pool);
+                order.Touch(3);
+                CollectionAssert.AreEqual(new[] { 1, 0, 2, 3 }, OldestToNewest(ref order));
+                AssertLinksConsistent(ref order);
             }
-            finally { pool.Dispose(); }
+            finally { order.Dispose(); }
         }
 
         [Test]
         public void Pool_AllocateTakesOldestAndReportsEvictedOwner()
         {
             var pool = new PhysicalPool(2);
+            var directory = new PageDirectory(16);
             try
             {
                 var a = new PageId(0, 0, 0);
                 var b = new PageId(1, 0, 0);
+                var pages = new[] { a, new PageId(1, 1, 0), new PageId(2, 1, 0), new PageId(3, 1, 0) };
 
-                Assert.AreEqual(0, pool.Allocate(a, out PageId evicted));
-                Assert.IsFalse(evicted.isValid);
-                Assert.AreEqual(a, pool[0].owner);
-                Assert.AreEqual(0, pool.newest);
-
-                // 1、2、3 依次被占满后，最旧的又是 0。
-                for (int i = 1; i < 4; ++i) { pool.Allocate(new PageId(i, 1, 0), out _); }
-                Assert.AreEqual(0, pool.oldest);
+                PageId evicted = PageId.Invalid;
+                for (int i = 0; i < pages.Length; ++i)
+                {
+                    Assert.AreEqual(i, pool.Allocate(ref directory, pages[i], out evicted));
+                    Assert.IsFalse(evicted.isValid);
+                    Assert.AreEqual(pages[i], pool.SlotOwner(i));
+                    Assert.AreEqual(EPageState.Resident, directory.Get(pages[i]).state);
+                    Assert.AreEqual(i, directory.Get(pages[i]).slot);
+                }
 
                 // 先触碰 0，再分配：应该拿到 1，而不是刚触碰过的 0。
                 pool.Touch(0);
-                Assert.AreEqual(1, pool.Allocate(b, out evicted));
-                Assert.AreEqual(new PageId(1, 1, 0), evicted);
-                Assert.AreEqual(b, pool[1].owner);
-                AssertLinksConsistent(ref pool);
+                Assert.AreEqual(1, pool.Allocate(ref directory, b, out evicted));
+                Assert.AreEqual(pages[1], evicted);
+                Assert.AreEqual(pages[0], pool.SlotOwner(0));
+                Assert.AreEqual(b, pool.SlotOwner(1));
+                Assert.AreEqual(EPageState.Resident, directory.Get(b).state);
+                Assert.AreEqual(1, directory.Get(b).slot);
+                Assert.AreEqual(EPageState.Free, directory.Get(pages[1]).state);
+                Assert.AreEqual(0, directory.Get(pages[1]).slot);
             }
-            finally { pool.Dispose(); }
+            finally
+            {
+                pool.Dispose();
+                directory.Dispose();
+            }
         }
 
         static IEnumerable<PageId> AllPages(PageDirectory directory)
@@ -118,24 +129,24 @@ namespace Landscape.RuntimeVirtualTexture.Tests
             }
         }
 
-        static int[] OldestToNewest(ref PhysicalPool pool)
+        static int[] OldestToNewest(ref LruOrder order)
         {
-            var order = new List<int>();
-            for (int slot = pool.oldest; slot != PhysicalPool.None; slot = pool[slot].newer) { order.Add(slot); }
-            return order.ToArray();
+            var slots = new List<int>();
+            for (int slot = order.oldest; slot != LruOrder.None; slot = order.Newer(slot)) { slots.Add(slot); }
+            return slots.ToArray();
         }
 
         /// <summary>正向遍历与反向遍历必须互为逆序，且覆盖全部槽。</summary>
-        static void AssertLinksConsistent(ref PhysicalPool pool)
+        static void AssertLinksConsistent(ref LruOrder order)
         {
-            var forward = OldestToNewest(ref pool);
+            var forward = OldestToNewest(ref order);
             var backward = new List<int>();
-            for (int slot = pool.newest; slot != PhysicalPool.None; slot = pool[slot].older) { backward.Add(slot); }
+            for (int slot = order.newest; slot != LruOrder.None; slot = order.Older(slot)) { backward.Add(slot); }
             backward.Reverse();
 
-            Assert.AreEqual(pool.capacity, forward.Length);
+            Assert.AreEqual(order.capacity, forward.Length);
             CollectionAssert.AreEqual(forward, backward);
-            CollectionAssert.AreEquivalent(System.Linq.Enumerable.Range(0, pool.capacity), forward);
+            CollectionAssert.AreEquivalent(System.Linq.Enumerable.Range(0, order.capacity), forward);
         }
     }
 }

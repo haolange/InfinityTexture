@@ -15,7 +15,7 @@
 |---|---|---|
 | 反馈 | 用当前相机投影、按渲染分辨率 / 16 绘制 PageId，异步回读 | `VirtualTextureFeature` Feedback / Readback Pass，`FeedbackReadback` |
 | 页请求 | 回读到达后：并行解码 → 去重并统计权重 → 解析（补祖先、触碰、排队、分配） | `RequestJobs.cs` |
-| 驻留 | 每级页目录（状态：空闲 / 排队 / 已驻留）与物理槽 LRU | `PageDirectory`、`PhysicalPool` |
+| 驻留 | 每级页目录（状态：空闲 / 排队 / 已驻留）、物理槽 owner 与 LRU 顺序 | `PageDirectory`、`PhysicalPool`、`LruOrder` |
 | 间接表 | 带完整 mip 的 GPU 间接表；第 k 级只描述虚拟 mip k | `IndirectMap`、`Shaders/Core/IndirectMap.shader` |
 | 物理页 | 每个启用层一张物理图，无硬件 mip，只采样 0 级 | `PhysicalLayers` |
 | 烘焙 | 生产者把一页的各层画进 scratch | `IPageProducer` |
@@ -39,7 +39,9 @@
 - 页状态、页到槽的映射、槽到页的反向映射各只有一套：
   - 页 → 槽：`PageDirectory`
   - 槽 → 页：`PhysicalPool` 槽上的 `owner`
+- 槽的新旧顺序只有 `LruOrder` 一套，只存槽号，不认识 PageId。
 - 共享的页状态和 LRU 只有 `RequestResolveJob` 一个写入者。
+- 命中只调整顺序，不改间接表、不重新烘焙；只有分配才会让 `residencyChanged` 为真。
 - 渲染 Pass 只消费已经完成的解析结果，录制 CommandBuffer 时不跑解析。
 - 启动先通过同一条页请求通路烘焙根页；根页始终驻留并覆盖细页缺失。
 - 根页的物理内容与间接表发布后，生产者在 Game 相机剔除前把完整位于体积内的地形切换为纯 VT 材质；其他相机和跨边界地形保持原始材质。

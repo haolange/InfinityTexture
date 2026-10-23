@@ -12,17 +12,12 @@ namespace Landscape.RuntimeVirtualTexture
         Resident
     }
 
-    /// <summary>页目录里的一格。slot 只在 Resident 时有意义。</summary>
     internal struct PageEntry
     {
         public EPageState state;
         public ushort slot;
     }
 
-    /// <summary>
-    /// CPU 侧每级页目录：记录每个虚拟页处于空闲、排队还是已驻留，驻留时在哪个物理槽。
-    /// 所有级平铺在一块原生内存里，第 k 级有 (pageCount >> k)^2 格。
-    /// </summary>
     internal unsafe struct PageDirectory : IDisposable
     {
         public readonly int pageCount;
@@ -31,9 +26,8 @@ namespace Landscape.RuntimeVirtualTexture
 
         [NativeDisableUnsafePtrRestriction]
         PageEntry* m_Entries;
-        fixed int m_LevelOffsets[PageId.MaxMipCount + 1];
+        fixed int m_LevelStart[PageId.MaxMipCount + 1];
 
-        /// <param name="pageCount">第 0 级每边页数，必须是 2 的幂。</param>
         public PageDirectory(int pageCount)
         {
             this.pageCount = pageCount;
@@ -42,17 +36,17 @@ namespace Landscape.RuntimeVirtualTexture
             int total = 0;
             for (int mip = 0; mip < mipCount; ++mip)
             {
-                m_LevelOffsets[mip] = total;
+                m_LevelStart[mip] = total;
                 int side = pageCount >> mip;
                 total += side * side;
             }
-            m_LevelOffsets[mipCount] = total;
+            m_LevelStart[mipCount] = total;
 
             m_Entries = (PageEntry*)UnsafeUtility.Malloc(sizeof(PageEntry) * total, UnsafeUtility.AlignOf<PageEntry>(), Allocator.Persistent);
             UnsafeUtility.MemClear(m_Entries, sizeof(PageEntry) * total);
         }
 
-        public int entryCount => m_LevelOffsets[mipCount];
+        public int entryCount => m_LevelStart[mipCount];
 
         public int PagesAtMip(int mip) => pageCount >> mip;
 
@@ -66,7 +60,7 @@ namespace Landscape.RuntimeVirtualTexture
         public ref PageEntry Get(in PageId page)
         {
             int side = PagesAtMip(page.mip);
-            return ref m_Entries[m_LevelOffsets[page.mip] + page.y * side + page.x];
+            return ref m_Entries[m_LevelStart[page.mip] + page.y * side + page.x];
         }
 
         public void Dispose()

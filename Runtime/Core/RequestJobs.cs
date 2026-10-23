@@ -97,7 +97,7 @@ namespace Landscape.RuntimeVirtualTexture
     /// <summary>
     /// 一轮解析：页目录和物理池的唯一写入者。
     /// 1. 每个请求沿祖先链向上展开，权重累加到每一级祖先。
-    /// 2. 先触碰：已驻留的页全部接到 LRU 最新端。
+    /// 2. 先触碰：已驻留的页全部接到刚用过的一端。
     /// 3. 新出现的空闲页按优先级入队（队列有上限）；排队过久且本轮没被请求的退回空闲。
     /// 4. 再分配：从本轮被请求的排队页里按优先级取，最多 min(烘焙预算, 容量 - 本轮触碰数) 个，
     ///    因此本轮触碰过的页不会被淘汰。
@@ -218,12 +218,7 @@ namespace Landscape.RuntimeVirtualTexture
                 // 祖先先烘焙：父页还没驻留时留在队列里等下一轮。
                 if (page.mip < directory->maxMip && directory->Get(page.parent).state != EPageState.Resident) { continue; }
 
-                int slot = pool->Allocate(page, out PageId evicted);
-                if (evicted.isValid) { directory->Get(evicted).state = EPageState.Free; }
-
-                ref PageEntry entry = ref directory->Get(page);
-                entry.state = EPageState.Resident;
-                entry.slot = (ushort)slot;
+                int slot = pool->Allocate(ref *directory, page, out _);
 
                 RemoveFromQueue(page);
                 bakes.Add(new BakeOrder { page = page, slot = slot });
