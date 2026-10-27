@@ -1,89 +1,92 @@
 # AGENTS.md
 
-本文件是本仓库唯一的设计与协作约定，不新增 DESIGN.md。
+修改本库时遵守本文件。运行时结构以 [ARCHITECTURE.md](ARCHITECTURE.md) 和当前源码为准；二者不一致时先核对源码，再同时改正文档。参数、采样、压缩和测量记录在 `docs/`。
+
+本库不新增 `DESIGN.md`。该文件名不用于架构、界面或视觉规范。
 
 ## 平台
 
 - 只支持 Unity 6（6000.0）+ URP RenderGraph。
-- 渲染只有一条 RenderGraph 路径：`ScriptableRenderPass.RecordRenderGraph`。不写 `Execute` / Compatibility Mode 分支。
+- 渲染只有 `ScriptableRenderPass.RecordRenderGraph` 这一条路径。不写 `Execute`，不写 Compatibility Mode 分支。
 
 ## 数据通路
 
-每一项行为都必须落在下面某一条通路上。不允许另写并行实现，也不允许用临时分支绕开中间状态。
+每一项行为落在 [ARCHITECTURE.md](ARCHITECTURE.md) 第 3 节的一条通路上。不另写并行实现，不用临时分支绕开中间状态。
 
-| 通路 | 职责 | 位置 |
-|---|---|---|
-| 反馈 | 用当前相机投影、按渲染分辨率 / 16 绘制 PageId，异步回读 | `VirtualTextureFeature` Feedback / Readback Pass，`FeedbackReadback` |
-| 页请求 | 回读到达后：并行解码 → 去重并统计权重 → 解析（补祖先、触碰、排队、分配） | `RequestJobs.cs` |
-| 驻留 | 每级页目录（状态：空闲 / 排队 / 已驻留）、物理槽 owner 与 LRU 顺序 | `PageDirectory`、`PhysicalPool`、`LruOrder` |
-| 间接表 | 带完整 mip 的 GPU 间接表；第 k 级只描述虚拟 mip k | `IndirectMap`、`Shaders/Core/IndirectMap.shader` |
-| 物理页 | 每个启用层一张物理图，无硬件 mip，只采样 0 级 | `PhysicalLayers` |
-| 烘焙 | 生产者把一页的各层画进 scratch | `IPageProducer` |
-| 压缩 | 把 scratch 编码成块，写进物理槽（BC1 / BC5 / BC3 / ETC2 RGB / ETC2 RGBA / ASTC） | `PageEncoder`、`AstcLayout`、`Shaders/Compress` |
-| 着色采样 | lod、间接查找、物理 uv、过滤、层解码、PBR 光照 | `Shaders/Core/VirtualTextureCommon.hlsl`、`VirtualTextureLighting.hlsl` |
+| 通路 | 位置 |
+|---|---|
+| 反馈 | `VirtualTexturePass`，`FeedbackLayout`，`FeedbackReadback` |
+| 页请求 | `RequestPipeline`，`RequestJobs` |
+| 驻留 | `PageDirectory`，`PhysicalPool`，`LruOrder` |
+| 间接表 | `IndirectMap`，`Shaders/Core/IndirectMap.shader` |
+| 物理页 | `PhysicalLayers` |
+| 烘焙 | `IPageProducer` |
+| 压缩 | `PageEncoder`，`AstcLayout`，`Shaders/Compress` |
+| 着色采样 | `Shaders/Core/VirtualTextureCommon.hlsl`，`VirtualTextureLighting.hlsl` |
 
-## 底层与生产者的边界
+## 底层与生产者
 
-- 底层（`Runtime/Core`、`Shaders/Core`、`Shaders/Compress`）里不出现 `Terrain`。底层只认识虚拟 uv、PageId、物理槽和层。
-- 生产者（`Runtime/Terrain`、`Shaders/Terrain`）只做两件事：
-  - 地址计算：虚拟 uv 与自身空间互换；
-  - 按烘焙单把各层画进底层给出的 scratch。
-- 新的生产者（Decal、SVT 等）只新增生产者代码与地址计算。间接表、物理池、反馈解析、LRU、压缩不允许复制。
-
-- 压缩格式按层选择：BC 的颜色 / 法线 / Mask 为 BC1 / BC5 / BC3；ETC2 颜色 RGB8、数据 RGBA8。块图按 64 / 128 位按需共享，禁止用固定 128 位预算描述所有层。
-- 烘焙工作集按完整通路实测固定：BC、ETC2、ASTC 4×4 最多四页，先逐页 MRT 烘焙，再编码全部启用层，最后复制到槽；None、ASTC 6×6 / 8×8 保持单页。所有 scratch 与块图显式导入 RenderGraph，物理内容写入后才发布间接表。块图仅在不会覆盖未复制结果时共享。
-- 生产者的法线 scratch 仍为 G=y、A=x；BC5 编码为 R=x、G=y，底层采样后统一到既有解码约定。颜色的 Linear / sRGB 转换只发生在既有烘焙、编码与硬件采样通路。
+- `Runtime/Core`、`Shaders/Core`、`Shaders/Compress` 不出现 `Terrain`。底层只认识虚拟 uv、`PageId`、物理槽和层。
+- 生产者只做两件事：虚拟 uv 与自身空间的换算；按 `PageBakeRequest` 把启用层画进已经绑定的 scratch。
+- 新生产者只新增生产者类型、地址换算和烘焙着色器。间接表、物理池、反馈解析、LRU 和压缩留在现有通路，不复制一份。
+- `VirtualTextureMath` 与 `VirtualTextureCommon.hlsl` 的 `FilterLod`、`RequestMip`、`PhysicalTexel`、`Footprint`、`IndirectValue` 和 `PageId` 位布局保持同式，改动时两边一起改。
 
 ## 状态与并发
 
-- 页状态、页到槽的映射、槽到页的反向映射各只有一套：
-  - 页 → 槽：`PageDirectory`
-  - 槽 → 页：`PhysicalPool` 槽上的 `owner`
-- 槽的新旧顺序只有 `LruOrder` 一套，只存槽号，不认识 PageId。
-- 共享的页状态和 LRU 只有 `RequestResolveJob` 一个写入者。
-- 命中只调整顺序，不改间接表、不重新烘焙；只有分配才会让 `residencyChanged` 为真。
-- 渲染 Pass 只消费已经完成的解析结果，录制 CommandBuffer 时不跑解析。
-- 启动先通过同一条页请求通路烘焙根页；根页始终驻留并覆盖细页缺失。
-- 根页的物理内容与间接表发布后，生产者在 Game 相机剔除前把完整位于体积内的地形切换为纯 VT 材质；其他相机和跨边界地形保持原始材质。
-- VT 地形的前向、深度、阴影和反馈不声明原始 splat 图层，不使用 additive 或原生 basemap pass；源图层只在烘焙时采样。禁用后恢复原始材质和 basemap 距离。
-- 间接表是离散页地址，使用整数格子与显式 mip 的 Load 读取；绑定 HLSL int / uint 使用真正的 Integer API。
-- temporalMip 默认关闭。仅对有上一帧有效 TAA 积累、当前像素抖动已确认的 Game / UniversalRenderer 基础相机启用；其他状态保持确定性过滤。反馈始终请求确定性的细 mip 及祖先；同一片元各向异性 taps 共用一次 mip 选择。
-- 地形烘焙以连续图层 UV 生成 stochastic 偏移；颜色、法线、mask 共用位置和权重，所有 SampleGrad 使用偏移前的 UV 梯度。
+- 页到槽只写在 `PageDirectory`。槽到页只写在 `PhysicalPool.owner`。槽的新旧顺序只写在 `LruOrder`，其中只有槽号。
+- `RequestResolveJob` 是页状态和 LRU 的唯一写入者。
+- 已驻留页被请求时只 `Touch`。`residencyChanged` 只在 `Allocate` 时变为 true。命中不改间接表，不重新烘焙。
+- 分配个数不超过 `min(bakesPerRound, 容量 - 本轮触碰数)`，本轮触碰过的槽不进入 `TakeOldest`。
+- 根页由构造时的同一次 `Schedule` 进入请求通路。每一轮解析给根页至少权重 1。根页驻留后每轮都被触碰。不另加根页锁或第二套驻留状态。
+- 子页在父页 `Resident` 之后才分配。
+- `RecordRenderGraph` 只调用 `TryTakeRound` 消费已完成结果。录制 CommandBuffer 时不跑解析。
+- 请求通路同一时间一轮。反馈回读同一时间一个在途请求。渲染 pass 在物理 Bake 之后更新间接表，再 `Publish`。反馈录制和 Game 相机材质切换读取已经发布的 `rootReady`。
+
+## 采样、反馈与压缩
+
+- 间接表是 `R8G8B8A8_UNorm`，第 k 级只描述虚拟 mip k。读取使用整数格子和显式 mip 的 `LOAD_TEXTURE2D_LOD`。打包值是槽坐标、页 mip 和有效标记。
+- 绑定 HLSL `int` / `uint` 时使用 Integer API（`SetGlobalInteger`、`SetInteger`）。不要把这些量写成 float 再截断。
+- 物理图 mip 级数为 1，`anisoLevel` 为 0。双线性、三线性和各向异性都通过间接表查找实现。各向异性 taps 共用一次 mip 选择。
+- `temporalMip` 默认关闭。仅当资产开启、过滤不是 Bilinear、根页已发布，且 `TemporalMipAvailable` 确认当前是带有效上一帧 TAA 积累和像素抖动的 Game / `UniversalRenderer` 基础相机时，才把 `_VTTemporalEnabled` 置 1。其他状态保持确定性过滤。反馈不读该开关，请求确定性 mip；祖先由解析补上。
+- 压缩按层选择：BC 的颜色 / 法线 / Mask 为 BC1 / BC5 / BC3；ETC2 的颜色为 RGB，数据为 RGBA。块图按 64 位或 128 位分配。ASTC 块图为 128 位。不用一份固定 128 位预算描述所有层。
+- 格式决定的工作集上限：BC、ETC2、ASTC 4×4 为 4 页；None、ASTC 6×6、ASTC 8×8 为 1 页。实际上限还要再与 `bakesPerRound` 取较小值。顺序是逐页 MRT 烘焙、编码该工作集的启用层、复制到槽。scratch 和块图显式导入 RenderGraph。块图只在不会覆盖尚未复制的结果时复用。
+- 生产者法线 scratch 为 G = y、A = x。BC5 编码为 R = x、G = y。采样端仅在 BC 时用 `_VTNormalIsRG` 还原到同一解码。颜色的 Linear / sRGB 转换留在烘焙目标格式、编码和硬件采样这三处。
+- 地形烘焙用连续图层 uv 生成 stochastic 偏移。颜色、法线、Mask 共用位置和权重。`SampleGrad` 使用偏移前的 uv 梯度。
+- 地形材质切换只发生在 `TerrainVirtualTexture` 已经收集、且完整位于体积内的地形上。VT 材质的前向、深度、阴影和反馈不声明 splat，不使用 additive 或原生 basemap pass。源图层只在烘焙着色器里采样。禁用后恢复原材质和 basemap 距离。
 
 ## 命名
 
-- 不使用 F 前缀（类型、函数、字段都不用）。不引入任何新的类型前缀。
+- 类型、函数、字段都不使用 F 前缀，也不引入新的类型前缀。
 - 枚举保留 E 前缀。
 - 与 Unity 自带类型重名时，换一个库内不带前缀的名字。
-- 着色器全局名必须名副其实，统一使用 `_VT` 前缀。
+- 着色器全局名使用 `_VT` 前缀，并且名副其实。
 
 ## 不留兼容层
 
-- 改名、删除时，仓库里的引用（代码、shader 名、`.asset` / `.mat` / `.prefab` 的 YAML）一次改完。
+- 改名、删除时，仓库里的代码、shader 名、`.asset` / `.mat` / `.prefab` YAML 一次改完。
 - 不留 `[Obsolete]`、旧名转发、兼容字段或旧 shader 名。
-- 发现旧字段、未接入的演示或走不到的路径，直接删掉。
+- 旧字段、未接入的演示、走不到的路径，直接删除。
 
 ## 代码约定
 
-- asmdef 划分固定：
-  - `Runtime`、`Editor`、`Shaders`
-  - `Tests/Editor`：EditMode 测试，受 `UNITY_INCLUDE_TESTS` 约束
-- 热路径保持 Burst、原生内存（`UnsafeUtility.Malloc` / `NativeArray`）与 `ref` 访问的写法。
-- 注释精简，只说"做什么 / 为什么"。
-- 每个新文件和新目录都要提交手写的 `.meta`，GUID 为 32 位十六进制且全仓唯一。以 git 包安装时目录只读，Unity 不会补生成 `.meta`。
-- 移动文件时连同 `.meta` 一起移动，保持 GUID 不变。
+- asmdef 保持 `Runtime`、`Editor`、`Shaders` 和 `Tests/Editor` 的划分。
+- 热路径保持 Burst、`UnsafeUtility.Malloc` / `NativeArray` 和 `ref` 访问。
+- 注释只写做什么、为什么。
+- 每个新文件和新目录都提交手写 `.meta`。GUID 为 32 位十六进制，在本包内唯一。以 git 包安装时目录只读，Unity 不会补生成 `.meta`。
+- 移动文件时连同 `.meta` 一起移动，GUID 不变。
 
 ## 测试
 
-- 测试只用内存中的模拟数据，覆盖：
-  - 页状态
-  - 唯一请求
-  - 祖先链
-  - LRU
-  - 间接表 mip 的查找数学
-  - 压缩块的打包尺寸
-- 不把反馈图、间接表、物理页或压缩结果写成文件。
-- 临时目录和临时文件用完即删。
+EditMode 测试在 Unity 6 Test Runner 中运行，程序集 `Infinity.Rendering.VirtualTexture.Tests`。测试使用内存中的模拟数据，覆盖：
+
+- 页状态、唯一请求、祖先链、LRU
+- 间接表 mip 的查找数学，以及 GPU 上的级写入
+- 过滤 lod、请求 mip、时间 mip 的启用条件
+- 压缩块尺寸、层格式、ASTC 表和 GPU 复制
+- 地形烘焙的页边界与图层对齐
+- 反馈 `PageId` 的位布局和回读保位
+
+不把反馈图、间接表、物理页或压缩结果写成文件。临时目录和临时文件用完即删。
 
 ## 验证清单
 
@@ -97,5 +100,3 @@ grep -rn 'Terrain' Runtime/Core Shaders/Core Shaders/Compress
 # 已删除的状态与旧全局名
 grep -rnE 'isReady|notLoading|isNull|activeFrame|activePageMap|_Physcis|_PageTableTexture' Runtime Shaders
 ```
-
-EditMode 测试在 Unity 6 的 Test Runner 中运行（Infinity.Rendering.VirtualTexture.Tests）。
